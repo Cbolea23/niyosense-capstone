@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../database/db_helper.dart';
 import '../services/auth_service.dart';
 import '../services/sync_service.dart';
+import '../utils/app_translations.dart';
 import 'server_config_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -15,7 +16,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   int _unsyncedCount = 0;
   bool _isSyncing = false;
-  String _serverBaseUrl = "http://192.168.1.26:8000"; // Default fallback
+  String _serverBaseUrl = "http://192.168.1.26:8000";
 
   @override
   void initState() {
@@ -37,14 +38,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _triggerManualSync() async {
-    setState(() {
-      _isSyncing = true;
-    });
+    setState(() => _isSyncing = true);
 
     final authService = AuthService(backendBaseUrl: _serverBaseUrl);
     final syncService = SyncService(backendBaseUrl: _serverBaseUrl);
 
-    // Fetch JWT token using configured server URL
     final String? token = await authService.login("aggregator1", "SecurePassword123!");
 
     if (token != null) {
@@ -53,7 +51,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Offline sync process completed successfully!')),
+          const SnackBar(content: Text('Sync completed successfully!')),
         );
       }
     } else {
@@ -67,11 +65,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     }
 
-    if (mounted) {
-      setState(() {
-        _isSyncing = false;
-      });
-    }
+    if (mounted) setState(() => _isSyncing = false);
   }
 
   void _openServerConfig() {
@@ -90,75 +84,94 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF121212),
-      appBar: AppBar(
-        title: const Text('App Settings & Sync'),
-        backgroundColor: const Color(0xFF121212),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            // Server Endpoint Card
-            Card(
-              color: Colors.grey.shade900,
-              child: ListTile(
-                leading: const Icon(Icons.dns, color: Color(0xFF008080)),
-                title: const Text("Paired Server Endpoint", style: TextStyle(color: Colors.white)),
-                subtitle: Text(_serverBaseUrl, style: const TextStyle(color: Colors.grey, fontFamily: 'monospace')),
-                trailing: IconButton(
-                  icon: const Icon(Icons.qr_code_scanner, color: Color(0xFF008080)),
-                  onPressed: _openServerConfig,
-                  tooltip: "Re-pair with Server QR Code",
+    return ValueListenableBuilder<String>(
+      valueListenable: AppTranslations.currentLang,
+      builder: (context, lang, _) {
+        return Scaffold(
+          backgroundColor: const Color(0xFF121212),
+          appBar: AppBar(
+            title: Text(AppTranslations.text('settings_title')),
+            backgroundColor: const Color(0xFF121212),
+          ),
+          body: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              children: [
+                Card(
+                  color: Colors.grey.shade900,
+                  child: ListTile(
+                    leading: const Icon(Icons.language, color: Color(0xFF008080)),
+                    title: Text(AppTranslations.text('language_label'), style: const TextStyle(color: Colors.white)),
+                    subtitle: Text(lang == 'en' ? 'English' : 'Filipino (Tagalog)', style: const TextStyle(color: Colors.grey)),
+                    trailing: SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: 'en', label: Text('EN')),
+                        ButtonSegment(value: 'tl', label: Text('TL')),
+                      ],
+                      selected: {lang},
+                      onSelectionChanged: (Set<String> newSelection) {
+                        AppTranslations.changeLanguage(newSelection.first);
+                      },
+                      style: ButtonStyle(
+                        backgroundColor: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.selected)) return const Color(0xFF008080);
+                          return Colors.transparent;
+                        }),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 12),
+                const SizedBox(height: 12),
 
-            // Pending Offline Logs Card
-            Card(
-              color: Colors.grey.shade900,
-              child: ListTile(
-                leading: const Icon(Icons.sd_card, color: Color(0xFF008080)),
-                title: const Text("Pending Offline Scans", style: TextStyle(color: Colors.white)),
-                subtitle: Text("$_unsyncedCount scan(s) waiting to sync to Django", style: const TextStyle(color: Colors.grey)),
-                trailing: IconButton(
-                  icon: const Icon(Icons.refresh, color: Colors.white),
-                  onPressed: _loadSettingsData,
+                Card(
+                  color: Colors.grey.shade900,
+                  child: ListTile(
+                    leading: const Icon(Icons.dns, color: Color(0xFF008080)),
+                    title: Text(AppTranslations.text('paired_server'), style: const TextStyle(color: Colors.white)),
+                    subtitle: Text(_serverBaseUrl, style: const TextStyle(color: Colors.grey, fontFamily: 'monospace')),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.qr_code_scanner, color: Color(0xFF008080)),
+                      onPressed: _openServerConfig,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 12),
+                const SizedBox(height: 12),
 
-            // Device Identification
-            Card(
-              color: Colors.grey.shade900,
-              child: const ListTile(
-                leading: Icon(Icons.phone_android, color: Color(0xFF008080)),
-                title: Text("Device ID", style: TextStyle(color: Colors.white)),
-                subtitle: Text("AGGREGATOR-FIELD-01", style: TextStyle(color: Colors.grey)),
-              ),
-            ),
+                Card(
+                  color: Colors.grey.shade900,
+                  child: ListTile(
+                    leading: const Icon(Icons.sd_card, color: Color(0xFF008080)),
+                    title: Text(AppTranslations.text('pending_scans'), style: const TextStyle(color: Colors.white)),
+                    subtitle: Text("$_unsyncedCount log(s)", style: const TextStyle(color: Colors.grey)),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.refresh, color: Colors.white),
+                      onPressed: _loadSettingsData,
+                    ),
+                  ),
+                ),
 
-            const Spacer(),
+                const Spacer(),
 
-            // Sync Execution Button
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF008080),
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: _isSyncing ? null : _triggerManualSync,
-              icon: _isSyncing
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Icon(Icons.sync, color: Colors.white),
-              label: Text(_isSyncing ? "SYNCING..." : "SYNC NOW TO SERVER", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF008080),
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: _isSyncing ? null : _triggerManualSync,
+                  icon: _isSyncing
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Icon(Icons.sync, color: Colors.white),
+                  label: Text(
+                    _isSyncing ? AppTranslations.text('syncing') : AppTranslations.text('sync_button'),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

@@ -26,7 +26,6 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
     }
 
     try {
-      // Test server connectivity
       final response = await http.get(Uri.parse('$cleanUrl/admin/login/')).timeout(const Duration(seconds: 4));
 
       if (response.statusCode == 200 || response.statusCode == 302) {
@@ -40,10 +39,10 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
           widget.onConfigComplete();
         }
       } else {
-        _showError('Server reachable but returned status ${response.statusCode}');
+        _showError('Server returned status ${response.statusCode}');
       }
     } catch (e) {
-      _showError('Cannot connect to $cleanUrl. Ensure server is running.');
+      _showError('Cannot connect to $cleanUrl.');
     } finally {
       if (mounted) setState(() => _isTesting = false);
     }

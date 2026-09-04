@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'views/visual_scan_screen.dart';
 import 'views/settings_screen.dart';
+import 'utils/app_translations.dart';
 
 List<CameraDescription> cameras = [];
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppTranslations.loadSavedLanguage();
   try {
     cameras = await availableCameras();
   } catch (e) {
