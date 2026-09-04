@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>NiyoSense - Local Farm Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F8FAFC;
+        }
+
+        .nav-active {
+            background-color: #ECFDF5;
+            color: #059669;
+            font-weight: 600;
+        }
+
+        .nav-inactive {
+            color: #64748B;
+        }
+
+        .nav-inactive:hover {
+            background-color: #F8FAFC;
+            color: #0F172A;
+        }
+    </style>
+</head>
+
+<body class="flex h-screen overflow-hidden">
+
+    {% include 'dashboard/includes/sidebar.html' %}
+
+    <main class="flex-1 overflow-y-auto p-8">
+        {% include 'dashboard/includes/header.html' %}
+
+        <div id="tab-home" class="tab-pane">
+            {% include 'dashboard/includes/tab_home.html' %}
+        </div>
+
+        <div id="tab-analytics" class="tab-pane hidden">
+            {% include 'dashboard/includes/tab_analytics.html' %}
+        </div>
+
+        <div id="tab-logs" class="tab-pane hidden">
+            {% include 'dashboard/includes/tab_logs.html' %}
+        </div>
+
+        <div id="tab-settings" class="tab-pane hidden">
+            {% include 'dashboard/includes/tab_settings.html' %}
+        </div>
+    </main>
+
+    {% include 'dashboard/includes/qr_modal.html' %}
+
+    <script>
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('nav button').forEach(btn => {
+                btn.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-inactive";
+            });
+
+            document.getElementById('tab-' + tab).classList.remove('hidden');
+            document.getElementById('nav-' + tab).className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-active";
+
+            const titles = { 'home': 'nav_home', 'analytics': 'nav_analytics', 'logs': 'nav_logs', 'settings': 'nav_settings' };
+            const lang = localStorage.getItem('niyosense_lang') || 'en';
+            document.getElementById('header-title').innerText = i18n[lang][titles[tab]] || titles[tab];
+        }
+
+        const matureCount = Number('{{ mature_count }}') || 0;
+        const prematureCount = Number('{{ premature_count }}') || 0;
+        const overmatureCount = Number('{{ overmature_count }}') || 0;
+        const scansToday = Number('{{ scans_today }}') || 0;
+
+        const dailyLabels = JSON.parse('{{ daily_labels_json|safe }}');
+        const dailyCounts = JSON.parse('{{ daily_counts_json|safe }}');
+        const monthlyLabels = JSON.parse('{{ monthly_labels_json|safe }}');
+        const monthlyCounts = JSON.parse('{{ monthly_counts_json|safe }}');
+
+        new Chart(document.getElementById('maturityChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Mature', 'Premature', 'Overmature'],
+                datasets: [{
+                    data: [matureCount, prematureCount, overmatureCount],
+                    backgroundColor: ['#10B981', '#F59E0B', '#EF4444'],
+                    borderWidth: 0
+                }]
+            },
+            options: { cutout: '75%', plugins: { legend: { display: false } } }
+        });
+
+        new Chart(document.getElementById('dailyChart'), {
+            type: 'line',
+            data: {
+                labels: dailyLabels,
+                datasets: [{ data: dailyCounts, borderColor: '#10B981', tension: 0.4, fill: false }]
+            },
+            options: { plugins: { legend: { display: false } } }
+        });
+
+        new Chart(document.getElementById('yieldChart'), {
+            type: 'bar',
+            data: {
+                labels: monthlyLabels,
+                datasets: [{ label: 'Coconuts Scanned', data: monthlyCounts, backgroundColor: '#10B981', borderRadius: 8 }]
+            },
+            options: { plugins: { legend: { display: false } } }
+        });
+
+        function showQrModal() {
+            const serverUrl = document.getElementById('serverIpInput').value;
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = "";
+            new QRCode(qrContainer, { text: serverUrl, width: 180, height: 180, colorDark: "#0F172A", colorLight: "#ffffff" });
+            document.getElementById('qrModal').classList.remove('hidden');
+            document.getElementById('qrModal').classList.add('flex');
+        }
+
+        function hideQrModal() {
+            document.getElementById('qrModal').classList.add('hidden');
+            document.getElementById('qrModal').classList.remove('flex');
+        }
+
+        const i18n = {
+            en: {
+                nav_home: "Home",
+                nav_analytics: "Analytics",
+                nav_logs: "Grading Logs",
+                nav_settings: "Settings",
+                greeting: "Good morning!",
+                total_scans: "Total Coconuts Scanned",
+                lang_title: "Language / Wika",
+                lang_desc: "English / Filipino (Tagalog)",
+                offline_ready: "Offline-Ready",
+                local_active: "Local inference active"
+            },
+            tl: {
+                nav_home: "Tahanan",
+                nav_analytics: "Analitika",
+                nav_logs: "Talaan ng Paggrado",
+                nav_settings: "Mga Setting",
+                greeting: "Magandang araw!",
+                total_scans: "Kabuuan ng Niyog na Nasuri",
+                lang_title: "Wika / Language",
+                lang_desc: "Filipino (Tagalog) / English",
+                offline_ready: "Handa sa Offline",
+                local_active: "Aktibo ang lokal na AI"
+            }
+        };
+
+        function setDashboardLanguage(lang) {
+            localStorage.setItem('niyosense_lang', lang);
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18n[lang] && i18n[lang][key]) {
+                    el.innerText = i18n[lang][key];
+                }
+            });
+
+            const btnEn = document.getElementById('btn-lang-en');
+            const btnTl = document.getElementById('btn-lang-tl');
+            if (lang === 'tl') {
+                btnTl.className = "px-3 py-1.5 rounded-lg transition bg-white text-emerald-600 shadow-sm";
+                btnEn.className = "px-3 py-1.5 rounded-lg transition text-slate-500 hover:text-slate-800";
+            } else {
+                btnEn.className = "px-3 py-1.5 rounded-lg transition bg-white text-emerald-600 shadow-sm";
+                btnTl.className = "px-3 py-1.5 rounded-lg transition text-slate-500 hover:text-slate-800";
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedLang = localStorage.getItem('niyosense_lang') || 'en';
+            setDashboardLanguage(savedLang);
+        });
+    </script>
+</body>
+
+</html>
