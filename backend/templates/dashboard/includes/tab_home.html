@@ -1,0 +1,44 @@
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-slate-900">Good morning!</h1>
+    <p class="text-xs text-slate-400">Recorded Farm Operations Dashboard</p>
+</div>
+
+<div
+    class="w-80 bg-emerald-600 text-white rounded-2xl p-6 mb-8 shadow-lg shadow-emerald-600/20 relative overflow-hidden">
+    <div class="flex justify-between items-start mb-4">
+        <span class="p-2 bg-emerald-500/50 rounded-lg text-lg">🍃</span>
+        <span class="bg-emerald-500/60 text-xs px-2.5 py-1 rounded-full font-medium">+{{ scans_today }} today</span>
+    </div>
+    <h3 class="text-4xl font-bold mb-1">{{ total_scans }}</h3>
+    <p class="text-xs text-emerald-100 font-medium">Total Coconuts Scanned</p>
+    <p class="text-[10px] text-emerald-200 mt-1">All-time across recorded visits</p>
+</div>
+
+<div class="grid grid-cols-3 gap-6">
+    <div class="col-span-2 bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <h4 class="font-bold text-slate-800 text-sm">Daily Maturity Report</h4>
+                <p class="text-xs text-slate-400">Scans captured over the last 7 days</p>
+            </div>
+            <span class="bg-emerald-50 text-emerald-600 text-xs px-2.5 py-1 rounded-full font-medium">Synced</span>
+        </div>
+        <canvas id="dailyChart" height="140"></canvas>
+    </div>
+
+    <div class="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm">
+        <h4 class="font-bold text-slate-800 text-sm">Maturity Distribution</h4>
+        <p class="text-xs text-slate-400 mb-4">All visits combined</p>
+        <div class="w-44 mx-auto">
+            <canvas id="maturityChart"></canvas>
+        </div>
+        <div class="mt-6 space-y-2 text-xs">
+            <div class="flex justify-between"><span class="text-emerald-600 font-medium">🟢 Mature</span><span
+                    class="font-bold text-slate-800">{{ mature_count }}</span></div>
+            <div class="flex justify-between"><span class="text-amber-500 font-medium">🟡 Premature</span><span
+                    class="font-bold text-slate-800">{{ premature_count }}</span></div>
+            <div class="flex justify-between"><span class="text-red-500 font-medium">🔴 Overmature</span><span
+                    class="font-bold text-slate-800">{{ overmature_count }}</span></div>
+        </div>
+    </div>
+</div>
