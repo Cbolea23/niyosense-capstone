@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
 import '../services/sync_service.dart';
+import '../services/auth_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -12,6 +13,8 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   int _unsyncedCount = 0;
   bool _isSyncing = false;
+
+  final String _baseUrl = "http://192.168.1.26:8000";
 
   @override
   void initState() {
@@ -31,18 +34,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _isSyncing = true;
     });
 
-    final syncService = SyncService(backendBaseUrl: "http://127.0.0.1:8000");
-    await syncService.performSequentialSync("MOCK_JWT_TOKEN");
+    final authService = AuthService(backendBaseUrl: _baseUrl);
+    final syncService = SyncService(backendBaseUrl: _baseUrl);
 
-    await _loadUnsyncedCount();
-    setState(() {
-      _isSyncing = false;
-    });
+    // 1. Authenticate dynamically with Django to get a fresh JWT access token
+    final String? token = await authService.login("aggregator1", "SecurePassword123!");
+
+    if (token != null) {
+      // 2. Perform sync with the real, signed JWT token
+      await syncService.performSequentialSync(token);
+      await _loadUnsyncedCount();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Offline sync completed successfully!')),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Authentication failed. Check server/network.')),
+        );
+      }
+    }
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Offline sync process completed.')),
-      );
+      setState(() {
+        _isSyncing = false;
+      });
     }
   }
 

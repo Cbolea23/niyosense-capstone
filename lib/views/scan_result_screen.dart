@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 import '../database/db_helper.dart';
 import '../models/grading_log.dart';
 
@@ -7,13 +8,13 @@ class ScanResultScreen extends StatefulWidget {
   final String audioPath;
 
   const ScanResultScreen({
-    Key? key,
+    super.key,
     required this.imagePath,
     required this.audioPath,
-  }) : super(key: key);
+  });
 
   @override
-  _ScanResultScreenState createState() => _ScanResultScreenState();
+  State<ScanResultScreen> createState() => _ScanResultScreenState();
 }
 
 class _ScanResultScreenState extends State<ScanResultScreen> {
@@ -27,7 +28,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
 
   Future<void> _saveToSQLite() async {
     final log = GradingLog(
-      uuid: DateTime.now().millisecondsSinceEpoch.toString(), // Unique ID
+      uuid: const Uuid().v4(), // Standard RFC 4122 UUID v4 format for Django
       userId: 1, // Logged in Aggregator ID
       imagePath: widget.imagePath,
       audioPath: widget.audioPath,
@@ -40,6 +41,9 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
     );
 
     await DatabaseHelper.instance.insertScan(log);
+
+    if (!mounted) return;
+
     setState(() {
       _isSaved = true;
     });
@@ -68,20 +72,26 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFF2E7D32).withOpacity(0.2), // Green highlight for MATURE
+                color: const Color(0xFF2E7D32).withOpacity(0.2), // Fixed invalid const
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: const Color(0xFF2E7D32), width: 2),
               ),
               child: Column(
                 children: [
-                  const Text("PROFILED MATURITY STAGE",
-                      style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+                  const Text(
+                    "PROFILED MATURITY STAGE",
+                    style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 8),
-                  Text(_finalStage,
-                      style: const TextStyle(color: Color(0xFF2E7D32), fontSize: 32, fontWeight: FontWeight.bold)),
+                  Text(
+                    _finalStage,
+                    style: const TextStyle(color: Color(0xFF2E7D32), fontSize: 32, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 8),
-                  Text("${(_confidence * 100).toStringAsFixed(1)}% Confidence",
-                      style: const TextStyle(color: Colors.white70, fontSize: 16)),
+                  Text(
+                    "${(_confidence * 100).toStringAsFixed(1)}% Confidence",
+                    style: const TextStyle(color: Colors.white70, fontSize: 16),
+                  ),
                 ],
               ),
             ),
@@ -115,8 +125,10 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: _isSaved ? null : _saveToSQLite,
-              child: Text(_isSaved ? "SAVED TO LOCAL DB" : "SAVE SCAN TO SQLITE",
-                  style: const TextStyle(color: Colors.white, fontSize: 16)),
+              child: Text(
+                _isSaved ? "SAVED TO LOCAL DB" : "SAVE SCAN TO SQLITE",
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+              ),
             ),
             const SizedBox(height: 12),
             TextButton(
