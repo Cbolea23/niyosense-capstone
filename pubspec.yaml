@@ -38,8 +38,10 @@ dependencies:
 
   # Hardware & Media
   camera: ^0.10.5+9
-  record: ^5.0.0
+  record: ^5.1.2
   audioplayers: ^5.2.1
+  path_provider: ^2.1.2
+  permission_handler: ^11.3.1
 
   # Machine Learning Edge Inference
   tflite_flutter: ^0.10.0
@@ -47,7 +49,7 @@ dependencies:
   # Network & Background Sync
   http: ^1.2.0
   connectivity_plus: ^5.0.2
-  workmanager: ^0.5.1
+  workmanager: ^0.6.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -105,3 +107,5 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+dependency_overrides:
+  record_platform_interface: 1.2.0
