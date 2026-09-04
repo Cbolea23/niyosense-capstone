@@ -35,6 +35,8 @@ dependencies:
   sqflite: ^2.3.0
   path: ^1.8.3
   uuid: ^4.3.3
+  mobile_scanner: ^5.2.3
+  shared_preferences: ^2.2.3
 
   # Hardware & Media
   camera: ^0.10.5+9

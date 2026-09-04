@@ -1,30 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../database/db_helper.dart';
-import '../services/sync_service.dart';
 import '../services/auth_service.dart';
+import '../services/sync_service.dart';
+import 'server_config_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({Key? key}) : super(key: key);
+  const SettingsScreen({super.key});
 
   @override
-  _SettingsScreenState createState() => _SettingsScreenState();
+  State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
   int _unsyncedCount = 0;
   bool _isSyncing = false;
-
-  final String _baseUrl = "http://192.168.1.26:8000";
+  String _serverBaseUrl = "http://192.168.1.26:8000"; // Default fallback
 
   @override
   void initState() {
     super.initState();
-    _loadUnsyncedCount();
+    _loadSettingsData();
   }
 
-  Future<void> _loadUnsyncedCount() async {
+  Future<void> _loadSettingsData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedUrl = prefs.getString('backend_base_url');
     final logs = await DatabaseHelper.instance.getUnsyncedLogs();
+
     setState(() {
+      if (savedUrl != null && savedUrl.isNotEmpty) {
+        _serverBaseUrl = savedUrl;
+      }
       _unsyncedCount = logs.length;
     });
   }
@@ -34,26 +41,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _isSyncing = true;
     });
 
-    final authService = AuthService(backendBaseUrl: _baseUrl);
-    final syncService = SyncService(backendBaseUrl: _baseUrl);
+    final authService = AuthService(backendBaseUrl: _serverBaseUrl);
+    final syncService = SyncService(backendBaseUrl: _serverBaseUrl);
 
-    // 1. Authenticate dynamically with Django to get a fresh JWT access token
+    // Fetch JWT token using configured server URL
     final String? token = await authService.login("aggregator1", "SecurePassword123!");
 
     if (token != null) {
-      // 2. Perform sync with the real, signed JWT token
       await syncService.performSequentialSync(token);
-      await _loadUnsyncedCount();
+      await _loadSettingsData();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Offline sync completed successfully!')),
+          const SnackBar(content: Text('Offline sync process completed successfully!')),
         );
       }
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Authentication failed. Check server/network.')),
+          SnackBar(
+            content: Text('Failed to authenticate with $_serverBaseUrl'),
+            backgroundColor: Colors.red.shade700,
+          ),
         );
       }
     }
@@ -63,6 +72,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _isSyncing = false;
       });
     }
+  }
+
+  void _openServerConfig() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ServerConfigScreen(
+          onConfigComplete: () {
+            Navigator.pop(context);
+            _loadSettingsData();
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -77,6 +100,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
+            // Server Endpoint Card
+            Card(
+              color: Colors.grey.shade900,
+              child: ListTile(
+                leading: const Icon(Icons.dns, color: Color(0xFF008080)),
+                title: const Text("Paired Server Endpoint", style: TextStyle(color: Colors.white)),
+                subtitle: Text(_serverBaseUrl, style: const TextStyle(color: Colors.grey, fontFamily: 'monospace')),
+                trailing: IconButton(
+                  icon: const Icon(Icons.qr_code_scanner, color: Color(0xFF008080)),
+                  onPressed: _openServerConfig,
+                  tooltip: "Re-pair with Server QR Code",
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Pending Offline Logs Card
             Card(
               color: Colors.grey.shade900,
               child: ListTile(
@@ -85,11 +125,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: Text("$_unsyncedCount scan(s) waiting to sync to Django", style: const TextStyle(color: Colors.grey)),
                 trailing: IconButton(
                   icon: const Icon(Icons.refresh, color: Colors.white),
-                  onPressed: _loadUnsyncedCount,
+                  onPressed: _loadSettingsData,
                 ),
               ),
             ),
             const SizedBox(height: 12),
+
+            // Device Identification
             Card(
               color: Colors.grey.shade900,
               child: const ListTile(
@@ -98,7 +140,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: Text("AGGREGATOR-FIELD-01", style: TextStyle(color: Colors.grey)),
               ),
             ),
+
             const Spacer(),
+
+            // Sync Execution Button
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF008080),
@@ -109,7 +154,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               icon: _isSyncing
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : const Icon(Icons.sync, color: Colors.white),
-              label: Text(_isSyncing ? "SYNCING..." : "SYNC NOW TO SERVER", style: const TextStyle(color: Colors.white)),
+              label: Text(_isSyncing ? "SYNCING..." : "SYNC NOW TO SERVER", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
