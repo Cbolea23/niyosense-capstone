@@ -13,27 +13,28 @@
         <nav class="space-y-1">
             <button onclick="switchTab('home')" id="nav-home"
                 class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-active">
-                <span>🏠</span> <span>Home</span>
+                <span>🏠</span> <span data-i18n="nav_home">Home</span>
             </button>
             <button onclick="switchTab('analytics')" id="nav-analytics"
                 class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-inactive">
-                <span>📊</span> <span>Analytics</span>
+                <span>📊</span> <span data-i18n="nav_analytics">Analytics</span>
             </button>
             <button onclick="switchTab('logs')" id="nav-logs"
                 class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-inactive">
-                <span>📅</span> <span>Grading Logs</span>
+                <span>📅</span> <span data-i18n="nav_logs">Grading Logs</span>
             </button>
             <button onclick="switchTab('settings')" id="nav-settings"
                 class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-inactive">
-                <span>⚙️</span> <span>Settings</span>
+                <span>⚙️</span> <span data-i18n="nav_settings">Settings</span>
             </button>
         </nav>
     </div>
 
     <div class="bg-emerald-50 border border-emerald-200/60 rounded-xl p-3.5">
         <span class="text-xs font-semibold text-emerald-700 flex items-center gap-2">
-            <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> Offline-Ready
+            <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> <span
+                data-i18n="offline_ready">Offline-Ready</span>
         </span>
-        <p class="text-[11px] text-slate-500 mt-0.5">Local inference active</p>
+        <p class="text-[11px] text-slate-500 mt-0.5" data-i18n="local_active">Local inference active</p>
     </div>
 </aside>

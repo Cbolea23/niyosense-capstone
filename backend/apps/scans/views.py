@@ -18,11 +18,9 @@ def web_dashboard(request):
   now = timezone.now()
   today = now.date()
 
-  # 1. Real Totals & Today Counts
   total_scans = GradingLog.objects.count()
   scans_today = GradingLog.objects.filter(created_at__date=today).count()
 
-  # 2. Real Maturity Stage Breakdown
   mature_count = GradingLog.objects.filter(
       final_maturity_stage__iexact='Mature'
   ).count()
@@ -33,7 +31,6 @@ def web_dashboard(request):
       final_maturity_stage__iexact='Overmature'
   ).count()
 
-  # 3. Real Monthly Analytics Calculations
   this_month_scans = GradingLog.objects.filter(
       created_at__year=now.year, created_at__month=now.month
   ).count()
@@ -50,7 +47,6 @@ def web_dashboard(request):
       else 0.0
   )
 
-  # 4. Real 7-Day Trend Array (Daily Maturity Report Chart)
   daily_labels = []
   daily_counts = []
   for i in range(6, -1, -1):
@@ -59,7 +55,6 @@ def web_dashboard(request):
     daily_labels.append('Today' if i == 0 else day_date.strftime('%b %d'))
     daily_counts.append(cnt)
 
-  # 5. Real Monthly Yield Aggregation (Analytics Bar Chart)
   monthly_yield_qs = (
       GradingLog.objects.annotate(month=TruncMonth('created_at'))
       .values('month')
@@ -74,12 +69,10 @@ def web_dashboard(request):
       monthly_labels.append(entry['month'].strftime('%b %Y'))
       monthly_counts.append(entry['count'])
 
-  # Fallback display if no logs exist yet
   if not monthly_labels:
     monthly_labels = [now.strftime('%b %Y')]
     monthly_counts = [0]
 
-  # 6. Real Sync Logs for Table View
   recent_logs = GradingLog.objects.select_related('user').order_by(
       '-created_at'
   )[:50]

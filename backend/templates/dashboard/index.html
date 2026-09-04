@@ -32,16 +32,11 @@
 
 <body class="flex h-screen overflow-hidden">
 
-    <!-- Sidebar Partial -->
     {% include 'dashboard/includes/sidebar.html' %}
 
-    <!-- Main Content Area -->
     <main class="flex-1 overflow-y-auto p-8">
-
-        <!-- Header Partial -->
         {% include 'dashboard/includes/header.html' %}
 
-        <!-- Tab Content Partials -->
         <div id="tab-home" class="tab-pane">
             {% include 'dashboard/includes/tab_home.html' %}
         </div>
@@ -57,13 +52,10 @@
         <div id="tab-settings" class="tab-pane hidden">
             {% include 'dashboard/includes/tab_settings.html' %}
         </div>
-
     </main>
 
-    <!-- QR Modal Partial -->
     {% include 'dashboard/includes/qr_modal.html' %}
 
-    <!-- Core Javascript Scripts -->
     <script>
         function switchTab(tab) {
             document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
@@ -74,11 +66,11 @@
             document.getElementById('tab-' + tab).classList.remove('hidden');
             document.getElementById('nav-' + tab).className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-active";
 
-            const titles = { 'home': 'Home', 'analytics': 'Analytics', 'logs': 'Grading Logs', 'settings': 'Settings' };
-            document.getElementById('header-title').innerText = titles[tab];
+            const titles = { 'home': 'nav_home', 'analytics': 'nav_analytics', 'logs': 'nav_logs', 'settings': 'nav_settings' };
+            const lang = localStorage.getItem('niyosense_lang') || 'en';
+            document.getElementById('header-title').innerText = i18n[lang][titles[tab]] || titles[tab];
         }
 
-        // Wrap template variables in quotes to fix VS Code JS Linter errors
         const matureCount = Number('{{ mature_count }}') || 0;
         const prematureCount = Number('{{ premature_count }}') || 0;
         const overmatureCount = Number('{{ overmature_count }}') || 0;
@@ -89,7 +81,6 @@
         const monthlyLabels = JSON.parse('{{ monthly_labels_json|safe }}');
         const monthlyCounts = JSON.parse('{{ monthly_counts_json|safe }}');
 
-        // Chart.js Renders
         new Chart(document.getElementById('maturityChart'), {
             type: 'doughnut',
             data: {
@@ -121,7 +112,6 @@
             options: { plugins: { legend: { display: false } } }
         });
 
-        // QR Code Modal Functions
         function showQrModal() {
             const serverUrl = document.getElementById('serverIpInput').value;
             const qrContainer = document.getElementById('qrcode');
@@ -135,6 +125,58 @@
             document.getElementById('qrModal').classList.add('hidden');
             document.getElementById('qrModal').classList.remove('flex');
         }
+
+        const i18n = {
+            en: {
+                nav_home: "Home",
+                nav_analytics: "Analytics",
+                nav_logs: "Grading Logs",
+                nav_settings: "Settings",
+                greeting: "Good morning!",
+                total_scans: "Total Coconuts Scanned",
+                lang_title: "Language / Wika",
+                lang_desc: "English / Filipino (Tagalog)",
+                offline_ready: "Offline-Ready",
+                local_active: "Local inference active"
+            },
+            tl: {
+                nav_home: "Tahanan",
+                nav_analytics: "Analitika",
+                nav_logs: "Talaan ng Paggrado",
+                nav_settings: "Mga Setting",
+                greeting: "Magandang araw!",
+                total_scans: "Kabuuan ng Niyog na Nasuri",
+                lang_title: "Wika / Language",
+                lang_desc: "Filipino (Tagalog) / English",
+                offline_ready: "Handa sa Offline",
+                local_active: "Aktibo ang lokal na AI"
+            }
+        };
+
+        function setDashboardLanguage(lang) {
+            localStorage.setItem('niyosense_lang', lang);
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18n[lang] && i18n[lang][key]) {
+                    el.innerText = i18n[lang][key];
+                }
+            });
+
+            const btnEn = document.getElementById('btn-lang-en');
+            const btnTl = document.getElementById('btn-lang-tl');
+            if (lang === 'tl') {
+                btnTl.className = "px-3 py-1.5 rounded-lg transition bg-white text-emerald-600 shadow-sm";
+                btnEn.className = "px-3 py-1.5 rounded-lg transition text-slate-500 hover:text-slate-800";
+            } else {
+                btnEn.className = "px-3 py-1.5 rounded-lg transition bg-white text-emerald-600 shadow-sm";
+                btnTl.className = "px-3 py-1.5 rounded-lg transition text-slate-500 hover:text-slate-800";
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedLang = localStorage.getItem('niyosense_lang') || 'en';
+            setDashboardLanguage(savedLang);
+        });
     </script>
 </body>
 

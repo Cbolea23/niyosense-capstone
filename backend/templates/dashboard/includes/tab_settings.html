@@ -1,6 +1,24 @@
 <p class="text-xs text-slate-400 mb-6">Preferences for your local farm dashboard</p>
 
 <div class="max-w-xl space-y-4">
+    <!-- Language Selection Card -->
+    <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm flex justify-between items-center">
+        <div class="flex items-center space-x-4">
+            <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 text-lg">🌐
+            </div>
+            <div>
+                <h4 class="font-bold text-slate-800 text-sm" data-i18n="lang_title">Language / Wika</h4>
+                <p class="text-xs text-slate-400" data-i18n="lang_desc">English / Filipino (Tagalog)</p>
+            </div>
+        </div>
+        <div class="bg-slate-100 p-1 rounded-xl flex gap-1 font-semibold text-xs">
+            <button id="btn-lang-en" onclick="setDashboardLanguage('en')"
+                class="px-3 py-1.5 rounded-lg transition bg-white text-emerald-600 shadow-sm">EN</button>
+            <button id="btn-lang-tl" onclick="setDashboardLanguage('tl')"
+                class="px-3 py-1.5 rounded-lg transition text-slate-500 hover:text-slate-800">TL</button>
+        </div>
+    </div>
+
     <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm flex items-center space-x-4">
         <div
             class="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
