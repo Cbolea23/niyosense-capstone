@@ -21,10 +21,10 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
   bool _isSaved = false;
 
   // Mock model predictions for Sprint 1 (Will be replaced by live TFLite in Sprint 2)
-  final String _finalStage = "MATURE";
+  final String _finalStage = "Mature";
   final double _confidence = 0.942; // 94.2%
-  final String _visualPred = "MATURE";
-  final String _audioPred = "MATURE";
+  final String _visualPred = "Mature";
+  final String _audioPred = "Mature";
 
   Future<void> _saveToSQLite() async {
     final log = GradingLog(
