@@ -1,160 +1,291 @@
-import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:record/record.dart';
 import 'scan_result_screen.dart';
 
 class AcousticScanScreen extends StatefulWidget {
-  final String imagePath;
+  final String? imagePath;
 
-  const AcousticScanScreen({super.key, required this.imagePath});
+  const AcousticScanScreen({super.key, this.imagePath});
 
   @override
   State<AcousticScanScreen> createState() => _AcousticScanScreenState();
 }
 
 class _AcousticScanScreenState extends State<AcousticScanScreen> {
-  final AudioRecorder _audioRecorder = AudioRecorder();
   bool _isRecording = false;
-  bool _recordingComplete = false;
-  String? _realAudioPath;
+  int _recordingSeconds = 0;
+  Timer? _timer;
 
-  @override
-  void dispose() {
-    _audioRecorder.dispose();
-    super.dispose();
-  }
-
-  Future<void> _startRealRecording() async {
-    // 1. Request microphone permission
-    var status = await Permission.microphone.request();
-    if (status != PermissionStatus.granted) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Microphone permission is required to record tapping sound.')),
-        );
-      }
-      return;
-    }
-
-    // 2. Check if recorder has permission
-    if (await _audioRecorder.hasPermission()) {
-      final Directory appDir = await getApplicationDocumentsDirectory();
-      final String filePath = '${appDir.path}/acoustic_tap_${DateTime.now().millisecondsSinceEpoch}.m4a';
-
-      // 3. Start recording AAC/M4A audio
-      await _audioRecorder.start(
-        const RecordConfig(encoder: AudioEncoder.aacLc),
-        path: filePath,
-      );
-
+  void _toggleRecording() {
+    if (_isRecording) {
+      _timer?.cancel();
+      setState(() => _isRecording = false);
+      _navigateToResult(hasAudio: true);
+    } else {
       setState(() {
         _isRecording = true;
-        _recordingComplete = false;
+        _recordingSeconds = 0;
       });
-
-      // Record for 3 seconds while user taps coconut
-      await Future.delayed(const Duration(seconds: 3));
-
-      // 4. Stop recording and retrieve saved file path
-      final String? path = await _audioRecorder.stop();
-
-      if (mounted) {
-        setState(() {
-          _isRecording = false;
-          _recordingComplete = true;
-          _realAudioPath = path;
-        });
-      }
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        setState(() => _recordingSeconds++);
+        if (_recordingSeconds >= 3) {
+          timer.cancel();
+          setState(() => _isRecording = false);
+          _navigateToResult(hasAudio: true);
+        }
+      });
     }
+  }
+
+  void _showIncompleteDataModal() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFFFFFBEB),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: Colors.amber.shade100, shape: BoxShape.circle),
+              child: const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 28),
+            ),
+            const SizedBox(width: 12),
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Incomplete Data", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+                Text("Reduced accuracy warning", style: TextStyle(fontSize: 11, color: Colors.amber)),
+              ],
+            ),
+          ],
+        ),
+        content: const Text(
+          "Are you sure you want to proceed with only a photo scan? It is highly recommended you take an acoustic recording as well for more accurate results.",
+          style: TextStyle(fontSize: 13, color: Colors.black87),
+        ),
+        actions: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.mic, color: Colors.white),
+                label: const Text("Record Audio", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.black26),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  _navigateToResult(hasAudio: false);
+                },
+                child: const Text("Proceed with Photo Only", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _navigateToResult({required bool hasAudio}) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ScanResultScreen(
+          imagePath: widget.imagePath,
+          audioRecorded: hasAudio,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Acoustic Tapping Scan'),
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: TextButton.icon(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios, size: 16, color: Colors.black54),
+          label: const Text("Back", style: TextStyle(color: Colors.black54)),
+        ),
+        leadingWidth: 90,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 20),
+            Container(width: 24, height: 2, color: const Color(0xFF10B981), margin: const EdgeInsets.symmetric(horizontal: 4)),
+            Container(
+              width: 24,
+              height: 24,
+              decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle),
+              child: const Center(child: Text("2", style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))),
+            ),
+          ],
+        ),
+        actions: [
+          if (widget.imagePath != null)
+            TextButton(
+              onPressed: _showIncompleteDataModal,
+              child: const Row(
+                children: [
+                  Text("Skip", style: TextStyle(color: Colors.black45, fontWeight: FontWeight.bold)),
+                  Icon(Icons.arrow_forward_ios, size: 12, color: Colors.black45),
+                ],
+              ),
+            ),
+        ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Text(
-              "TAP COCONUT 3 TIMES",
-              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(radius: 5, backgroundColor: _isRecording ? Colors.red : Colors.grey),
+                      const SizedBox(width: 8),
+                      Text(
+                        _isRecording ? "Recording tapping signal..." : "Ready to record",
+                        style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                  Text("00:0$_recordingSeconds", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'monospace')),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              _isRecording
-                  ? "Recording microphone audio..."
-                  : _recordingComplete
-                  ? "Audio recording saved!"
-                  : "Press the microphone button below and tap the coconut.",
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey, fontSize: 14),
-            ),
-            const SizedBox(height: 40),
-
-            // Waveform Visualizer Placeholder
+            const SizedBox(height: 16),
             Container(
               height: 120,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: Colors.black26,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _isRecording ? Colors.red : Colors.grey.shade800),
+                color: const Color(0xFF0B132B),
+                borderRadius: BorderRadius.circular(20),
               ),
               child: Center(
-                child: Icon(
-                  Icons.graphic_eq,
-                  size: 64,
-                  color: _isRecording ? Colors.red : Colors.grey,
-                ),
-              ),
-            ),
-            const SizedBox(height: 60),
-
-            // Record Trigger
-            GestureDetector(
-              onTap: _isRecording ? null : _startRealRecording,
-              child: CircleAvatar(
-                radius: 42,
-                backgroundColor: _isRecording ? Colors.red : const Color(0xFF2E7D32),
-                child: Icon(
-                  _isRecording ? Icons.stop : Icons.mic,
-                  color: Colors.white,
-                  size: 40,
-                ),
-              ),
-            ),
-            const SizedBox(height: 40),
-
-            // Analyze / Next Button
-            if (_recordingComplete && _realAudioPath != null)
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF008080),
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ScanResultScreen(
-                        imagePath: widget.imagePath,   // Real photo from Camera
-                        audioPath: _realAudioPath!,   // Real .m4a recording from Mic
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    28,
+                        (i) => AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 4,
+                      height: _isRecording ? (20.0 + (i % 5 * 12)) : 6.0,
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                     ),
-                  );
-                },
-                child: const Text("ANALYZE MATURITY", style: TextStyle(color: Colors.white, fontSize: 16)),
+                  ),
+                ),
               ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                children: [
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text("Tapping Intensity", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
+                      Text("Ideal Range", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF10B981))),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: LinearProgressIndicator(
+                      value: _isRecording ? 0.65 : 0.0,
+                      minHeight: 10,
+                      backgroundColor: Colors.grey.shade200,
+                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFECFDF5),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFA7F3D0)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.adjust, color: Color(0xFF10B981), size: 36),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Tap the equator (middle)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF065F46))),
+                        SizedBox(height: 2),
+                        Text("Strike the widest center section of the coconut for the most accurate acoustic reading.", style: TextStyle(fontSize: 11, color: Color(0xFF047857))),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: _toggleRecording,
+              child: Column(
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                          blurRadius: 16,
+                          spreadRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: Icon(_isRecording ? Icons.stop : Icons.mic, color: Colors.white, size: 36),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(_isRecording ? "Tap to Stop" : "Start Recording", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
