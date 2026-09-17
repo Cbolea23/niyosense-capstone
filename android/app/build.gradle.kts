@@ -8,7 +8,6 @@ plugins {
 android {
     namespace = "com.example.niyosense_mobile"
 
-    // Explicitly set SDK and NDK versions to satisfy plugin requirements
     compileSdk = 36
     ndkVersion = "27.0.12077973"
 

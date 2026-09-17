@@ -44,9 +44,10 @@ dependencies:
   audioplayers: ^5.2.1
   path_provider: ^2.1.2
   permission_handler: ^11.3.1
+  image: ^4.2.0
 
   # Machine Learning Edge Inference
-  tflite_flutter: ^0.10.0
+  tflite_flutter: 0.10.1
 
   # Network & Background Sync
   http: ^1.2.0
@@ -78,6 +79,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  assets:
+    - assets/models/img_best.tflite
+    - assets/models/spec_best.tflite
 
   # To add assets to your application, add an assets section, like this:
   # assets:

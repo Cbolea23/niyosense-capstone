@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../database/db_helper.dart';
 import '../models/grading_log.dart';
+import '../services/tflite_service.dart';
 
 class ScanResultScreen extends StatefulWidget {
   final String? imagePath;
@@ -21,25 +22,58 @@ class ScanResultScreen extends StatefulWidget {
 }
 
 class _ScanResultScreenState extends State<ScanResultScreen> {
-  bool _isSaving = true;
-  final String _finalGrade = "Mature";
-  final double _confidence = 0.942;
+  bool _isProcessing = true;
+  String _finalGrade = "PROCESSING...";
+  String _visualPred = "N/A";
+  String _audioPred = "N/A";
+  double _confidence = 0.0;
+  bool _isValidObject = true;
+
+  final TfliteService _tfliteService = TfliteService();
 
   @override
   void initState() {
     super.initState();
-    _saveLogToDatabase();
+    _runInferenceAndSave();
   }
 
-  Future<void> _saveLogToDatabase() async {
+  Future<void> _runInferenceAndSave() async {
     try {
+      if (widget.imagePath != null && widget.imagePath!.isNotEmpty) {
+        final imgFile = File(widget.imagePath!);
+        File? specFile;
+
+        if (widget.audioRecorded && widget.audioPath != null && widget.audioPath!.isNotEmpty) {
+          specFile = File(widget.audioPath!);
+        }
+
+        // 1. Run TFLite inference using late-fusion logic
+        final result = await _tfliteService.predict(
+          imageFile: imgFile,
+          spectrogramFile: specFile,
+          visualWeight: 0.6,
+          confidenceThreshold: 0.65,
+        );
+
+        _finalGrade = result.isValidObject ? result.label.toUpperCase() : "UNRECOGNIZED OBJECT";
+        _confidence = result.confidence;
+        _isValidObject = result.isValidObject;
+        _visualPred = result.label;
+        _audioPred = widget.audioRecorded ? result.label : 'N/A (Skipped)';
+      } else {
+        _finalGrade = "NO IMAGE";
+        _confidence = 0.0;
+        _isValidObject = false;
+      }
+
+      // 2. Save prediction results into SQLite
       final log = GradingLog(
         uuid: const Uuid().v4(),
         userId: 1,
         imagePath: widget.imagePath ?? '',
         audioPath: widget.audioPath ?? '',
-        visualPred: 'Mature',
-        audioPred: widget.audioRecorded ? 'Mature' : 'N/A',
+        visualPred: _visualPred,
+        audioPred: _audioPred,
         finalStage: _finalGrade,
         confidence: _confidence,
         isSynced: false,
@@ -48,12 +82,18 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
 
       await DatabaseHelper.instance.insertScan(log);
     } catch (e) {
-      debugPrint("Error saving log to SQLite: $e");
+      debugPrint("Error running TFLite inference or saving log: $e");
     } finally {
       if (mounted) {
-        setState(() => _isSaving = false);
+        setState(() => _isProcessing = false);
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _tfliteService.dispose();
+    super.dispose();
   }
 
   @override
@@ -66,8 +106,20 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
         elevation: 0,
         automaticallyImplyLeading: false,
       ),
-      body: _isSaving
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF10B981)))
+      body: _isProcessing
+          ? const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: Color(0xFF10B981)),
+            SizedBox(height: 16),
+            Text(
+              "Analyzing coconut maturity...",
+              style: TextStyle(color: Colors.black54, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      )
           : Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -76,17 +128,34 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFFECFDF5),
+                color: _isValidObject ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFA7F3D0)),
+                border: Border.all(color: _isValidObject ? const Color(0xFFA7F3D0) : Colors.red.shade200),
               ),
               child: Column(
                 children: [
-                  const Icon(Icons.check_circle_outline, size: 64, color: Color(0xFF10B981)),
+                  Icon(
+                    _isValidObject ? Icons.check_circle_outline : Icons.warning_amber_rounded,
+                    size: 64,
+                    color: _isValidObject ? const Color(0xFF10B981) : Colors.red,
+                  ),
                   const SizedBox(height: 8),
-                  Text(_finalGrade.toUpperCase(), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF065F46))),
+                  Text(
+                    _finalGrade,
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: _isValidObject ? const Color(0xFF065F46) : Colors.red.shade900,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text("Confidence Score: ${(_confidence * 100).toStringAsFixed(1)}%", style: const TextStyle(color: Color(0xFF047857), fontWeight: FontWeight.w600)),
+                  Text(
+                    "Confidence Score: ${(_confidence * 100).toStringAsFixed(1)}%",
+                    style: TextStyle(
+                      color: _isValidObject ? const Color(0xFF047857) : Colors.red.shade700,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -116,24 +185,24 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text("Visual Prediction", style: TextStyle(color: Colors.black54)),
-                        Text(widget.imagePath != null ? "Mature" : "N/A (Skipped)", style: const TextStyle(fontWeight: FontWeight.bold)),
+                        const Text("Visual Model Output", style: TextStyle(color: Colors.black54)),
+                        Text(_visualPred.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold)),
                       ],
                     ),
                     const Divider(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text("Audio Prediction", style: TextStyle(color: Colors.black54)),
-                        Text(widget.audioRecorded ? "Mature" : "N/A (Skipped)", style: const TextStyle(fontWeight: FontWeight.bold)),
+                        const Text("Acoustic Model Output", style: TextStyle(color: Colors.black54)),
+                        Text(_audioPred.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold)),
                       ],
                     ),
                     const Divider(height: 20),
                     const Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text("Storage Status", style: TextStyle(color: Colors.black54)),
-                        Text("Saved Locally (SQLite)", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
+                        Text("Inference Status", style: TextStyle(color: Colors.black54)),
+                        Text("TFLite On-Device", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
                       ],
                     ),
                   ],
