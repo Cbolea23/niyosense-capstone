@@ -58,6 +58,7 @@
 
     <script>
         let autoDetectedUrl = "http://127.0.0.1:8000";
+        let userHasEditedIp = false;
 
         function switchTab(tab) {
             document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
@@ -114,75 +115,125 @@
             options: { plugins: { legend: { display: false } } }
         });
 
-        // Auto-Detect Host Server IP with Browser Fallback
+        // Auto-Detect Host Server IP
         async function fetchAutoHostIp() {
-                const el = document.getElementById('detectedServerIp');
+            const inputEl = document.getElementById('serverIpInput');
 
-                try {
-                    const response = await fetch('/api/v1/system/host-ip/');
-                    if (response.ok) {
-                        const data = await response.json();
-                        // Force use of the backend LAN IP even if browser URL is 'localhost'
-                        if (data.success && data.server_url && !data.server_url.includes("127.0.0.1")) {
-                            autoDetectedUrl = data.server_url;
-                            if (el) el.innerText = autoDetectedUrl;
-                            return;
+            try {
+                const response = await fetch('/api/v1/system/host-ip/');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.server_url) {
+                        autoDetectedUrl = data.server_url;
+                        if (inputEl && !userHasEditedIp) {
+                            inputEl.value = autoDetectedUrl;
                         }
+                        return;
                     }
-                } catch (e) {
-                    console.error("Failed to fetch host IP from API:", e);
                 }
-
-                // Secondary fallback only if API is unreachable and browser hostname is a real IP
-                if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-                    const currentPort = window.location.port ? `:${window.location.port}` : ':8000';
-                    autoDetectedUrl = `http://${window.location.hostname}${currentPort}`;
-                }
-
-                if (el) el.innerText = autoDetectedUrl;
+            } catch (e) {
+                console.error("Failed to fetch host IP from API:", e);
             }
 
+            if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                const currentPort = window.location.port ? `:${window.location.port}` : ':8000';
+                autoDetectedUrl = `http://${window.location.hostname}${currentPort}`;
+            }
+
+            if (inputEl && !userHasEditedIp) {
+                inputEl.value = autoDetectedUrl;
+            }
+        }
+
+        // Dynamically Generate QR Code from Current Input Box Value
         function showQrModal() {
+            const inputEl = document.getElementById('serverIpInput');
+            let currentUrl = (inputEl && inputEl.value.trim() !== "") ? inputEl.value.trim() : autoDetectedUrl;
+
+            // Automatically prepend http:// if missing
+            if (!currentUrl.startsWith("http://") && !currentUrl.startsWith("https://")) {
+                currentUrl = "http://" + currentUrl;
+            }
+
             const qrContainer = document.getElementById('qrcode');
-            qrContainer.innerHTML = "";
-            new QRCode(qrContainer, { text: autoDetectedUrl, width: 180, height: 180, colorDark: "#0F172A", colorLight: "#ffffff" });
-            document.getElementById('qrModal').classList.remove('hidden');
-            document.getElementById('qrModal').classList.add('flex');
+            const qrUrlDisplay = document.getElementById('qrServerUrl');
+
+            if (qrContainer) {
+                qrContainer.innerHTML = "";
+                new QRCode(qrContainer, {
+                    text: currentUrl,
+                    width: 180,
+                    height: 180,
+                    colorDark: "#0F172A",
+                    colorLight: "#ffffff"
+                });
+            }
+
+            if (qrUrlDisplay) {
+                qrUrlDisplay.innerText = currentUrl;
+            }
+
+            const modal = document.getElementById('qrModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
         }
 
         function hideQrModal() {
-            document.getElementById('qrModal').classList.add('hidden');
-            document.getElementById('qrModal').classList.remove('flex');
+            const modal = document.getElementById('qrModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
         }
 
         // Real-Time 3-Second Dashboard Polling Loop
         async function pollDashboardStats() {
-            try {
-                const response = await fetch('/api/v1/analytics/dashboard-stats/');
-                if (response.ok) {
-                    const data = await response.json();
+                try {
+                    const response = await fetch('/api/v1/analytics/dashboard-stats/');
+                    if (response.ok) {
+                        const jsonResponse = await response.json();
 
-                    if (data.success) {
-                        // Update DOM Counters
-                        const totalEl = document.getElementById('stat-total-scans');
-                        const todayEl = document.getElementById('stat-scans-today');
-                        if (totalEl) totalEl.innerText = data.total_scans;
-                        if (todayEl) todayEl.innerText = `+${data.scans_today} today`;
+                        // Support both direct response objects and enveloped API payloads ({ success: true, data: { ... } })
+                        const data = (jsonResponse.data && typeof jsonResponse.data === 'object')
+                            ? jsonResponse.data
+                            : jsonResponse;
 
-                        // Update Doughnut Chart
-                        maturityChart.data.datasets[0].data = [data.mature_count, data.premature_count, data.overmature_count];
-                        maturityChart.update('none'); // Silent update without animation jitter
+                        if (jsonResponse.success || data.total_scans !== undefined) {
+                            // Update DOM Counters safely
+                            const totalEl = document.getElementById('stat-total-scans');
+                            const todayEl = document.getElementById('stat-scans-today');
 
-                        // Update Line Chart
-                        dailyChart.data.labels = data.daily_labels;
-                        dailyChart.data.datasets[0].data = data.daily_counts;
-                        dailyChart.update('none');
+                            if (totalEl && data.total_scans !== undefined) {
+                                totalEl.innerText = data.total_scans;
+                            }
+                            if (todayEl && data.scans_today !== undefined) {
+                                todayEl.innerText = `+${data.scans_today} today`;
+                            }
+
+                            // Update Doughnut Chart
+                            if (data.mature_count !== undefined && maturityChart) {
+                                maturityChart.data.datasets[0].data = [
+                                    data.mature_count,
+                                    data.premature_count,
+                                    data.overmature_count
+                                ];
+                                maturityChart.update('none'); // Silent update without UI flicker
+                            }
+
+                            // Update Line Chart
+                            if (data.daily_labels && dailyChart) {
+                                dailyChart.data.labels = data.daily_labels;
+                                dailyChart.data.datasets[0].data = data.daily_counts;
+                                dailyChart.update('none');
+                            }
+                        }
                     }
+                } catch (e) {
+                    console.error("Error polling stats:", e);
                 }
-            } catch (e) {
-                console.error("Error polling stats:", e);
             }
-        }
 
         // Language Localization Engine
         const i18n = {
@@ -238,8 +289,15 @@
             const savedLang = localStorage.getItem('niyosense_lang') || 'en';
             setDashboardLanguage(savedLang);
 
-            fetchAutoHostIp(); // Detect local LAN IP
-            setInterval(pollDashboardStats, 3000); // Poll live stats every 3 seconds
+            const inputEl = document.getElementById('serverIpInput');
+            if (inputEl) {
+                inputEl.addEventListener('input', () => {
+                    userHasEditedIp = true;
+                });
+            }
+
+            fetchAutoHostIp();
+            setInterval(pollDashboardStats, 3000);
         });
     </script>
 </body>

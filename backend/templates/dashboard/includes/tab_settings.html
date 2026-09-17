@@ -1,4 +1,4 @@
-<p class="text-xs text-slate-400 mb-6">Preferences for your local farm dashboard</p>
+<p class="text-xs text-slate-400 mb-6" data-i18n="preferences_sub">Preferences for your local farm dashboard</p>
 
 <div class="max-w-xl space-y-4">
     <!-- Language Selection Card -->
@@ -31,30 +31,33 @@
         </div>
     </div>
 
-    <!-- Auto-Detected Server Configuration (No Textfield) -->
+    <!-- Server Configuration Card (Fully Editable Input) -->
     <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3">
         <h4 class="font-bold text-slate-800 text-sm">Server Configuration</h4>
-        <p class="text-xs text-slate-400">Auto-detected local endpoint for mobile pairing</p>
+        <p class="text-xs text-slate-400">Pairing IP endpoint for mobile sync (editable for manual override)</p>
 
         <div class="flex items-center gap-2">
-            <div
-                class="w-full bg-slate-50 border border-slate-200/80 rounded-xl px-4 py-2.5 flex items-center justify-between">
-                <span id="detectedServerIp" class="text-xs font-mono font-semibold text-slate-700">Detecting server
-                    IP...</span>
-                <span class="flex h-2 w-2 relative">
+            <div class="relative w-full flex items-center">
+                <input type="text" id="serverIpInput" value="http://127.0.0.1:8000"
+                    placeholder="e.g. http://192.168.1.17:8000"
+                    class="w-full bg-slate-50 border border-slate-200/80 rounded-xl pl-4 pr-10 py-2.5 text-xs font-mono font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition" />
+                <span class="absolute right-3 flex h-2.5 w-2.5">
                     <span
                         class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                 </span>
             </div>
 
-            <button onclick="showQrModal()"
+            <button onclick="showQrModal()" type="button"
                 class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-xs font-semibold shrink-0 flex items-center gap-2 transition shadow-sm">
                 <span>📷</span> Scan QR Code
             </button>
         </div>
+        <p class="text-[11px] text-slate-400">If auto-detection returns 127.0.0.1, manually type your host IP above
+            (e.g., <code class="text-emerald-600 font-mono">http://192.168.1.17:8000</code>) and click Scan QR Code.</p>
     </div>
 
+    <!-- App Metadata Card -->
     <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm text-xs space-y-2">
         <div class="flex justify-between text-slate-500"><span>App Version</span><span
                 class="font-mono text-slate-800">NiyoSense Local v1.2.0</span></div>

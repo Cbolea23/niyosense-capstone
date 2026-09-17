@@ -1,5 +1,8 @@
 import json
 import socket
+import subprocess
+import re
+import platform
 from datetime import timedelta
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -19,18 +22,14 @@ from .serializers import BulkSyncGradingLogSerializer
 def web_dashboard(request):
     now = timezone.now()
     today = now.date()
-
     total_scans = GradingLog.objects.count()
     scans_today = GradingLog.objects.filter(created_at__date=today).count()
-
     mature_count = GradingLog.objects.filter(final_maturity_stage__iexact='Mature').count()
     premature_count = GradingLog.objects.filter(final_maturity_stage__iexact='Premature').count()
     overmature_count = GradingLog.objects.filter(final_maturity_stage__iexact='Overmature').count()
-
     this_month_scans = GradingLog.objects.filter(
         created_at__year=now.year, created_at__month=now.month
     ).count()
-
     mature_rate = round((mature_count / total_scans) * 100, 1) if total_scans > 0 else 0.0
     premature_rate = round((premature_count / total_scans) * 100, 1) if total_scans > 0 else 0.0
     overmature_rate = round((overmature_count / total_scans) * 100, 1) if total_scans > 0 else 0.0
@@ -49,14 +48,12 @@ def web_dashboard(request):
         .annotate(count=Count('uuid'))
         .order_by('month')
     )
-
     monthly_labels = []
     monthly_counts = []
     for entry in monthly_yield_qs:
         if entry['month']:
             monthly_labels.append(entry['month'].strftime('%b %Y'))
             monthly_counts.append(entry['count'])
-
     if not monthly_labels:
         monthly_labels = [now.strftime('%b %Y')]
         monthly_counts = [0]
@@ -88,7 +85,6 @@ class BulkSyncView(APIView):
 
     def post(self, request, *args, **kwargs):
         log_uuid = request.data.get('uuid')
-
         try:
             if GradingLog.objects.filter(uuid=log_uuid).exists():
                 return Response(
@@ -101,45 +97,87 @@ class BulkSyncView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        serializer = BulkSyncGradingLogSerializer(data=request.data)
+        # Copy request data to safely normalize key names ('audio' -> 'audio_file')
+        sync_data = request.data.copy()
+        if 'audio' in request.FILES and 'audio_file' not in sync_data:
+            sync_data['audio_file'] = request.FILES['audio']
 
+        serializer = BulkSyncGradingLogSerializer(data=sync_data)
         if serializer.is_valid():
             with transaction.atomic():
                 serializer.save(user=request.user, is_synced=True)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-
+            
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
 def get_server_ip(request):
-    ip_address = "127.0.0.1"
+    ip_address = None
+    system = platform.system()
 
-    # Step 1: Attempt standard UDP socket check
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip_address = s.getsockname()[0]
-        s.close()
-    except Exception:
-        pass
+        if system == "Windows":
+            output = subprocess.check_output("ipconfig", shell=True).decode('utf-8', errors='ignore')
+            # Split output into individual adapter blocks
+            adapter_blocks = re.split(r'(?=Ethernet adapter|Wireless LAN adapter)', output)
+            
+            virtual_keywords = ['vmware', 'virtualbox', 'radmin', 'vmnet', 'hyper-v', 'wsl']
 
-    # Step 2: Fallback — scan local network adapters for non-loopback LAN IPs
-    if ip_address.startswith("127."):
-        try:
-            hostname = socket.gethostname()
-            addresses = socket.gethostbyname_ex(hostname)[2]
-            for ip in addresses:
-                if not ip.startswith("127.") and (ip.startswith("192.168.") or ip.startswith("10.") or ip.startswith("172.")):
+            for block in adapter_blocks:
+                # Skip virtual adapters entirely
+                if any(v in block.lower() for v in virtual_keywords):
+                    continue
+                
+                # Extract IPv4 and Default Gateway
+                ip_match = re.search(r'IPv4 Address[\. ]*:\s*([0-9\.]+)', block)
+                gateway_match = re.search(r'Default Gateway[\. ]*:\s*([0-9\.]+)', block)
+                
+                if ip_match:
+                    ip = ip_match.group(1)
+                    # Skip invalid IPs
+                    if ip.startswith(("127.", "169.254.", "0.")):
+                        continue
+                    
+                    # Prefer adapters that have a gateway (internet/LAN connected)
+                    if gateway_match and not gateway_match.group(1).startswith("0."):
+                        ip_address = ip
+                        break
+                    elif not ip_address:
+                        ip_address = ip # Fallback to first valid IP
+                        
+        else: # Linux / WSL / macOS
+            output = subprocess.check_output("ip addr show", shell=True).decode('utf-8', errors='ignore')
+            # Find physical interfaces (eth, enp, wlan)
+            matches = re.findall(r'inet\s+([0-9\.]+).*?\s+(eth\d|enp\d|wlan\d)', output)
+            for ip, iface in matches:
+                if not ip.startswith(("127.", "169.254.")):
                     ip_address = ip
                     break
+                    
+    except Exception as e:
+        print(f"IP detection error: {e}")
+
+    # Fallback: UDP Socket method (if parsing failed)
+    if not ip_address:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            detected = s.getsockname()[0]
+            s.close()
+            if detected and not detected.startswith(("127.", "169.254.")):
+                ip_address = detected
         except Exception:
             pass
 
+    # Final fallback
+    if not ip_address:
+        ip_address = "127.0.0.1"
+    
     port = request.get_port() or '8000'
     server_url = f"http://{ip_address}:{port}"
-
+    
     return Response({
         "success": True,
         "ip_address": ip_address,
@@ -152,10 +190,8 @@ def get_server_ip(request):
 def dashboard_stats_api(request):
     now = timezone.now()
     today = now.date()
-
     total_scans = GradingLog.objects.count()
     scans_today = GradingLog.objects.filter(created_at__date=today).count()
-
     mature_count = GradingLog.objects.filter(final_maturity_stage__iexact='Mature').count()
     premature_count = GradingLog.objects.filter(final_maturity_stage__iexact='Premature').count()
     overmature_count = GradingLog.objects.filter(final_maturity_stage__iexact='Overmature').count()

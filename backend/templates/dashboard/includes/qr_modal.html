@@ -1,9 +1,35 @@
-<div id="qrModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50">
-    <div class="bg-white rounded-2xl p-6 max-w-sm w-full text-center space-y-4 shadow-xl">
-        <h3 class="font-bold text-slate-800 text-lg">Pair Mobile App</h3>
-        <p class="text-xs text-slate-500">Scan this QR Code in the NiyoSense mobile app to pair server endpoint.</p>
-        <div id="qrcode" class="flex justify-center p-4 bg-slate-50 rounded-xl border border-slate-100"></div>
-        <button onclick="hideQrModal()"
-            class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold py-2.5 rounded-xl">Close</button>
+<!-- Tailwind QR Code Modal -->
+<div id="qrModal"
+    class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4 transition-opacity duration-200">
+    <div
+        class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-center relative animate-in fade-in zoom-in-95 duration-150">
+        <button onclick="hideQrModal()" type="button"
+            class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-xl font-bold w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition">
+            &times;
+        </button>
+
+        <div
+            class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-3 text-xl">
+            📱
+        </div>
+
+        <h3 class="text-base font-bold text-slate-800 mb-1">Pair Mobile App</h3>
+        <p class="text-xs text-slate-400 mb-4 px-2">Scan this QR code in the NiyoSense mobile app to pair with your
+            server endpoint.</p>
+
+        <div
+            class="bg-slate-50 border border-slate-100 rounded-2xl p-4 my-2 flex justify-center items-center min-h-[200px]">
+            <div id="qrcode" class="flex justify-center items-center"></div>
+        </div>
+
+        <p id="qrServerUrl"
+            class="text-xs font-mono font-semibold text-emerald-600 bg-emerald-50/70 border border-emerald-100 rounded-xl py-2 px-3 mt-3 truncate">
+            http://127.0.0.1:8000
+        </p>
+
+        <button onclick="hideQrModal()" type="button"
+            class="mt-5 w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-3 rounded-xl transition">
+            Close
+        </button>
     </div>
 </div>
