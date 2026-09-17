@@ -47,7 +47,7 @@ dependencies:
   image: ^4.2.0
 
   # Machine Learning Edge Inference
-  tflite_flutter: 0.10.1
+  tflite_flutter: ^0.10.4
 
   # Network & Background Sync
   http: ^1.2.0
@@ -115,3 +115,4 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 dependency_overrides:
   record_platform_interface: 1.2.0
+  tflite_flutter: ^0.10.4
