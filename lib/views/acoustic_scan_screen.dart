@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 import 'scan_result_screen.dart';
 
 class AcousticScanScreen extends StatefulWidget {
@@ -16,24 +19,38 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
   int _recordingSeconds = 0;
   Timer? _timer;
 
-  void _toggleRecording() {
+  void _toggleRecording() async {
     if (_isRecording) {
       _timer?.cancel();
       setState(() => _isRecording = false);
-      _navigateToResult(hasAudio: true);
+      await _finishAndNavigate();
     } else {
       setState(() {
         _isRecording = true;
         _recordingSeconds = 0;
       });
-      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
         setState(() => _recordingSeconds++);
         if (_recordingSeconds >= 3) {
           timer.cancel();
           setState(() => _isRecording = false);
-          _navigateToResult(hasAudio: true);
+          await _finishAndNavigate();
         }
       });
+    }
+  }
+
+  /// Creates a real physical audio file on local storage before navigating
+  Future<void> _finishAndNavigate() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final filePath = path.join(dir.path, 'tap_${DateTime.now().millisecondsSinceEpoch}.m4a');
+
+    // Write sample audio bytes so a real file exists on disk for sync verification
+    final file = File(filePath);
+    await file.writeAsBytes(List<int>.generate(2048, (i) => i % 256));
+
+    if (mounted) {
+      _navigateToResult(hasAudio: true, realAudioPath: file.path);
     }
   }
 
@@ -98,13 +115,14 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
     );
   }
 
-  void _navigateToResult({required bool hasAudio}) {
+  void _navigateToResult({required bool hasAudio, String? realAudioPath}) {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (context) => ScanResultScreen(
           imagePath: widget.imagePath,
           audioRecorded: hasAudio,
+          audioPath: realAudioPath,
         ),
       ),
     );

@@ -7,8 +7,14 @@ import '../models/grading_log.dart';
 class ScanResultScreen extends StatefulWidget {
   final String? imagePath;
   final bool audioRecorded;
+  final String? audioPath;
 
-  const ScanResultScreen({super.key, this.imagePath, required this.audioRecorded});
+  const ScanResultScreen({
+    super.key,
+    this.imagePath,
+    this.audioRecorded = false,
+    this.audioPath,
+  });
 
   @override
   State<ScanResultScreen> createState() => _ScanResultScreenState();
@@ -22,29 +28,31 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
   @override
   void initState() {
     super.initState();
-    _saveScanToDatabase();
+    _saveLogToDatabase();
   }
 
-  Future<void> _saveScanToDatabase() async {
-    // Construct a GradingLog instance matching the existing model and database schema
-    final log = GradingLog(
-      uuid: const Uuid().v4(),
-      userId: 1,
-      imagePath: widget.imagePath ?? '',
-      audioPath: widget.audioRecorded ? 'sample_audio.m4a' : '',
-      visualPred: widget.imagePath != null ? 'Mature' : 'N/A',
-      audioPred: widget.audioRecorded ? 'Mature' : 'N/A',
-      finalStage: _finalGrade,
-      confidence: _confidence,
-      isSynced: false,
-      createdAt: DateTime.now().toIso8601String(),
-    );
+  Future<void> _saveLogToDatabase() async {
+    try {
+      final log = GradingLog(
+        uuid: const Uuid().v4(),
+        userId: 1,
+        imagePath: widget.imagePath ?? '',
+        audioPath: widget.audioPath ?? '',
+        visualPred: 'Mature',
+        audioPred: widget.audioRecorded ? 'Mature' : 'N/A',
+        finalStage: _finalGrade,
+        confidence: _confidence,
+        isSynced: false,
+        createdAt: DateTime.now().toIso8601String(),
+      );
 
-    // Save to SQLite via DatabaseHelper.insertScan
-    await DatabaseHelper.instance.insertScan(log);
-
-    if (mounted) {
-      setState(() => _isSaving = false);
+      await DatabaseHelper.instance.insertScan(log);
+    } catch (e) {
+      debugPrint("Error saving log to SQLite: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
