@@ -1,3 +1,6 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 allprojects {
     repositories {
         google()
@@ -8,6 +11,17 @@ allprojects {
             val android = project.extensions.getByName("android") as com.android.build.gradle.BaseExtension
             if (android.namespace == null) {
                 android.namespace = "com.niyosense.${project.name.replace('-', '_')}"
+            }
+            android.apply {
+                compileOptions {
+                    sourceCompatibility = JavaVersion.VERSION_17
+                    targetCompatibility = JavaVersion.VERSION_17
+                }
+            }
+        }
+        project.tasks.withType<KotlinCompile>().configureEach {
+            compilerOptions {
+                jvmTarget.set(JvmTarget.JVM_17)
             }
         }
     }
