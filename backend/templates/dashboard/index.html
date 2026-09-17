@@ -57,6 +57,8 @@
     {% include 'dashboard/includes/qr_modal.html' %}
 
     <script>
+        let autoDetectedUrl = "http://127.0.0.1:8000";
+
         function switchTab(tab) {
             document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
             document.querySelectorAll('nav button').forEach(btn => {
@@ -71,17 +73,17 @@
             document.getElementById('header-title').innerText = i18n[lang][titles[tab]] || titles[tab];
         }
 
-        const matureCount = Number('{{ mature_count }}') || 0;
-        const prematureCount = Number('{{ premature_count }}') || 0;
-        const overmatureCount = Number('{{ overmature_count }}') || 0;
-        const scansToday = Number('{{ scans_today }}') || 0;
+        // Initialize Chart.js instances
+        let matureCount = Number('{{ mature_count }}') || 0;
+        let prematureCount = Number('{{ premature_count }}') || 0;
+        let overmatureCount = Number('{{ overmature_count }}') || 0;
 
-        const dailyLabels = JSON.parse('{{ daily_labels_json|safe }}');
-        const dailyCounts = JSON.parse('{{ daily_counts_json|safe }}');
+        let dailyLabels = JSON.parse('{{ daily_labels_json|safe }}');
+        let dailyCounts = JSON.parse('{{ daily_counts_json|safe }}');
         const monthlyLabels = JSON.parse('{{ monthly_labels_json|safe }}');
         const monthlyCounts = JSON.parse('{{ monthly_counts_json|safe }}');
 
-        new Chart(document.getElementById('maturityChart'), {
+        const maturityChart = new Chart(document.getElementById('maturityChart'), {
             type: 'doughnut',
             data: {
                 labels: ['Mature', 'Premature', 'Overmature'],
@@ -94,7 +96,7 @@
             options: { cutout: '75%', plugins: { legend: { display: false } } }
         });
 
-        new Chart(document.getElementById('dailyChart'), {
+        const dailyChart = new Chart(document.getElementById('dailyChart'), {
             type: 'line',
             data: {
                 labels: dailyLabels,
@@ -112,11 +114,38 @@
             options: { plugins: { legend: { display: false } } }
         });
 
+        // Auto-Detect Host Server IP with Browser Fallback
+        async function fetchAutoHostIp() {
+                const el = document.getElementById('detectedServerIp');
+
+                try {
+                    const response = await fetch('/api/v1/system/host-ip/');
+                    if (response.ok) {
+                        const data = await response.json();
+                        // Force use of the backend LAN IP even if browser URL is 'localhost'
+                        if (data.success && data.server_url && !data.server_url.includes("127.0.0.1")) {
+                            autoDetectedUrl = data.server_url;
+                            if (el) el.innerText = autoDetectedUrl;
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch host IP from API:", e);
+                }
+
+                // Secondary fallback only if API is unreachable and browser hostname is a real IP
+                if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                    const currentPort = window.location.port ? `:${window.location.port}` : ':8000';
+                    autoDetectedUrl = `http://${window.location.hostname}${currentPort}`;
+                }
+
+                if (el) el.innerText = autoDetectedUrl;
+            }
+
         function showQrModal() {
-            const serverUrl = document.getElementById('serverIpInput').value;
             const qrContainer = document.getElementById('qrcode');
             qrContainer.innerHTML = "";
-            new QRCode(qrContainer, { text: serverUrl, width: 180, height: 180, colorDark: "#0F172A", colorLight: "#ffffff" });
+            new QRCode(qrContainer, { text: autoDetectedUrl, width: 180, height: 180, colorDark: "#0F172A", colorLight: "#ffffff" });
             document.getElementById('qrModal').classList.remove('hidden');
             document.getElementById('qrModal').classList.add('flex');
         }
@@ -126,6 +155,36 @@
             document.getElementById('qrModal').classList.remove('flex');
         }
 
+        // Real-Time 3-Second Dashboard Polling Loop
+        async function pollDashboardStats() {
+            try {
+                const response = await fetch('/api/v1/analytics/dashboard-stats/');
+                if (response.ok) {
+                    const data = await response.json();
+
+                    if (data.success) {
+                        // Update DOM Counters
+                        const totalEl = document.getElementById('stat-total-scans');
+                        const todayEl = document.getElementById('stat-scans-today');
+                        if (totalEl) totalEl.innerText = data.total_scans;
+                        if (todayEl) todayEl.innerText = `+${data.scans_today} today`;
+
+                        // Update Doughnut Chart
+                        maturityChart.data.datasets[0].data = [data.mature_count, data.premature_count, data.overmature_count];
+                        maturityChart.update('none'); // Silent update without animation jitter
+
+                        // Update Line Chart
+                        dailyChart.data.labels = data.daily_labels;
+                        dailyChart.data.datasets[0].data = data.daily_counts;
+                        dailyChart.update('none');
+                    }
+                }
+            } catch (e) {
+                console.error("Error polling stats:", e);
+            }
+        }
+
+        // Language Localization Engine
         const i18n = {
             en: {
                 nav_home: "Home",
@@ -164,18 +223,23 @@
 
             const btnEn = document.getElementById('btn-lang-en');
             const btnTl = document.getElementById('btn-lang-tl');
-            if (lang === 'tl') {
-                btnTl.className = "px-3 py-1.5 rounded-lg transition bg-white text-emerald-600 shadow-sm";
-                btnEn.className = "px-3 py-1.5 rounded-lg transition text-slate-500 hover:text-slate-800";
-            } else {
-                btnEn.className = "px-3 py-1.5 rounded-lg transition bg-white text-emerald-600 shadow-sm";
-                btnTl.className = "px-3 py-1.5 rounded-lg transition text-slate-500 hover:text-slate-800";
+            if (btnEn && btnTl) {
+                if (lang === 'tl') {
+                    btnTl.className = "px-3 py-1.5 rounded-lg transition bg-white text-emerald-600 shadow-sm";
+                    btnEn.className = "px-3 py-1.5 rounded-lg transition text-slate-500 hover:text-slate-800";
+                } else {
+                    btnEn.className = "px-3 py-1.5 rounded-lg transition bg-white text-emerald-600 shadow-sm";
+                    btnTl.className = "px-3 py-1.5 rounded-lg transition text-slate-500 hover:text-slate-800";
+                }
             }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
             const savedLang = localStorage.getItem('niyosense_lang') || 'en';
             setDashboardLanguage(savedLang);
+
+            fetchAutoHostIp(); // Detect local LAN IP
+            setInterval(pollDashboardStats, 3000); // Poll live stats every 3 seconds
         });
     </script>
 </body>

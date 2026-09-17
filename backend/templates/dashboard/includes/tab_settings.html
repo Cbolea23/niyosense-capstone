@@ -19,6 +19,7 @@
         </div>
     </div>
 
+    <!-- User Profile Card -->
     <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm flex items-center space-x-4">
         <div
             class="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
@@ -30,14 +31,25 @@
         </div>
     </div>
 
+    <!-- Auto-Detected Server Configuration (No Textfield) -->
     <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3">
         <h4 class="font-bold text-slate-800 text-sm">Server Configuration</h4>
-        <p class="text-xs text-slate-400">Pairing IP endpoint for mobile sync</p>
-        <div class="flex gap-2">
-            <input id="serverIpInput" type="text" value="http://192.168.1.26:8000"
-                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-mono text-slate-700">
+        <p class="text-xs text-slate-400">Auto-detected local endpoint for mobile pairing</p>
+
+        <div class="flex items-center gap-2">
+            <div
+                class="w-full bg-slate-50 border border-slate-200/80 rounded-xl px-4 py-2.5 flex items-center justify-between">
+                <span id="detectedServerIp" class="text-xs font-mono font-semibold text-slate-700">Detecting server
+                    IP...</span>
+                <span class="flex h-2 w-2 relative">
+                    <span
+                        class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+            </div>
+
             <button onclick="showQrModal()"
-                class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-semibold shrink-0 flex items-center gap-2">
+                class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-xs font-semibold shrink-0 flex items-center gap-2 transition shadow-sm">
                 <span>📷</span> Scan QR Code
             </button>
         </div>
