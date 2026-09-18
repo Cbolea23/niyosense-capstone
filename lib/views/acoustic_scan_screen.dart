@@ -58,12 +58,11 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
       // 3. Start recording real audio (AAC/M4A)
       await _audioRecorder.start(
         const RecordConfig(
-          encoder: AudioEncoder.aacLc,
-          bitRate: 128000,
-          sampleRate: 44100,
-          numChannels: 1, // Mono tap audio
+          encoder: AudioEncoder.wav,
+          sampleRate: 22050, // Matches standard Librosa sample rate
+          numChannels: 1,    // Mono
         ),
-        path: filePath,
+        path: filePath.replaceAll('.m4a', '.wav'),
       );
 
       setState(() {
