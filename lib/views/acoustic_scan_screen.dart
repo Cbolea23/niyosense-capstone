@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+import 'package:record/record.dart';
 import 'scan_result_screen.dart';
 
 class AcousticScanScreen extends StatefulWidget {
@@ -15,42 +16,93 @@ class AcousticScanScreen extends StatefulWidget {
 }
 
 class _AcousticScanScreenState extends State<AcousticScanScreen> {
+  final AudioRecorder _audioRecorder = AudioRecorder();
+
   bool _isRecording = false;
   int _recordingSeconds = 0;
   Timer? _timer;
+  String? _currentRecordingPath;
 
-  void _toggleRecording() async {
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _audioRecorder.dispose();
+    super.dispose();
+  }
+
+  Future<void> _toggleRecording() async {
     if (_isRecording) {
-      _timer?.cancel();
-      setState(() => _isRecording = false);
-      await _finishAndNavigate();
+      await _stopRecordingAndNavigate();
     } else {
+      await _startRealRecording();
+    }
+  }
+
+  Future<void> _startRealRecording() async {
+    try {
+      // 1. Verify microphone permission
+      if (!await _audioRecorder.hasPermission()) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Microphone permission is required to record tapping sound.")),
+          );
+        }
+        return;
+      }
+
+      // 2. Prepare target file path
+      final dir = await getApplicationDocumentsDirectory();
+      final filePath = path.join(dir.path, 'tap_${DateTime.now().millisecondsSinceEpoch}.m4a');
+      _currentRecordingPath = filePath;
+
+      // 3. Start recording real audio (AAC/M4A)
+      await _audioRecorder.start(
+        const RecordConfig(
+          encoder: AudioEncoder.aacLc,
+          bitRate: 128000,
+          sampleRate: 44100,
+          numChannels: 1, // Mono tap audio
+        ),
+        path: filePath,
+      );
+
       setState(() {
         _isRecording = true;
         _recordingSeconds = 0;
       });
+
+      // 4. Run countdown timer (auto-stops at 3 seconds)
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
         setState(() => _recordingSeconds++);
         if (_recordingSeconds >= 3) {
           timer.cancel();
-          setState(() => _isRecording = false);
-          await _finishAndNavigate();
+          await _stopRecordingAndNavigate();
         }
       });
+    } catch (e) {
+      debugPrint("❌ Failed to start recording: $e");
     }
   }
 
-  /// Creates a real physical audio file on local storage before navigating
-  Future<void> _finishAndNavigate() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final filePath = path.join(dir.path, 'tap_${DateTime.now().millisecondsSinceEpoch}.m4a');
+  Future<void> _stopRecordingAndNavigate() async {
+    _timer?.cancel();
+    setState(() => _isRecording = false);
 
-    // Write sample audio bytes so a real file exists on disk for sync verification
-    final file = File(filePath);
-    await file.writeAsBytes(List<int>.generate(2048, (i) => i % 256));
+    try {
+      final finalPath = await _audioRecorder.stop();
+      final savedPath = finalPath ?? _currentRecordingPath;
 
-    if (mounted) {
-      _navigateToResult(hasAudio: true, realAudioPath: file.path);
+      if (savedPath != null && await File(savedPath).exists()) {
+        debugPrint("🎤 Real audio recorded: $savedPath (Size: ${await File(savedPath).length()} bytes)");
+        if (mounted) {
+          _navigateToResult(hasAudio: true, realAudioPath: savedPath);
+        }
+      } else {
+        if (mounted) _navigateToResult(hasAudio: false);
+      }
+    } catch (e) {
+      debugPrint("❌ Failed to stop recording: $e");
+      if (mounted) _navigateToResult(hasAudio: false);
     }
   }
 
@@ -208,7 +260,7 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: List.generate(
                     28,
-                        (i) => AnimatedContainer(
+                    (i) => AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       width: 4,
                       height: _isRecording ? (20.0 + (i % 5 * 12)) : 6.0,

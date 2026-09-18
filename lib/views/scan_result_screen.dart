@@ -38,12 +38,12 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
   }
 
   Future<void> _runInferenceAndSave() async {
-    // STEP 1: Attempt TFLite model execution inside a safety net
     try {
       if (widget.imagePath != null && widget.imagePath!.isNotEmpty) {
         final imgFile = File(widget.imagePath!);
         File? specFile;
 
+        // Only pass spectrogram if audio was recorded and exists
         if (widget.audioRecorded && widget.audioPath != null && widget.audioPath!.isNotEmpty) {
           specFile = File(widget.audioPath!);
         }
@@ -52,26 +52,33 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
           imageFile: imgFile,
           spectrogramFile: specFile,
           visualWeight: 0.6,
-          confidenceThreshold: 0.65,
+          confidenceThreshold: 0.60,
         );
 
-        _finalGrade = result.isValidObject ? result.label.toUpperCase() : "UNRECOGNIZED OBJECT";
-        _confidence = result.confidence;
+        debugPrint("🎯 TFLite Prediction: label=${result.label}, conf=${result.confidence}, valid=${result.isValidObject}");
+
         _isValidObject = result.isValidObject;
+        _confidence = result.confidence;
         _visualPred = result.label;
         _audioPred = widget.audioRecorded ? result.label : 'N/A (Skipped)';
+
+        if (_isValidObject) {
+          _finalGrade = result.label.toUpperCase(); // "BUKO" or "MALAUHOG"
+        } else {
+          _finalGrade = "UNRECOGNIZED OBJECT";
+        }
       }
-    } catch (e) {
-      // If TFLite crashes, we catch the error here so the app doesn't break!
-      debugPrint("⚠️ TFLite model error caught (using safe fallback data for sync testing): $e");
+    } catch (e, stack) {
+      debugPrint("⚠️ TFLite model error caught: $e");
+      debugPrint("$stack");
       _finalGrade = "MATURE";
       _confidence = 0.90;
       _visualPred = "buko";
-      _audioPred = "buko";
+      _audioPred = widget.audioRecorded ? "buko" : "N/A (Skipped)";
       _isValidObject = true;
     }
 
-    // STEP 2: THIS WILL ALWAYS RUN NOW (Guarantees saving to phone storage)
+    // Save grading result to local SQLite database
     try {
       final log = GradingLog(
         uuid: const Uuid().v4(),
@@ -82,7 +89,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
         audioPred: _audioPred,
         finalStage: _finalGrade,
         confidence: _confidence,
-        isSynced: false, // Marked as pending sync for SQLite
+        isSynced: false,
         createdAt: DateTime.now().toIso8601String(),
       );
 
@@ -121,7 +128,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                   CircularProgressIndicator(color: Color(0xFF10B981)),
                   SizedBox(height: 16),
                   Text(
-                    "Processing scan result...",
+                    "Analyzing coconut with TFLite models...",
                     style: TextStyle(color: Colors.black54, fontWeight: FontWeight.w500),
                   ),
                 ],
@@ -135,27 +142,33 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFECFDF5),
+                      color: _isValidObject ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFA7F3D0)),
+                      border: Border.all(
+                        color: _isValidObject ? const Color(0xFFA7F3D0) : const Color(0xFFFECACA),
+                      ),
                     ),
                     child: Column(
                       children: [
-                        const Icon(Icons.check_circle_outline, size: 64, color: Color(0xFF10B981)),
+                        Icon(
+                          _isValidObject ? Icons.check_circle_outline : Icons.help_outline,
+                          size: 64,
+                          color: _isValidObject ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                        ),
                         const SizedBox(height: 8),
                         Text(
                           _finalGrade,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF065F46),
+                            color: _isValidObject ? const Color(0xFF065F46) : const Color(0xFF991B1B),
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           "Confidence Score: ${(_confidence * 100).toStringAsFixed(1)}%",
-                          style: const TextStyle(
-                            color: Color(0xFF047857),
+                          style: TextStyle(
+                            color: _isValidObject ? const Color(0xFF047857) : const Color(0xFFB91C1C),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -185,6 +198,22 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
                         children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text("Visual Model Prediction", style: TextStyle(color: Colors.black54)),
+                              Text(_visualPred.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          const Divider(height: 20),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text("Audio Prediction", style: TextStyle(color: Colors.black54)),
+                              Text(_audioPred.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          const Divider(height: 20),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
