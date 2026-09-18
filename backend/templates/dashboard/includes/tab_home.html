@@ -15,23 +15,25 @@
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
-        <div class="flex justify-between items-center mb-6">
+    <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+        <div class="flex justify-between items-center mb-4">
             <div>
                 <h3 class="font-bold text-slate-800 text-sm">Daily Maturity Report</h3>
                 <p class="text-xs text-slate-400">Scans captured over the last 7 days</p>
             </div>
             <span class="text-xs font-semibold px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-lg">Live Synced</span>
         </div>
-        <div class="h-64">
+        <div class="relative h-64 w-full">
             <canvas id="dailyChart"></canvas>
         </div>
     </div>
 
-    <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
-        <h3 class="font-bold text-slate-800 text-sm mb-1">Maturity Distribution</h3>
-        <p class="text-xs text-slate-400 mb-6">All visits combined</p>
-        <div class="h-52 flex items-center justify-center">
+    <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+        <div>
+            <h3 class="font-bold text-slate-800 text-sm mb-1">Maturity Distribution</h3>
+            <p class="text-xs text-slate-400 mb-4">All visits combined</p>
+        </div>
+        <div class="relative h-64 w-full flex items-center justify-center">
             <canvas id="maturityChart"></canvas>
         </div>
     </div>

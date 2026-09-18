@@ -1,6 +1,6 @@
 <p class="text-xs text-slate-400 mb-6">Real-time monthly performance metrics from PostgreSQL</p>
 
-<div class="grid grid-cols-3 gap-6 mb-8">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
     <div class="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-5">
         <h3 class="text-3xl font-bold text-emerald-600 mb-1">{{ this_month_scans }}</h3>
         <p class="text-xs font-bold text-slate-700">Total Scanned This Month</p>
@@ -21,5 +21,7 @@
 <div class="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm mb-6">
     <h4 class="font-bold text-slate-800 text-sm mb-1">Monthly Yield</h4>
     <p class="text-xs text-slate-400 mb-4">Total coconuts scanned per month (Historical)</p>
-    <canvas id="yieldChart" height="100"></canvas>
+    <div class="relative w-full h-72">
+        <canvas id="yieldChart"></canvas>
+    </div>
 </div>

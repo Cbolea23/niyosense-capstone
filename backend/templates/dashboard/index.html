@@ -60,20 +60,6 @@
         let autoDetectedUrl = "http://127.0.0.1:8000";
         let userHasEditedIp = false;
 
-        function switchTab(tab) {
-            document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('nav button').forEach(btn => {
-                btn.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-inactive";
-            });
-
-            document.getElementById('tab-' + tab).classList.remove('hidden');
-            document.getElementById('nav-' + tab).className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-active";
-
-            const titles = { 'home': 'nav_home', 'analytics': 'nav_analytics', 'logs': 'nav_logs', 'settings': 'nav_settings' };
-            const lang = localStorage.getItem('niyosense_lang') || 'en';
-            document.getElementById('header-title').innerText = i18n[lang][titles[tab]] || titles[tab];
-        }
-
         // Initialize Chart.js instances
         let matureCount = Number('{{ mature_count }}') || 0;
         let prematureCount = Number('{{ premature_count }}') || 0;
@@ -94,26 +80,103 @@
                     borderWidth: 0
                 }]
             },
-            options: { cutout: '75%', plugins: { legend: { display: false } } }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '75%',
+                plugins: { legend: { display: false } }
+            }
         });
 
         const dailyChart = new Chart(document.getElementById('dailyChart'), {
             type: 'line',
             data: {
                 labels: dailyLabels,
-                datasets: [{ data: dailyCounts, borderColor: '#10B981', tension: 0.4, fill: false }]
+                datasets: [{
+                    data: dailyCounts,
+                    borderColor: '#10B981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#10B981',
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
             },
-            options: { plugins: { legend: { display: false } } }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        top: 10,
+                        bottom: 10,
+                        left: 5,
+                        right: 15
+                    }
+                },
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 },
+                        grid: { color: '#F1F5F9' }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                }
+            }
         });
 
-        new Chart(document.getElementById('yieldChart'), {
+        const yieldChart = new Chart(document.getElementById('yieldChart'), {
             type: 'bar',
             data: {
                 labels: monthlyLabels,
-                datasets: [{ label: 'Coconuts Scanned', data: monthlyCounts, backgroundColor: '#10B981', borderRadius: 8 }]
+                datasets: [{
+                    label: 'Coconuts Scanned',
+                    data: monthlyCounts,
+                    backgroundColor: '#10B981',
+                    borderRadius: 8
+                }]
             },
-            options: { plugins: { legend: { display: false } } }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 },
+                        grid: { color: '#F1F5F9' }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                }
+            }
         });
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('nav button').forEach(btn => {
+                btn.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-inactive";
+            });
+
+            document.getElementById('tab-' + tab).classList.remove('hidden');
+            document.getElementById('nav-' + tab).className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-active";
+
+            const titles = { 'home': 'nav_home', 'analytics': 'nav_analytics', 'logs': 'nav_logs', 'settings': 'nav_settings' };
+            const lang = localStorage.getItem('niyosense_lang') || 'en';
+            document.getElementById('header-title').innerText = i18n[lang][titles[tab]] || titles[tab];
+
+            // Re-render chart size when tab becomes visible to prevent infinite resize loops
+            if (tab === 'analytics' && yieldChart) {
+                yieldChart.resize();
+            } else if (tab === 'home') {
+                if (dailyChart) dailyChart.resize();
+                if (maturityChart) maturityChart.resize();
+            }
+        }
 
         // Auto-Detect Host Server IP
         async function fetchAutoHostIp() {
@@ -150,7 +213,6 @@
             const inputEl = document.getElementById('serverIpInput');
             let currentUrl = (inputEl && inputEl.value.trim() !== "") ? inputEl.value.trim() : autoDetectedUrl;
 
-            // Automatically prepend http:// if missing
             if (!currentUrl.startsWith("http://") && !currentUrl.startsWith("https://")) {
                 currentUrl = "http://" + currentUrl;
             }
@@ -190,50 +252,46 @@
 
         // Real-Time 3-Second Dashboard Polling Loop
         async function pollDashboardStats() {
-                try {
-                    const response = await fetch('/api/v1/analytics/dashboard-stats/');
-                    if (response.ok) {
-                        const jsonResponse = await response.json();
+            try {
+                const response = await fetch('/api/v1/analytics/dashboard-stats/');
+                if (response.ok) {
+                    const jsonResponse = await response.json();
 
-                        // Support both direct response objects and enveloped API payloads ({ success: true, data: { ... } })
-                        const data = (jsonResponse.data && typeof jsonResponse.data === 'object')
-                            ? jsonResponse.data
-                            : jsonResponse;
+                    const data = (jsonResponse.data && typeof jsonResponse.data === 'object')
+                        ? jsonResponse.data
+                        : jsonResponse;
 
-                        if (jsonResponse.success || data.total_scans !== undefined) {
-                            // Update DOM Counters safely
-                            const totalEl = document.getElementById('stat-total-scans');
-                            const todayEl = document.getElementById('stat-scans-today');
+                    if (jsonResponse.success || data.total_scans !== undefined) {
+                        const totalEl = document.getElementById('stat-total-scans');
+                        const todayEl = document.getElementById('stat-scans-today');
 
-                            if (totalEl && data.total_scans !== undefined) {
-                                totalEl.innerText = data.total_scans;
-                            }
-                            if (todayEl && data.scans_today !== undefined) {
-                                todayEl.innerText = `+${data.scans_today} today`;
-                            }
+                        if (totalEl && data.total_scans !== undefined) {
+                            totalEl.innerText = data.total_scans;
+                        }
+                        if (todayEl && data.scans_today !== undefined) {
+                            todayEl.innerText = `+${data.scans_today} today`;
+                        }
 
-                            // Update Doughnut Chart
-                            if (data.mature_count !== undefined && maturityChart) {
-                                maturityChart.data.datasets[0].data = [
-                                    data.mature_count,
-                                    data.premature_count,
-                                    data.overmature_count
-                                ];
-                                maturityChart.update('none'); // Silent update without UI flicker
-                            }
+                        if (data.mature_count !== undefined && maturityChart) {
+                            maturityChart.data.datasets[0].data = [
+                                data.mature_count,
+                                data.premature_count,
+                                data.overmature_count
+                            ];
+                            maturityChart.update('none');
+                        }
 
-                            // Update Line Chart
-                            if (data.daily_labels && dailyChart) {
-                                dailyChart.data.labels = data.daily_labels;
-                                dailyChart.data.datasets[0].data = data.daily_counts;
-                                dailyChart.update('none');
-                            }
+                        if (data.daily_labels && dailyChart) {
+                            dailyChart.data.labels = data.daily_labels;
+                            dailyChart.data.datasets[0].data = data.daily_counts;
+                            dailyChart.update('none');
                         }
                     }
-                } catch (e) {
-                    console.error("Error polling stats:", e);
                 }
+            } catch (e) {
+                console.error("Error polling stats:", e);
             }
+        }
 
         // Language Localization Engine
         const i18n = {
@@ -245,9 +303,7 @@
                 greeting: "Good morning!",
                 total_scans: "Total Coconuts Scanned",
                 lang_title: "Language / Wika",
-                lang_desc: "English / Filipino (Tagalog)",
-                offline_ready: "Offline-Ready",
-                local_active: "Local inference active"
+                lang_desc: "English / Filipino (Tagalog)"
             },
             tl: {
                 nav_home: "Tahanan",
@@ -257,9 +313,7 @@
                 greeting: "Magandang araw!",
                 total_scans: "Kabuuan ng Niyog na Nasuri",
                 lang_title: "Wika / Language",
-                lang_desc: "Filipino (Tagalog) / English",
-                offline_ready: "Handa sa Offline",
-                local_active: "Aktibo ang lokal na AI"
+                lang_desc: "Filipino (Tagalog) / English"
             }
         };
 
