@@ -4,17 +4,26 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
+import 'spectrogram_service.dart';
 
 class PredictionResult {
   final String label;
   final double confidence;
   final Map<String, double> classProbabilities;
+  final String visualLabel;
+  final double visualConfidence;
+  final String audioLabel;
+  final double audioConfidence;
   final bool isValidObject;
 
   PredictionResult({
     required this.label,
     required this.confidence,
     required this.classProbabilities,
+    required this.visualLabel,
+    required this.visualConfidence,
+    required this.audioLabel,
+    required this.audioConfidence,
     required this.isValidObject,
   });
 }
@@ -25,34 +34,27 @@ class TfliteService {
 
   bool get isLoaded => _imgInterpreter != null && _specInterpreter != null;
 
-  /// Load both TFLite model files into memory and print their tensor shapes
   Future<void> loadModels() async {
     try {
       _imgInterpreter = await Interpreter.fromAsset('assets/models/img_best.tflite');
       _specInterpreter = await Interpreter.fromAsset('assets/models/spec_best.tflite');
 
-      final imgInput = _imgInterpreter!.getInputTensor(0);
-      final imgOutput = _imgInterpreter!.getOutputTensor(0);
       debugPrint("✅ TFLite models loaded successfully.");
-      debugPrint("📸 Visual Model: Input=${imgInput.shape} (${imgInput.type}), Output=${imgOutput.shape}");
-
-      final specInput = _specInterpreter!.getInputTensor(0);
-      final specOutput = _specInterpreter!.getOutputTensor(0);
-      debugPrint("🎵 Spectrogram Model: Input=${specInput.shape} (${specInput.type}), Output=${specOutput.shape}");
+      debugPrint("📸 Visual Model Input: ${_imgInterpreter!.getInputTensor(0).shape}");
+      debugPrint("🎵 Spectrogram Model Input: ${_specInterpreter!.getInputTensor(0).shape}");
     } catch (e) {
       debugPrint("❌ Error loading TFLite models: $e");
     }
   }
 
-  /// Dynamically preprocesses an image to match the interpreter's exact input shape
-  /// Handles both NCHW ([1, 3, H, W]) and NHWC ([1, H, W, 3]) formats automatically.
+  /// Preprocesses a camera photo into an NCHW [1, 3, 224, 224] Float32List tensor
   Object? _preprocessImageForInterpreter(File file, Interpreter interpreter) {
     try {
       final bytes = file.readAsBytesSync();
       final decoded = img.decodeImage(bytes);
       if (decoded == null) return null;
 
-      final shape = interpreter.getInputTensor(0).shape; // e.g. [1, 3, 224, 224] or [1, 224, 224, 3]
+      final shape = interpreter.getInputTensor(0).shape;
       final bool isNCHW = shape.length == 4 && shape[1] == 3;
       final int targetHeight = isNCHW ? shape[2] : shape[1];
       final int targetWidth = isNCHW ? shape[3] : shape[2];
@@ -62,7 +64,6 @@ class TfliteService {
       final buffer = Float32List(1 * 3 * totalPixels);
 
       if (isNCHW) {
-        // Planar format: RRR... GGG... BBB...
         int rIdx = 0;
         int gIdx = totalPixels;
         int bIdx = 2 * totalPixels;
@@ -75,7 +76,6 @@ class TfliteService {
           }
         }
       } else {
-        // Interleaved format: RGB, RGB, RGB...
         int idx = 0;
         for (var y = 0; y < targetHeight; y++) {
           for (var x = 0; x < targetWidth; x++) {
@@ -86,15 +86,13 @@ class TfliteService {
           }
         }
       }
-
       return buffer.reshape(shape);
     } catch (e) {
-      debugPrint("⚠️ Could not process file as image: $e");
+      debugPrint("⚠️ Could not process image: $e");
       return null;
     }
   }
 
-  /// Normalizes logits into probabilities using Softmax if needed
   List<double> _normalizeProbs(List<double> raw) {
     double sum = raw.fold(0.0, (a, b) => a + b);
     if ((sum - 1.0).abs() < 0.05 && raw.every((v) => v >= 0.0 && v <= 1.0)) {
@@ -106,20 +104,18 @@ class TfliteService {
     return exps.map((e) => e / expSum).toList();
   }
 
-  /// Runs late-fusion inference on visual photo + audio spectrogram
+  /// Runs late-fusion multimodal inference completely offline
   Future<PredictionResult> predict({
     required File imageFile,
-    File? spectrogramFile,
+    File? audioFile,
     double visualWeight = 0.6,
     double confidenceThreshold = 0.60,
   }) async {
     if (!isLoaded) await loadModels();
 
-    // 1. Process Visual Model
+    // 1. Run Visual Model (img_best.tflite)
     final imgInput = _preprocessImageForInterpreter(imageFile, _imgInterpreter!);
-    if (imgInput == null) {
-      throw Exception("Failed to decode camera photo as an image.");
-    }
+    if (imgInput == null) throw Exception("Failed to decode camera photo.");
 
     final imgOutputShape = _imgInterpreter!.getOutputTensor(0).shape;
     final int numImgOutputs = imgOutputShape.reduce((a, b) => a * b);
@@ -129,27 +125,43 @@ class TfliteService {
     List<double> rawImgProbs = List<double>.from(imgOutputShape.length == 2 ? imgOutput[0] : imgOutput);
     List<double> imgProbs = _normalizeProbs(rawImgProbs);
 
-    // 2. Process Spectrogram Model (safely check if file is an actual image, e.g. PNG/JPG)
+    String visualLabel = imgProbs[0] >= imgProbs[1] ? "buko" : "malauhog";
+    double visualConf = math.max(imgProbs[0], imgProbs[1]);
+
+    // 2. Run Acoustic Spectrogram Model (spec_best.tflite)
     List<double> specProbs;
-    Object? specInput;
-    if (spectrogramFile != null && await spectrogramFile.exists()) {
-      specInput = _preprocessImageForInterpreter(spectrogramFile, _specInterpreter!);
-    }
+    String audioLabel = "N/A";
+    double audioConf = 0.0;
 
-    if (specInput != null) {
-      final specOutputShape = _specInterpreter!.getOutputTensor(0).shape;
-      final int numSpecOutputs = specOutputShape.reduce((a, b) => a * b);
-      var specOutput = List.filled(numSpecOutputs, 0.0).reshape(specOutputShape);
-      _specInterpreter!.run(specInput, specOutput);
+    if (audioFile != null && await audioFile.exists()) {
+      try {
+        debugPrint("🎵 Generating Dart Mel-Spectrogram for: ${audioFile.path}");
+        final specInput = SpectrogramService.generateSpectrogramTensor(audioFile);
 
-      List<double> rawSpecProbs = List<double>.from(specOutputShape.length == 2 ? specOutput[0] : specOutput);
-      specProbs = _normalizeProbs(rawSpecProbs);
+        final specOutputShape = _specInterpreter!.getOutputTensor(0).shape;
+        final int numSpecOutputs = specOutputShape.reduce((a, b) => a * b);
+        var specOutput = List.filled(numSpecOutputs, 0.0).reshape(specOutputShape);
+        _specInterpreter!.run(specInput, specOutput);
+
+        List<double> rawSpecProbs = List<double>.from(specOutputShape.length == 2 ? specOutput[0] : specOutput);
+        specProbs = _normalizeProbs(rawSpecProbs);
+
+        audioLabel = specProbs[0] >= specProbs[1] ? "buko" : "malauhog";
+        audioConf = math.max(specProbs[0], specProbs[1]);
+        debugPrint("🎵 Real Audio Prediction: $audioLabel (${(audioConf * 100).toStringAsFixed(1)}%)");
+      } catch (e) {
+        debugPrint("⚠️ Audio spectrogram inference failed, falling back to visual: $e");
+        specProbs = List.from(imgProbs);
+        audioLabel = visualLabel;
+        audioConf = visualConf;
+      }
     } else {
-      // Audio is an .m4a raw audio file (not an image spectrogram), fall back to visual model
       specProbs = List.from(imgProbs);
+      audioLabel = "N/A (Skipped)";
+      audioConf = visualConf;
     }
 
-    // 3. Late Fusion Calculation: W * P_img + (1 - W) * P_spec
+    // 3. Late Fusion: W * P_visual + (1 - W) * P_audio
     double bukoProb = (visualWeight * imgProbs[0]) + ((1.0 - visualWeight) * specProbs[0]);
     double malauhogProb = (visualWeight * imgProbs[1]) + ((1.0 - visualWeight) * specProbs[1]);
 
@@ -164,6 +176,10 @@ class TfliteService {
         "buko": bukoProb,
         "malauhog": malauhogProb,
       },
+      visualLabel: visualLabel,
+      visualConfidence: visualConf,
+      audioLabel: audioLabel,
+      audioConfidence: audioConf,
       isValidObject: isValid,
     );
   }

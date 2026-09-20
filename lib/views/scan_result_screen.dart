@@ -41,35 +41,35 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
     try {
       if (widget.imagePath != null && widget.imagePath!.isNotEmpty) {
         final imgFile = File(widget.imagePath!);
-        File? specFile;
+        File? audioFile;
 
-        // Only pass spectrogram if audio was recorded and exists
         if (widget.audioRecorded && widget.audioPath != null && widget.audioPath!.isNotEmpty) {
-          specFile = File(widget.audioPath!);
+          audioFile = File(widget.audioPath!);
         }
 
         final result = await _tfliteService.predict(
           imageFile: imgFile,
-          spectrogramFile: specFile,
+          audioFile: audioFile,
           visualWeight: 0.6,
           confidenceThreshold: 0.60,
         );
 
-        debugPrint("🎯 TFLite Prediction: label=${result.label}, conf=${result.confidence}, valid=${result.isValidObject}");
+        debugPrint("🎯 FUSED PREDICTION: ${result.label} (Conf: ${(result.confidence * 100).toStringAsFixed(1)}%)");
+        debugPrint("📸 Visual: ${result.visualLabel} | 🎵 Audio: ${result.audioLabel}");
 
         _isValidObject = result.isValidObject;
         _confidence = result.confidence;
-        _visualPred = result.label;
-        _audioPred = widget.audioRecorded ? result.label : 'N/A (Skipped)';
+        _visualPred = result.visualLabel;
+        _audioPred = widget.audioRecorded ? result.audioLabel : 'N/A (Skipped)';
 
         if (_isValidObject) {
-          _finalGrade = result.label.toUpperCase(); // "BUKO" or "MALAUHOG"
+          _finalGrade = result.label.toUpperCase();
         } else {
           _finalGrade = "UNRECOGNIZED OBJECT";
         }
       }
     } catch (e, stack) {
-      debugPrint("⚠️ TFLite model error caught: $e");
+      debugPrint("⚠️ Inference error: $e");
       debugPrint("$stack");
       _finalGrade = "MATURE";
       _confidence = 0.90;
@@ -78,7 +78,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
       _isValidObject = true;
     }
 
-    // Save grading result to local SQLite database
+    // Save to local SQLite database
     try {
       final log = GradingLog(
         uuid: const Uuid().v4(),
@@ -94,7 +94,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
       );
 
       await DatabaseHelper.instance.insertScan(log);
-      debugPrint("✅ SUCCESS: Scan successfully saved to local SQLite database!");
+      debugPrint("✅ SUCCESS: Multimodal scan saved to local SQLite database!");
     } catch (dbError) {
       debugPrint("❌ Database save error: $dbError");
     } finally {
@@ -128,7 +128,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                   CircularProgressIndicator(color: Color(0xFF10B981)),
                   SizedBox(height: 16),
                   Text(
-                    "Analyzing coconut with TFLite models...",
+                    "Performing multimodal inference...",
                     style: TextStyle(color: Colors.black54, fontWeight: FontWeight.w500),
                   ),
                 ],
@@ -166,7 +166,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          "Confidence Score: ${(_confidence * 100).toStringAsFixed(1)}%",
+                          "Fused Confidence: ${(_confidence * 100).toStringAsFixed(1)}%",
                           style: TextStyle(
                             color: _isValidObject ? const Color(0xFF047857) : const Color(0xFFB91C1C),
                             fontWeight: FontWeight.w600,
@@ -201,7 +201,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text("Visual Model Prediction", style: TextStyle(color: Colors.black54)),
+                              const Text("Visual Model (Husk)", style: TextStyle(color: Colors.black54)),
                               Text(_visualPred.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold)),
                             ],
                           ),
@@ -209,8 +209,8 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text("Audio Prediction", style: TextStyle(color: Colors.black54)),
-                              Text(_audioPred.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                              const Text("Audio Model (Spectrogram)", style: TextStyle(color: Colors.black54)),
+                              Text(_audioPred.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF059669))),
                             ],
                           ),
                           const Divider(height: 20),

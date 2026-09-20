@@ -40,7 +40,6 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
 
   Future<void> _startRealRecording() async {
     try {
-      // 1. Verify microphone permission
       if (!await _audioRecorder.hasPermission()) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -50,19 +49,18 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
         return;
       }
 
-      // 2. Prepare target file path
       final dir = await getApplicationDocumentsDirectory();
-      final filePath = path.join(dir.path, 'tap_${DateTime.now().millisecondsSinceEpoch}.m4a');
+      // Record directly to .wav at 22050 Hz matching Wayne's training dataset
+      final filePath = path.join(dir.path, 'tap_${DateTime.now().millisecondsSinceEpoch}.wav');
       _currentRecordingPath = filePath;
 
-      // 3. Start recording real audio (AAC/M4A)
       await _audioRecorder.start(
         const RecordConfig(
           encoder: AudioEncoder.wav,
-          sampleRate: 22050, // Matches standard Librosa sample rate
-          numChannels: 1,    // Mono
+          sampleRate: 22050,
+          numChannels: 1, // Mono audio
         ),
-        path: filePath.replaceAll('.m4a', '.wav'),
+        path: filePath,
       );
 
       setState(() {
@@ -70,10 +68,10 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
         _recordingSeconds = 0;
       });
 
-      // 4. Run countdown timer (auto-stops at 3 seconds)
+      // Wayne's Librosa pipeline uses 4.0s of audio
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
         setState(() => _recordingSeconds++);
-        if (_recordingSeconds >= 3) {
+        if (_recordingSeconds >= 4) {
           timer.cancel();
           await _stopRecordingAndNavigate();
         }
@@ -92,7 +90,7 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
       final savedPath = finalPath ?? _currentRecordingPath;
 
       if (savedPath != null && await File(savedPath).exists()) {
-        debugPrint("🎤 Real audio recorded: $savedPath (Size: ${await File(savedPath).length()} bytes)");
+        debugPrint("🎤 Real 4s WAV recorded: $savedPath (Size: ${await File(savedPath).length()} bytes)");
         if (mounted) {
           _navigateToResult(hasAudio: true, realAudioPath: savedPath);
         }
