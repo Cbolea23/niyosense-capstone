@@ -17,7 +17,22 @@ SECRET_KEY = 'django-insecure-0i+q@+oh-!nwc4t_en8b1v-dsbzo4nd47_gwibs%unbhzce^e$
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+# Allows connections from local IPs, mobile devices, and tunnel hostnames
 ALLOWED_HOSTS = ['*']
+
+# Whitelist tunnel domains & local network subnets for CSRF validation
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.trycloudflare.com',
+    'https://*.ngrok-free.app',
+    'https://*.loca.lt',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'http://*.ngrok.io',
+]
+
+# Ensure Django recognizes HTTPS requests forwarded through tunnels/proxies
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
 
 
 # Application definition
@@ -43,8 +58,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # Placed high to ensure headers on all responses
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # <-- FIX 1: CORS Middleware added here!
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -126,7 +141,7 @@ SIMPLE_JWT = {
 }
 
 
-# CORS Configuration (Allows Flutter App & Web Dashboard during local dev)
+# CORS Configuration (Allows Flutter App & Web Dashboard during dev and testing)
 CORS_ALLOW_ALL_ORIGINS = True
 
 
