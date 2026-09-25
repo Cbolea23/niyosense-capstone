@@ -122,7 +122,7 @@ dependency_overrides:
 
 
 flutter_launcher_icons:
-  android: "ic_launcher"
+  android: true
   ios: false
   image_path: "assets/logo/logo.png"
   min_sdk_android: 21
