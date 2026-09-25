@@ -115,7 +115,25 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text("Scan Results", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/logo/logo.png',
+              height: 28,
+              width: 28,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) => const Icon(
+                Icons.spa,
+                color: Color(0xFF10B981),
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              "Scan Results",
+              style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,

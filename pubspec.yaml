@@ -69,6 +69,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -83,6 +84,7 @@ flutter:
   assets:
     - assets/models/img_best.tflite
     - assets/models/spec_best.tflite
+    - assets/logo/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -117,3 +119,12 @@ flutter:
 dependency_overrides:
   tflite_flutter: ^0.10.4
   record_platform_interface: ^2.1.0
+
+
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: false
+  image_path: "assets/logo/logo.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#081C15"
+  adaptive_icon_foreground: "assets/logo/logo.png"
