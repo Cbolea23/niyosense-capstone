@@ -4,4 +4,5 @@ WEBDASHBOARD - BACKEND - VISUAL STUDIO
 
 MOBILE APP - THE WHOLE DIRECTORY - ANDROID STUDIO
 
-APK:
+APK: https://github.com/Cbolea23/niyosense-capstone/releases
+
