@@ -1,5 +1,37 @@
 from rest_framework import serializers
-from .models import GradingLog
+from .models import GradingLog, PriceSetting, DeliveryBatch
+
+
+class PriceSettingSerializer(serializers.ModelSerializer):
+  class Meta:
+    model = PriceSetting
+    fields = ['mature_price', 'premature_price', 'reject_price', 'updated_at']
+
+
+class DeliveryBatchSerializer(serializers.ModelSerializer):
+  total_scans = serializers.IntegerField(read_only=True)
+  mature_count = serializers.IntegerField(read_only=True)
+  premature_count = serializers.IntegerField(read_only=True)
+  reject_count = serializers.IntegerField(read_only=True)
+  total_payout = serializers.FloatField(read_only=True)
+
+  class Meta:
+    model = DeliveryBatch
+    fields = [
+        'batch_id',
+        'farmer_name',
+        'operator',
+        'mature_price',
+        'premature_price',
+        'reject_price',
+        'is_closed',
+        'created_at',
+        'total_scans',
+        'mature_count',
+        'premature_count',
+        'reject_count',
+        'total_payout',
+    ]
 
 
 class BulkSyncGradingLogSerializer(serializers.ModelSerializer):
@@ -11,6 +43,7 @@ class BulkSyncGradingLogSerializer(serializers.ModelSerializer):
   audio_prediction = serializers.CharField(
       required=False, allow_blank=True, max_length=50
   )
+  batch_id = serializers.CharField(required=False, allow_blank=True)
 
   class Meta:
     model = GradingLog
@@ -23,6 +56,7 @@ class BulkSyncGradingLogSerializer(serializers.ModelSerializer):
         'created_at',
         'image',
         'audio_file',
+        'batch_id',
     ]
 
   created_at = serializers.DateTimeField(required=False)

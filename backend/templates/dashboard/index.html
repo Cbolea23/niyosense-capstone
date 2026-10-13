@@ -51,6 +51,10 @@
             {% include 'dashboard/includes/tab_logs.html' %}
         </div>
 
+        <div id="tab-deliveries" class="tab-pane hidden">
+            {% include 'dashboard/includes/tab_deliveries.html' %}
+        </div>
+
         <div id="tab-aggregators" class="tab-pane hidden">
             {% include 'dashboard/includes/tab_aggregators.html' %}
         </div>
@@ -171,7 +175,7 @@
             document.getElementById('tab-' + tab).classList.remove('hidden');
             document.getElementById('nav-' + tab).className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-active";
 
-            const titles = { 'home': 'nav_home', 'analytics': 'nav_analytics', 'logs': 'nav_logs', 'aggregators': 'nav_aggregators', 'settings': 'nav_settings' };
+            const titles = { 'home': 'nav_home', 'analytics': 'nav_analytics', 'logs': 'nav_logs', 'deliveries': 'nav_deliveries', 'aggregators': 'nav_aggregators', 'settings': 'nav_settings' };
             const lang = localStorage.getItem('niyosense_lang') || 'en';
             document.getElementById('header-title').innerText = i18n[lang][titles[tab]] || titles[tab];
 
@@ -626,6 +630,12 @@
                 nav_home: "Home",
                 nav_analytics: "Analytics",
                 nav_logs: "Grading Logs",
+                nav_deliveries: "Deliveries & Payouts",
+                deliveries_title: "Farmer Deliveries & Payouts",
+                deliveries_sub: "Manage master coconut buying rates and audit farmer batch settlements",
+                master_rates_title: "Master Buying Rates per Piece (PHP)",
+                save_rates_btn: "Save Rates",
+                deliveries_history: "Logged Deliveries from Field Apps",
                 nav_settings: "Settings",
                 total_scans: "Total Coconuts Scanned",
                 today_suffix: "today",
@@ -703,6 +713,12 @@
                 nav_home: "Tahanan",
                 nav_analytics: "Analitika",
                 nav_logs: "Talaan ng Paggrado",
+                nav_deliveries: "Paghahatid at Bayarin",
+                deliveries_title: "Paghahatid ng Magsasaka at Bayarin",
+                deliveries_sub: "Pamahalaan ang mga presyo ng pagbili at suriin ang mga talaan ng delivery mula sa bukid",
+                master_rates_title: "Pangunahing Presyo ng Pagbili Bawat Piraso (PHP)",
+                save_rates_btn: "I-save ang Presyo",
+                deliveries_history: "Mga Naitalang Delivery Mula sa Field App",
                 nav_aggregators: "Pamamahala ng Aggregator",
                 nav_settings: "Mga Setting",
                 aggregators_sub: "Pamahalaan ang mga field operator at aggregator na may pahintulot sa mobile app",

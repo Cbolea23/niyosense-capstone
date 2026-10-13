@@ -1,0 +1,122 @@
+<div class="space-y-6">
+    <!-- Header with Master Rates Form for Owner -->
+    <div class="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div>
+                <h3 class="font-bold text-slate-800 text-base" data-i18n="deliveries_title">Farmer Deliveries & Payouts</h3>
+                <p class="text-xs text-slate-400" data-i18n="deliveries_sub">Manage master coconut buying rates and audit farmer batch settlements</p>
+            </div>
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2 flex items-center gap-3">
+                <span class="text-xl">💵</span>
+                <div>
+                    <span class="text-[10px] text-emerald-600 font-semibold uppercase tracking-wider block">Total Disbursed Payout</span>
+                    <span class="text-base font-bold text-emerald-700">₱{{ total_farm_payout|floatformat:2 }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Master Buying Rates Form (Owner-Only Control) -->
+        <form method="POST" class="bg-slate-50 border border-slate-200/70 rounded-xl p-4">
+            {% csrf_token %}
+            <input type="hidden" name="update_prices" value="1">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm">🏷️</span>
+                    <h4 class="font-bold text-slate-700 text-xs uppercase tracking-wider" data-i18n="master_rates_title">Master Buying Rates per Piece (PHP)</h4>
+                </div>
+                <span class="text-[11px] text-slate-400">Owner-controlled • Syncs to mobile apps</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                <div>
+                    <label class="text-[11px] font-semibold text-slate-500 mb-1 block" data-i18n="rate_mature">Mature / Niyog (₱)</label>
+                    <input type="number" step="0.50" min="0" name="mature_price" value="{{ current_prices.mature_price }}"
+                        class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" required />
+                </div>
+                <div>
+                    <label class="text-[11px] font-semibold text-slate-500 mb-1 block" data-i18n="rate_premature">Premature / Buko (₱)</label>
+                    <input type="number" step="0.50" min="0" name="premature_price" value="{{ current_prices.premature_price }}"
+                        class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" required />
+                </div>
+                <div>
+                    <label class="text-[11px] font-semibold text-slate-500 mb-1 block" data-i18n="rate_reject">Reject / Bungi (₱)</label>
+                    <input type="number" step="0.50" min="0" name="reject_price" value="{{ current_prices.reject_price }}"
+                        class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" required />
+                </div>
+                <div>
+                    <button type="submit"
+                        class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg text-xs transition shadow-sm flex items-center justify-center gap-1.5">
+                        <span>💾</span> <span data-i18n="save_rates_btn">Save Rates</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Batch Deliveries Table -->
+    <div class="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+            <h4 class="font-bold text-slate-800 text-sm" data-i18n="deliveries_history">Logged Deliveries from Field Apps</h4>
+            <span class="text-xs text-slate-400">{{ batch_summaries|length }} batches recorded</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        <th class="py-3 px-5">Batch ID</th>
+                        <th class="py-3 px-5">Farmer / Supplier</th>
+                        <th class="py-3 px-5">Operator</th>
+                        <th class="py-3 px-5 text-center">Total Scanned</th>
+                        <th class="py-3 px-5 text-center">Mature (₱{{ current_prices.mature_price }})</th>
+                        <th class="py-3 px-5 text-center">Premature (₱{{ current_prices.premature_price }})</th>
+                        <th class="py-3 px-5 text-center">Reject</th>
+                        <th class="py-3 px-5 text-right">Payout Due</th>
+                        <th class="py-3 px-5 text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-xs">
+                    {% for item in batch_summaries %}
+                    <tr class="hover:bg-slate-50/70 transition">
+                        <td class="py-3.5 px-5 font-mono font-bold text-slate-700">{{ item.batch.batch_id }}</td>
+                        <td class="py-3.5 px-5 font-semibold text-slate-800">{{ item.batch.farmer_name }}</td>
+                        <td class="py-3.5 px-5 text-slate-500">{{ item.batch.operator.username|default:"Field Mobile" }}</td>
+                        <td class="py-3.5 px-5 text-center font-bold text-slate-700">{{ item.total_scans }}</td>
+                        <td class="py-3.5 px-5 text-center">
+                            <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
+                                {{ item.mature_count }}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-5 text-center">
+                            <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">
+                                {{ item.premature_count }}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-5 text-center">
+                            <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800">
+                                {{ item.reject_count }}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-5 text-right font-bold text-emerald-600 font-mono text-sm">
+                            ₱{{ item.payout|floatformat:2 }}
+                        </td>
+                        <td class="py-3.5 px-5 text-center">
+                            {% if item.batch.is_closed %}
+                            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">Finalized</span>
+                            {% else %}
+                            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 animate-pulse">Active Tally</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="py-8 text-center text-slate-400 text-xs">
+                            No farmer delivery sessions logged yet. When mobile workers create delivery sessions and sync, they will appear here.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

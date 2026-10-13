@@ -3,6 +3,78 @@ from django.conf import settings
 from django.db import models
 
 
+class PriceSetting(models.Model):
+  """Master buying rates configured by the farm owner."""
+
+  mature_price = models.DecimalField(
+      max_digits=7,
+      decimal_places=2,
+      default=12.00,
+      help_text='Price per mature nut (PHP)',
+  )
+  premature_price = models.DecimalField(
+      max_digits=7,
+      decimal_places=2,
+      default=7.00,
+      help_text='Price per premature/buko nut (PHP)',
+  )
+  reject_price = models.DecimalField(
+      max_digits=7,
+      decimal_places=2,
+      default=0.00,
+      help_text='Price per reject nut (PHP)',
+  )
+  updated_at = models.DateTimeField(auto_now=True)
+
+  class Meta:
+    verbose_name = 'Price Setting'
+    verbose_name_plural = 'Price Settings'
+
+  @classmethod
+  def get_current_rates(cls):
+    price_setting, _ = cls.objects.get_or_create(id=1)
+    return price_setting
+
+  def __str__(self):
+    return (
+        f'Rates: Mature=₱{self.mature_price}, Premature=₱{self.premature_price},'
+        f' Reject=₱{self.reject_price}'
+    )
+
+
+class DeliveryBatch(models.Model):
+  """Grouped delivery batch from a farmer/supplier."""
+
+  batch_id = models.CharField(max_length=64, primary_key=True)
+  farmer_name = models.CharField(max_length=150)
+  operator = models.ForeignKey(
+      settings.AUTH_USER_MODEL,
+      on_delete=models.SET_NULL,
+      null=True,
+      blank=True,
+      related_name='batches',
+  )
+  mature_price = models.DecimalField(
+      max_digits=7, decimal_places=2, default=12.00
+  )
+  premature_price = models.DecimalField(
+      max_digits=7, decimal_places=2, default=7.00
+  )
+  reject_price = models.DecimalField(
+      max_digits=7, decimal_places=2, default=0.00
+  )
+  is_closed = models.BooleanField(default=False)
+  created_at = models.DateTimeField(db_index=True)
+
+  class Meta:
+    ordering = ['-created_at']
+    verbose_name = 'Delivery Batch'
+    verbose_name_plural = 'Delivery Batches'
+
+  def __str__(self):
+    return f'{self.batch_id} - {self.farmer_name}'
+
+
 class GradingLog(models.Model):
   MATURITY_CHOICES = [
       ('Premature', 'Premature'),
@@ -16,6 +88,13 @@ class GradingLog(models.Model):
   uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
   user = models.ForeignKey(
       settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='scans'
+  )
+  batch = models.ForeignKey(
+      DeliveryBatch,
+      on_delete=models.SET_NULL,
+      null=True,
+      blank=True,
+      related_name='scans',
   )
 
   image = models.ImageField(upload_to='coconuts/images/%Y/%m/%d/')

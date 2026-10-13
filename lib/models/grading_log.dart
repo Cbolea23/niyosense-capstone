@@ -9,6 +9,7 @@ class GradingLog {
   final double confidence;
   final bool isSynced;
   final String createdAt;
+  final String? batchId; // Optional link to a batch/delivery session
 
   GradingLog({
     required this.uuid,
@@ -21,6 +22,7 @@ class GradingLog {
     required this.confidence,
     this.isSynced = false,
     required this.createdAt,
+    this.batchId,
   });
 
   Map<String, dynamic> toMap() {
@@ -35,6 +37,7 @@ class GradingLog {
       'confidence': confidence,
       'is_synced': isSynced ? 1 : 0,
       'created_at': createdAt,
+      'batch_id': batchId,
     };
   }
 
@@ -50,6 +53,7 @@ class GradingLog {
       confidence: (map['confidence'] as num).toDouble(),
       isSynced: map['is_synced'] == 1,
       createdAt: map['created_at'],
+      batchId: map['batch_id'] as String?,
     );
   }
 }

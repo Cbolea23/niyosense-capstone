@@ -12,6 +12,8 @@ import 'utils/app_config.dart';
 import 'views/visual_scan_screen.dart';
 import 'views/settings_screen.dart';
 import 'views/login_screen.dart';
+import 'views/batch_session_screen.dart';
+import 'models/batch_session.dart';
 
 List<CameraDescription> cameras = [];
 
@@ -112,6 +114,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String _serverBaseUrl = AppConfig.defaultServerUrl;
   String _currentOperator = "maria_santos";
   UpdateInfo? _availableUpdate;
+  BatchSession? _activeBatch;
+  BatchSummary? _activeBatchSummary;
 
   @override
   void initState() {
@@ -119,12 +123,17 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadHomeScreenData();
   }
 
-  // Reloads IP settings, checks pending SQLite logs, and pings server
+  // Reloads IP settings, checks pending SQLite logs, batch session, and pings server
   Future<void> _loadHomeScreenData() async {
     final prefs = await SharedPreferences.getInstance();
     final savedUrl = prefs.getString('backend_base_url');
     final savedUser = prefs.getString('operator_username');
     final unsyncedLogs = await DatabaseHelper.instance.getUnsyncedLogs();
+    final activeBatch = await DatabaseHelper.instance.getActiveBatchSession();
+    BatchSummary? batchSummary;
+    if (activeBatch != null) {
+      batchSummary = await DatabaseHelper.instance.getBatchSummary(activeBatch);
+    }
 
     String activeUrl = (savedUrl != null && savedUrl.isNotEmpty) ? savedUrl : AppConfig.defaultServerUrl;
 
@@ -143,6 +152,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _serverBaseUrl = activeUrl;
         _pendingLogsCount = unsyncedLogs.length;
         _isServerOnline = online;
+        _activeBatch = activeBatch;
+        _activeBatchSummary = batchSummary;
         if (savedUser != null && savedUser.isNotEmpty) {
           _currentOperator = savedUser;
         }
@@ -174,32 +185,50 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _isSyncing = true);
 
     final prefs = await SharedPreferences.getInstance();
-    final String username = prefs.getString('operator_username') ?? 'maria_santos';
-    final String password = prefs.getString('operator_password') ?? 'Password123!';
+    final String? savedToken = prefs.getString('access_token');
+    final String? username = prefs.getString('operator_username');
+    final String? password = prefs.getString('operator_password');
 
     final authService = AuthService(backendBaseUrl: _serverBaseUrl);
     final syncService = SyncService(backendBaseUrl: _serverBaseUrl);
 
-    final String? token = await authService.login(username, password);
+    String? token = savedToken;
+    // If no token or if we have username/password, refresh session token
+    if (username != null && password != null) {
+      final freshToken = await authService.login(username, password);
+      if (freshToken != null) {
+        token = freshToken;
+        await prefs.setString('access_token', freshToken);
+      }
+    }
 
     if (token != null) {
-      await syncService.performSequentialSync(token);
+      final int syncedCount = await syncService.performSequentialSync(token);
       await _loadHomeScreenData();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AppTranslations.text('sync_success_msg')),
-            backgroundColor: const Color(0xFF10B981),
-          ),
-        );
+        if (syncedCount > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("${AppTranslations.text('sync_success_msg')} ($syncedCount scan(s))"),
+              backgroundColor: const Color(0xFF10B981),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("${AppTranslations.text('sync_failed_msg')} (Sync rejected by server)"),
+              backgroundColor: Colors.red.shade700,
+            ),
+          );
+        }
       }
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${AppTranslations.text('sync_failed_msg')} ($_serverBaseUrl)'),
-            backgroundColor: Colors.red.shade700,
+            content: Text("Authentication required: Please log in again to sync scans."),
+            backgroundColor: Colors.amber.shade900,
           ),
         );
       }
@@ -462,7 +491,99 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 20),
+
+                    // Farmer Delivery Batch Session Card
+                    GestureDetector(
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const BatchSessionScreen()),
+                        );
+                        _loadHomeScreenData();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: _activeBatch != null
+                              ? const Color(0xFF0F2E23)
+                              : Colors.white.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: _activeBatch != null
+                                ? const Color(0xFF10B981)
+                                : Colors.white12,
+                            width: _activeBatch != null ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: _activeBatch != null
+                                    ? const Color(0xFF10B981).withValues(alpha: 0.2)
+                                    : Colors.white.withValues(alpha: 0.08),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                _activeBatch != null ? Icons.inventory_2 : Icons.add_shopping_cart,
+                                color: _activeBatch != null ? const Color(0xFF10B981) : Colors.white70,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        _activeBatch != null
+                                            ? AppTranslations.text('active_batch')
+                                            : AppTranslations.text('delivery_batch_title'),
+                                        style: TextStyle(
+                                          color: _activeBatch != null ? const Color(0xFF10B981) : Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      if (_activeBatch != null) ...[
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF10B981),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            "${_activeBatchSummary?.totalScans ?? 0} pcs",
+                                            style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 10),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _activeBatch != null
+                                        ? "${_activeBatch!.farmerName} • Payout: ₱${(_activeBatchSummary?.totalPayout ?? 0.0).toStringAsFixed(2)}"
+                                        : AppTranslations.text('start_batch_btn'),
+                                    style: TextStyle(
+                                      color: _activeBatch != null ? Colors.white70 : Colors.white38,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.arrow_forward_ios, color: Colors.white38, size: 14),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
 
                     // Central Start Scan Card
                     Container(

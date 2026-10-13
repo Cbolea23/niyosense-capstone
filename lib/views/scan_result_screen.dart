@@ -79,8 +79,9 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
       _isValidObject = true;
     }
 
-    // Save to local SQLite database
+    // Save to local SQLite database with active delivery batch link
     try {
+      final activeBatch = await DatabaseHelper.instance.getActiveBatchSession();
       final log = GradingLog(
         uuid: const Uuid().v4(),
         userId: 1,
@@ -92,10 +93,11 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
         confidence: _confidence,
         isSynced: false,
         createdAt: DateTime.now().toIso8601String(),
+        batchId: activeBatch?.batchId,
       );
 
       await DatabaseHelper.instance.insertScan(log);
-      debugPrint("✅ SUCCESS: Multimodal scan saved to local SQLite database!");
+      debugPrint("✅ SUCCESS: Multimodal scan saved to local SQLite database! (Batch: ${activeBatch?.batchId ?? 'None'})");
     } catch (dbError) {
       debugPrint("❌ Database save error: $dbError");
     } finally {

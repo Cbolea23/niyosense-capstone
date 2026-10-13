@@ -63,6 +63,13 @@ The system relies on two TFLite models expecting `[1, 3, 224, 224]` Float32 inpu
   * Added dedicated `Unrecognized` stage handling across Django models, serializers, and web dashboard table badges to record and flag non-coconut / low-confidence scans.
   * Added "Install Mobile App (Android)" card in web dashboard Settings with direct APK download (`/media/downloads/niyosense.apk`) and dedicated scan-to-install QR code modal.
   * Implemented multi-operator individual login system (`maria_santos`, `juan_delacruz`, `pedro_reyes`, `aggregator1`) with client-side credential persistence in Flutter settings, enabling concurrent multi-phone field grading with distinct audit trails.
+* **Farmer Delivery Batch & Payout Voucher System**:
+  * Added `BatchSession` and `BatchSummary` models with local SQLite schema migration in `DatabaseHelper` (`batch_sessions` table with auto-migration from version 1 to 2).
+  * Implemented active delivery session tracking (`batch_id`) in `GradingLog`, automatically associating individual scans to the active delivery.
+  * Added interactive `BatchSessionScreen` with configurable buying prices per piece (Mature/Niyog, Premature/Buko, Reject/Bungi).
+  * Added live calculation of total harvest scanned, counts/percentages per maturity grade, and total payout due in PHP.
+  * Implemented one-tap shareable delivery receipt/voucher generation with clipboard export to resolve farmer transaction disputes on-site.
+  * Added dynamic Delivery Session card on `HomeScreen` with active batch badge, scan counts, and payout indicators.
 
 ---
 

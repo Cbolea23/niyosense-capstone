@@ -54,7 +54,13 @@ class UpdateService {
             ? payload['latest_build_number']
             : int.tryParse(payload['latest_build_number']?.toString() ?? '0') ?? 0;
         final String serverVersion = payload['latest_version'] ?? '1.0.0';
-        final String downloadUrl = payload['download_url'] ?? '$baseUrl/install/';
+        String rawDownloadUrl = payload['download_url'] ?? '';
+        String downloadUrl;
+        if (rawDownloadUrl.isNotEmpty && !rawDownloadUrl.contains('127.0.0.1') && !rawDownloadUrl.contains('localhost')) {
+          downloadUrl = rawDownloadUrl;
+        } else {
+          downloadUrl = '$baseUrl/media/downloads/niyosense.apk';
+        }
         final String releaseTitle = payload['release_title'] ?? 'NiyoSense Field Update';
         final String releaseNotes = payload['release_notes'] ?? '';
         final double fileSize = (payload['file_size_mb'] is num)
@@ -102,9 +108,24 @@ class UpdateService {
   static Future<bool> launchUpdateUrl(String downloadUrl) async {
     try {
       final uri = Uri.parse(downloadUrl);
-      if (await canLaunchUrl(uri)) {
-        return await launchUrl(uri, mode: LaunchMode.externalApplication);
+      // Attempt 1: External application (system browser / downloader)
+      try {
+        final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (launched) return true;
+      } catch (e) {
+        debugPrint("External launch failed, trying fallback: $e");
       }
+
+      // Attempt 2: Platform default
+      try {
+        final launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
+        if (launched) return true;
+      } catch (e) {
+        debugPrint("Platform default launch failed: $e");
+      }
+
+      // Attempt 3: In-app webview fallback if browser intent is blocked
+      return await launchUrl(uri, mode: LaunchMode.inAppWebView);
     } catch (e) {
       debugPrint("Failed to launch download URL: $e");
     }
@@ -192,9 +213,17 @@ class UpdateService {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              launchUpdateUrl(updateInfo.downloadUrl);
+              final ok = await launchUpdateUrl(updateInfo.downloadUrl);
+              if (!ok && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("Opening install page: ${updateInfo.downloadUrl}"),
+                    backgroundColor: Colors.amber.shade800,
+                  ),
+                );
+              }
             },
             icon: const Icon(Icons.download, color: Colors.white, size: 18),
             label: Text(

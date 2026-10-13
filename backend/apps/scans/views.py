@@ -6,23 +6,41 @@ import shutil
 import socket
 import subprocess
 from datetime import timedelta
+from decimal import Decimal
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count
 from django.db.models.functions import TruncMonth
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.utils import timezone
 from rest_framework import parsers, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import GradingLog
-from .serializers import BulkSyncGradingLogSerializer
+from .models import GradingLog, PriceSetting, DeliveryBatch
+from .serializers import (
+    BulkSyncGradingLogSerializer,
+    PriceSettingSerializer,
+    DeliveryBatchSerializer,
+)
 
 
 def web_dashboard(request):
+    if request.method == 'POST' and 'update_prices' in request.POST:
+        # Farm Owner updates master buying rates
+        price_setting = PriceSetting.get_current_rates()
+        try:
+            price_setting.mature_price = Decimal(request.POST.get('mature_price', '12.00'))
+            price_setting.premature_price = Decimal(request.POST.get('premature_price', '7.00'))
+            price_setting.reject_price = Decimal(request.POST.get('reject_price', '0.00'))
+            price_setting.save()
+        except Exception:
+            pass
+        return redirect('/#tab-deliveries')
+
     now = timezone.now()
     today = now.date()
     total_scans = GradingLog.objects.count()
@@ -61,11 +79,34 @@ def web_dashboard(request):
         monthly_labels = [now.strftime('%b %Y')]
         monthly_counts = [0]
 
-    recent_logs = GradingLog.objects.select_related('user').order_by('-created_at')[:50]
+    recent_logs = GradingLog.objects.select_related('user', 'batch').order_by('-created_at')[:50]
 
     from django.contrib.auth import get_user_model
     User = get_user_model()
     aggregators = User.objects.filter(role=getattr(User.Roles, 'AGGREGATOR', 'AGGREGATOR')).order_by('-date_joined')
+
+    # Deliveries and Payouts Data for Owner
+    current_prices = PriceSetting.get_current_rates()
+    batches = DeliveryBatch.objects.select_related('operator').order_by('-created_at')[:30]
+    batch_summaries = []
+    total_farm_payout = Decimal('0.00')
+
+    for b in batches:
+        b_scans = b.scans.all()
+        m_cnt = sum(1 for s in b_scans if 'mature' in s.final_maturity_stage.lower() and 'premature' not in s.final_maturity_stage.lower())
+        p_cnt = sum(1 for s in b_scans if 'premature' in s.final_maturity_stage.lower() or 'malauhog' in s.final_maturity_stage.lower())
+        r_cnt = len(b_scans) - m_cnt - p_cnt
+        payout = (Decimal(m_cnt) * b.mature_price) + (Decimal(p_cnt) * b.premature_price) + (Decimal(r_cnt) * b.reject_price)
+        total_farm_payout += payout
+
+        batch_summaries.append({
+            'batch': b,
+            'total_scans': len(b_scans),
+            'mature_count': m_cnt,
+            'premature_count': p_cnt,
+            'reject_count': r_cnt,
+            'payout': payout,
+        })
 
     context = {
         'total_scans': total_scans,
@@ -83,8 +124,49 @@ def web_dashboard(request):
         'monthly_counts_json': json.dumps(monthly_counts),
         'logs': recent_logs,
         'aggregators': aggregators,
+        'current_prices': current_prices,
+        'batch_summaries': batch_summaries,
+        'total_farm_payout': total_farm_payout,
     }
     return render(request, 'dashboard/index.html', context)
+
+
+# --- REST API Endpoints for Pricing & Delivery Batches ---
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def get_current_prices_api(request):
+    """Mobile app fetches the master buying rates set by the farm owner."""
+    prices = PriceSetting.get_current_rates()
+    serializer = PriceSettingSerializer(prices)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def sync_batch_session_api(request):
+    """Mobile app syncs completed farmer delivery sessions to the central server."""
+    batch_id = request.data.get('batch_id')
+    farmer_name = request.data.get('farmer_name', 'Unknown')
+    mature_price = request.data.get('mature_price', 12.0)
+    premature_price = request.data.get('premature_price', 7.0)
+    reject_price = request.data.get('reject_price', 0.0)
+    is_closed = request.data.get('is_closed', False)
+    created_at = request.data.get('created_at') or timezone.now()
+
+    batch, created = DeliveryBatch.objects.update_or_create(
+        batch_id=batch_id,
+        defaults={
+            'farmer_name': farmer_name,
+            'operator': request.user,
+            'mature_price': Decimal(str(mature_price)),
+            'premature_price': Decimal(str(premature_price)),
+            'reject_price': Decimal(str(reject_price)),
+            'is_closed': is_closed,
+            'created_at': created_at,
+        }
+    )
+    return Response({'status': 'success', 'batch_id': batch.batch_id}, status=status.HTTP_200_OK)
 
 
 class BulkSyncView(APIView):
@@ -110,10 +192,16 @@ class BulkSyncView(APIView):
         if 'audio' in request.FILES and 'audio_file' not in sync_data:
             sync_data['audio_file'] = request.FILES['audio']
 
+        # Link batch if batch_id provided
+        batch_id = sync_data.get('batch_id')
+        delivery_batch = None
+        if batch_id:
+            delivery_batch = DeliveryBatch.objects.filter(batch_id=batch_id).first()
+
         serializer = BulkSyncGradingLogSerializer(data=sync_data)
         if serializer.is_valid():
             with transaction.atomic():
-                serializer.save(user=request.user, is_synced=True)
+                serializer.save(user=request.user, batch=delivery_batch, is_synced=True)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
             
         print("❌ BulkSync validation errors:", serializer.errors, "Payload:", sync_data)
@@ -129,46 +217,34 @@ def get_server_ip(request):
     try:
         if system == "Windows":
             output = subprocess.check_output("ipconfig", shell=True).decode('utf-8', errors='ignore')
-            # Split output into individual adapter blocks
             adapter_blocks = re.split(r'(?=Ethernet adapter|Wireless LAN adapter)', output)
-            
             virtual_keywords = ['vmware', 'virtualbox', 'radmin', 'vmnet', 'hyper-v', 'wsl']
 
             for block in adapter_blocks:
-                # Skip virtual adapters entirely
                 if any(v in block.lower() for v in virtual_keywords):
                     continue
-                
-                # Extract IPv4 and Default Gateway
                 ip_match = re.search(r'IPv4 Address[\. ]*:\s*([0-9\.]+)', block)
                 gateway_match = re.search(r'Default Gateway[\. ]*:\s*([0-9\.]+)', block)
-                
                 if ip_match:
                     ip = ip_match.group(1)
-                    # Skip invalid IPs
                     if ip.startswith(("127.", "169.254.", "0.")):
                         continue
-                    
-                    # Prefer adapters that have a gateway (internet/LAN connected)
                     if gateway_match and not gateway_match.group(1).startswith("0."):
                         ip_address = ip
                         break
                     elif not ip_address:
-                        ip_address = ip # Fallback to first valid IP
+                        ip_address = ip
                         
         elif shutil.which("ip"):
             output = subprocess.check_output("ip addr show", shell=True, stderr=subprocess.DEVNULL).decode('utf-8', errors='ignore')
-            # Find physical interfaces (eth, enp, wlan)
             matches = re.findall(r'inet\s+([0-9\.]+).*?\s+(eth\d|enp\d|wlan\d)', output)
             for ip, iface in matches:
                 if not ip.startswith(("127.", "169.254.")):
                     ip_address = ip
                     break
-                    
     except Exception:
         pass
 
-    # Fallback: UDP Socket method (if parsing failed)
     if not ip_address:
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -180,7 +256,6 @@ def get_server_ip(request):
         except Exception:
             pass
 
-    # Final fallback
     if not ip_address:
         ip_address = "127.0.0.1"
     
@@ -232,27 +307,23 @@ def download_apk_page(request):
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
 def app_version_check_api(request):
-    """
-    Returns latest released mobile app metadata for in-app version check & one-tap updates.
-    """
     apk_rel_path = 'media/downloads/niyosense.apk'
     apk_abs_path = os.path.join(settings.BASE_DIR, apk_rel_path)
     file_exists = os.path.exists(apk_abs_path)
     file_size_bytes = os.path.getsize(apk_abs_path) if file_exists else 0
     file_size_mb = round(file_size_bytes / (1024 * 1024), 1)
 
-    # Automatically derive download URL
     host = request.get_host()
     scheme = 'https' if request.is_secure() or request.headers.get('x-forwarded-proto') == 'https' else 'http'
-    download_url = f"{scheme}://{host}/media/downloads/niyosense.apk"
+    download_url = f"{scheme}://{host}/media/downloads/niyosense.apk?v=1.3.4"
     install_page_url = f"{scheme}://{host}/install/"
 
     return Response({
         "success": True,
-        "latest_version": "1.3.2",
-        "latest_build_number": 4,
-        "release_title": "NiyoSense Field v1.3.2",
-        "release_notes": "Updated operator settings UI, direct QR scanner pairing, and in-app update checking.",
+        "latest_version": "1.3.4",
+        "latest_build_number": 6,
+        "release_title": "NiyoSense Field v1.3.4",
+        "release_notes": "Lock price editing to Owner-only from dashboard, enhanced in-app updater, and batch session payout tracking.",
         "download_url": download_url,
         "install_page_url": install_page_url,
         "file_size_mb": file_size_mb,
