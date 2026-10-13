@@ -83,7 +83,7 @@
                     </thead>
                     <tbody id="aggregatorsTableBody" class="divide-y divide-slate-100 text-xs">
                         {% for agg in aggregators %}
-                        <tr id="aggRow_{{ agg.id }}" class="hover:bg-slate-50/80 transition cursor-pointer group" onclick="openAggregatorModal({{ agg.id }})">
+                        <tr id="aggRow_{{ agg.id }}" class="hover:bg-slate-50/80 transition cursor-pointer group" data-agg-id="{{ agg.id }}" onclick="openAggregatorModal(this.dataset.aggId)">
                             <td class="p-4">
                                 <div class="flex items-center space-x-3">
                                     <div class="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-xs group-hover:scale-105 transition-transform">
@@ -124,7 +124,7 @@
                                 {% endif %}
                             </td>
                             <td class="p-4 text-right">
-                                <button type="button" onclick="event.stopPropagation(); openAggregatorModal({{ agg.id }})"
+                                <button type="button" data-agg-id="{{ agg.id }}" onclick="event.stopPropagation(); openAggregatorModal(this.dataset.aggId)"
                                     class="text-xs bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-600 font-semibold px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1">
                                     <span>⚙️</span> <span data-i18n="btn_edit">Edit</span>
                                 </button>

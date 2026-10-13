@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../database/db_helper.dart';
 import '../services/auth_service.dart';
 import '../services/sync_service.dart';
+import '../services/update_service.dart';
 import '../utils/app_translations.dart';
 import '../utils/app_config.dart';
 import 'server_config_screen.dart';
@@ -24,6 +25,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _passwordController = TextEditingController(text: "Password123!");
   bool _isConnected = false;
   bool _isConnecting = false;
+  bool _isCheckingUpdate = false;
+  UpdateInfo? _availableUpdate;
   int _pendingLogsCount = 0;
 
   @override
@@ -37,6 +40,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await _loadOperatorCredentials();
     await _loadPendingLogs();
     await _checkServerHealth();
+    _silentCheckForUpdate();
+  }
+
+  Future<void> _silentCheckForUpdate() async {
+    final info = await UpdateService.checkForUpdate();
+    if (mounted && info != null && info.hasUpdate) {
+      setState(() => _availableUpdate = info);
+    }
+  }
+
+  Future<void> _manualCheckForUpdate() async {
+    setState(() => _isCheckingUpdate = true);
+    final info = await UpdateService.checkForUpdate();
+    if (mounted) {
+      setState(() {
+        _isCheckingUpdate = false;
+        _availableUpdate = (info != null && info.hasUpdate) ? info : null;
+      });
+
+      if (info != null && info.hasUpdate) {
+        UpdateService.showUpdateDialog(context, info);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppTranslations.text('app_up_to_date')),
+            backgroundColor: const Color(0xFF10B981),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _loadOperatorCredentials() async {
@@ -430,7 +463,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Operator Account Section
+                // Connect Button (above Current Operator)
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: _isConnecting ? null : _connectToServer,
+                  icon: _isConnecting
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Icon(Icons.wifi, color: Colors.white, size: 20),
+                  label: Text(
+                    _isConnecting ? AppTranslations.text('connecting_btn') : AppTranslations.text('connect_server_btn'),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Operator Account Section (without username/password input fields)
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -538,69 +589,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 14),
-
-                      // Username field
-                      Text(
-                        AppTranslations.text('operator_username'),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.black54),
-                      ),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: _usernameController,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.badge_outlined, color: Colors.black45, size: 20),
-                          filled: true,
-                          fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Password field
-                      Text(
-                        AppTranslations.text('operator_password'),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.black54),
-                      ),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: _passwordController,
-                        obscureText: true,
-                        style: const TextStyle(fontSize: 13),
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.lock_outline, color: Colors.black45, size: 20),
-                          filled: true,
-                          fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                        ),
-                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
-
-                // Connect Button
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF10B981),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: _isConnecting ? null : _connectToServer,
-                  icon: _isConnecting
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.wifi, color: Colors.white, size: 20),
-                  label: Text(
-                    _isConnecting ? AppTranslations.text('connecting_btn') : AppTranslations.text('connect_server_btn'),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
-                ),
                 const SizedBox(height: 28),
+
+                // Update Notification Banner (if newer version detected)
+                if (_availableUpdate != null && _availableUpdate!.hasUpdate) ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFECFDF5), Color(0xFFD1FAE5)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.5)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF10B981),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.new_releases, color: Colors.white, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "${AppTranslations.text('update_banner_title')}: v${_availableUpdate!.latestVersion}",
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF065F46)),
+                              ),
+                              Text(
+                                AppTranslations.text('update_banner_sub'),
+                                style: const TextStyle(fontSize: 11, color: Color(0xFF047857)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF10B981),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            elevation: 0,
+                          ),
+                          onPressed: () => UpdateService.showUpdateDialog(context, _availableUpdate!),
+                          child: Text(
+                            AppTranslations.text('update_now_btn'),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
                 // Device Info & Pending Scans Table
                 Container(
@@ -618,6 +669,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _buildInfoRow(AppTranslations.text('app_version'), AppConfig.fullVersionString),
                       const Divider(height: 1),
                       _buildInfoRow(AppTranslations.text('model_engine'), AppConfig.modelEngine),
+                      const Divider(height: 1),
+                      Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF059669),
+                            side: const BorderSide(color: Color(0xFF6EE7B7)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            minimumSize: const Size.fromHeight(40),
+                          ),
+                          onPressed: _isCheckingUpdate ? null : _manualCheckForUpdate,
+                          icon: _isCheckingUpdate
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF059669)))
+                              : const Icon(Icons.sync, size: 18),
+                          label: Text(
+                            _isCheckingUpdate
+                                ? AppTranslations.text('checking_update')
+                                : AppTranslations.text('check_update_btn'),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

@@ -6,6 +6,7 @@ import shutil
 import socket
 import subprocess
 from datetime import timedelta
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count
@@ -226,3 +227,34 @@ def dashboard_stats_api(request):
 
 def download_apk_page(request):
     return render(request, 'dashboard/download_apk.html')
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def app_version_check_api(request):
+    """
+    Returns latest released mobile app metadata for in-app version check & one-tap updates.
+    """
+    apk_rel_path = 'media/downloads/niyosense.apk'
+    apk_abs_path = os.path.join(settings.BASE_DIR, apk_rel_path)
+    file_exists = os.path.exists(apk_abs_path)
+    file_size_bytes = os.path.getsize(apk_abs_path) if file_exists else 0
+    file_size_mb = round(file_size_bytes / (1024 * 1024), 1)
+
+    # Automatically derive download URL
+    host = request.get_host()
+    scheme = 'https' if request.is_secure() or request.headers.get('x-forwarded-proto') == 'https' else 'http'
+    download_url = f"{scheme}://{host}/media/downloads/niyosense.apk"
+    install_page_url = f"{scheme}://{host}/install/"
+
+    return Response({
+        "success": True,
+        "latest_version": "1.3.2",
+        "latest_build_number": 4,
+        "release_title": "NiyoSense Field v1.3.2",
+        "release_notes": "Updated operator settings UI, direct QR scanner pairing, and in-app update checking.",
+        "download_url": download_url,
+        "install_page_url": install_page_url,
+        "file_size_mb": file_size_mb,
+        "available": file_exists,
+    })

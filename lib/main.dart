@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'database/db_helper.dart';
 import 'services/auth_service.dart';
 import 'services/sync_service.dart';
+import 'services/update_service.dart';
 import 'utils/app_translations.dart';
 import 'utils/app_config.dart';
 import 'views/visual_scan_screen.dart';
@@ -110,6 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isServerOnline = false;
   String _serverBaseUrl = AppConfig.defaultServerUrl;
   String _currentOperator = "maria_santos";
+  UpdateInfo? _availableUpdate;
 
   @override
   void initState() {
@@ -131,6 +133,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     bool online = await _pingServer(activeUrl);
+    UpdateInfo? updateInfo;
+    if (online) {
+      updateInfo = await UpdateService.checkForUpdate();
+    }
 
     if (mounted) {
       setState(() {
@@ -140,6 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (savedUser != null && savedUser.isNotEmpty) {
           _currentOperator = savedUser;
         }
+        _availableUpdate = (updateInfo != null && updateInfo.hasUpdate) ? updateInfo : null;
       });
     }
   }
@@ -280,22 +287,90 @@ class _HomeScreenState extends State<HomeScreen> {
                         // Action Buttons: Settings & Logout
                         Row(
                           children: [
-                            IconButton(
-                              icon: const Icon(Icons.settings, color: Colors.white70, size: 24),
-                              tooltip: "Settings",
-                              onPressed: () async {
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (context) => SettingsScreen(onLogout: widget.onLogout)),
-                                );
-                                _loadHomeScreenData(); // Reload after coming back from Settings
-                              },
+                            Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.settings, color: Colors.white70, size: 24),
+                                  tooltip: "Settings",
+                                  onPressed: () async {
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => SettingsScreen(onLogout: widget.onLogout)),
+                                    );
+                                    _loadHomeScreenData(); // Reload after coming back from Settings
+                                  },
+                                ),
+                                if (_availableUpdate != null)
+                                  Positioned(
+                                    top: 8,
+                                    right: 8,
+                                    child: Container(
+                                      width: 10,
+                                      height: 10,
+                                      decoration: BoxDecoration(
+                                        color: Colors.amber.shade400,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: const Color(0xFF081C15), width: 1.5),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
+
+                    // Update Notification Alert Banner on Home Screen
+                    if (_availableUpdate != null) ...[
+                      GestureDetector(
+                        onTap: () => UpdateService.showUpdateDialog(context, _availableUpdate!),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Colors.amber.shade900.withValues(alpha: 0.6), Colors.amber.shade800.withValues(alpha: 0.3)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.amber.shade400.withValues(alpha: 0.5)),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.shade400,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.system_update_alt, color: Colors.black87, size: 18),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "${AppTranslations.text('update_banner_title')} (v${_availableUpdate!.latestVersion})",
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                    ),
+                                    Text(
+                                      AppTranslations.text('update_banner_sub'),
+                                      style: TextStyle(color: Colors.amber.shade200, fontSize: 11),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 14),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
 
                     // Server Status & Offline Sync Action Card
                     Container(

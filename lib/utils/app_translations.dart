@@ -108,6 +108,14 @@ class AppTranslations {
       'login_success': 'Welcome, {user}! Successfully authenticated.',
       'login_invalid': 'Invalid username or password. Check with your admin.',
       'logout_btn': 'Log Out',
+      'check_update_btn': 'Check for Updates',
+      'checking_update': 'Checking server for updates...',
+      'update_available_title': 'New Update Available',
+      'update_available_msg': 'Version {version} is available for download.',
+      'update_now_btn': 'Download & Install',
+      'app_up_to_date': 'Your app is already up to date!',
+      'update_banner_title': 'Update Available',
+      'update_banner_sub': 'Tap here to download the latest version',
     },
     'tl': {
       // General & Common
@@ -212,6 +220,14 @@ class AppTranslations {
       'login_success': 'Maligayang pagdating, {user}! Tagumpay ang pag-authenticate.',
       'login_invalid': 'Maling username o password. Sumangguni sa iyong admin.',
       'logout_btn': 'Mag-logout',
+      'check_update_btn': 'Suriin ang mga Update',
+      'checking_update': 'Sinusuri ang server para sa update...',
+      'update_available_title': 'May Bagong Bersyon',
+      'update_available_msg': 'Ang bersyon {version} ay handa nang i-download.',
+      'update_now_btn': 'I-download at I-install',
+      'app_up_to_date': 'Nasa pinakabagong bersyon na ang iyong app!',
+      'update_banner_title': 'May Bagong Update',
+      'update_banner_sub': 'Pindutin dito upang i-download ang pinakabagong bersyon',
     },
   };
 
