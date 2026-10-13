@@ -21,7 +21,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -40,7 +40,8 @@ class DatabaseHelper {
         confidence REAL NOT NULL,
         is_synced INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
-        batch_id TEXT
+        batch_id TEXT,
+        device_id TEXT
       )
     ''');
 
@@ -73,6 +74,11 @@ class DatabaseHelper {
           is_closed INTEGER NOT NULL DEFAULT 0
         )
       ''');
+    }
+    if (oldVersion < 3) {
+      try {
+        await db.execute('ALTER TABLE grading_logs ADD COLUMN device_id TEXT');
+      } catch (_) {}
     }
   }
 

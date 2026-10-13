@@ -6,6 +6,7 @@
             <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-semibold uppercase">
                 <th class="p-4" data-i18n="table_uuid_date">UUID / Date</th>
                 <th class="p-4" data-i18n="table_aggregator">Aggregator</th>
+                <th class="p-4">Device</th>
                 <th class="p-4" data-i18n="table_visual">Visual</th>
                 <th class="p-4" data-i18n="table_acoustic">Acoustic</th>
                 <th class="p-4" data-i18n="table_final_grade">Final Grade</th>
@@ -21,6 +22,13 @@
                     <p class="text-[10px] text-slate-400 mt-0.5">{{ log.created_at|date:"M d, Y • h:i A" }}</p>
                 </td>
                 <td class="p-4 font-medium text-slate-700">{{ log.user.username }}</td>
+                <td class="p-4">
+                    {% if log.device_id %}
+                    <span class="font-mono text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold">{{ log.device_id }}</span>
+                    {% else %}
+                    <span class="text-slate-400 font-mono text-[10px]">--</span>
+                    {% endif %}
+                </td>
                 <td class="p-4 text-slate-600">{{ log.visual_prediction }}</td>
                 <td class="p-4 text-slate-600">{{ log.audio_prediction }}</td>
                 <td class="p-4">
@@ -52,7 +60,7 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="7" class="p-8 text-center text-slate-400 text-xs" data-i18n="no_logs_synced">No scan logs synced yet. Perform a scan
+                <td colspan="8" class="p-8 text-center text-slate-400 text-xs" data-i18n="no_logs_synced">No scan logs synced yet. Perform a scan
                     on the mobile app and tap Sync.</td>
             </tr>
             {% endfor %}

@@ -44,6 +44,7 @@ class BulkSyncGradingLogSerializer(serializers.ModelSerializer):
       required=False, allow_blank=True, max_length=50
   )
   batch_id = serializers.CharField(required=False, allow_blank=True)
+  device_id = serializers.CharField(required=False, allow_blank=True, max_length=64)
 
   class Meta:
     model = GradingLog
@@ -53,6 +54,7 @@ class BulkSyncGradingLogSerializer(serializers.ModelSerializer):
         'audio_prediction',
         'final_maturity_stage',
         'confidence_score',
+        'device_id',
         'created_at',
         'image',
         'audio_file',

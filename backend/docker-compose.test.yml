@@ -1,0 +1,28 @@
+services:
+  web_test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: niyosense_leader_test
+    restart: unless-stopped
+    ports:
+      # Runs on port 8080 so your existing container on port 8000 stays completely untouched
+      - "8080:8000"
+    env_file:
+      - .env
+    environment:
+      - DEBUG=${DEBUG:-False}
+      - SECRET_KEY=${SECRET_KEY:-niyosense_leader_test_secret_key_2026}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
+      - DATABASE_URL=${DATABASE_URL:-}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-https://*.trycloudflare.com,https://*.ngrok-free.app,http://localhost:8080,http://127.0.0.1:8080,http://localhost:8000,http://127.0.0.1:8000}
+    volumes:
+      # Isolated test volume directories so main media and static files are not mixed
+      - ./media_test:/app/media
+      - ./static_test:/app/static
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/system/host-ip/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s

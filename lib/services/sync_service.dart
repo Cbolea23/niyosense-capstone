@@ -107,6 +107,18 @@ class SyncService {
       if (createdAt.isEmpty) createdAt = getProp(['created_at', 'createdAt']);
       request.fields['created_at'] = createdAt.isNotEmpty ? createdAt : DateTime.now().toIso8601String();
 
+      // Pass batch_id if present
+      String batchId = '';
+      try { batchId = dLog.batchId?.toString() ?? dLog.batch_id?.toString() ?? ''; } catch (_) {}
+      if (batchId.isEmpty) batchId = getProp(['batch_id', 'batchId']);
+      if (batchId.isNotEmpty) request.fields['batch_id'] = batchId;
+
+      // Pass device_id
+      String deviceId = '';
+      try { deviceId = dLog.deviceId?.toString() ?? dLog.device_id?.toString() ?? ''; } catch (_) {}
+      if (deviceId.isEmpty) deviceId = getProp(['device_id', 'deviceId']);
+      if (deviceId.isNotEmpty) request.fields['device_id'] = deviceId;
+
       // Attach Image File
       String? imgPath;
       try { imgPath = dLog.imagePath?.toString() ?? dLog.image_path?.toString() ?? dLog.image?.toString(); } catch (_) {}

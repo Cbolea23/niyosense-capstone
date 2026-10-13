@@ -28,6 +28,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isCheckingUpdate = false;
   UpdateInfo? _availableUpdate;
   int _pendingLogsCount = 0;
+  String _deviceId = "Loading...";
 
   @override
   void initState() {
@@ -39,6 +40,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await _loadSavedServerUrl();
     await _loadOperatorCredentials();
     await _loadPendingLogs();
+    final dId = await AppConfig.getDeviceId();
+    if (mounted) setState(() => _deviceId = dId);
     await _checkServerHealth();
     _silentCheckForUpdate();
   }
@@ -664,7 +667,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       _buildInfoRow(AppTranslations.text('pending_sync_scans'), "$_pendingLogsCount local"),
                       const Divider(height: 1),
-                      _buildInfoRow(AppTranslations.text('device_id'), "NYS-FIELD-0024"),
+                      _buildInfoRow(AppTranslations.text('device_id'), _deviceId),
                       const Divider(height: 1),
                       _buildInfoRow(AppTranslations.text('app_version'), AppConfig.fullVersionString),
                       const Divider(height: 1),

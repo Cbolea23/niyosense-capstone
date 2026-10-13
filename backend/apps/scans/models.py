@@ -3,6 +3,27 @@ from django.conf import settings
 from django.db import models
 
 
+class FarmProfile(models.Model):
+  """Farm and owner profile information."""
+  owner_name = models.CharField(max_length=150, default='Maria Santos')
+  farm_name = models.CharField(max_length=200, default='Santos Coconut Farm')
+  location = models.CharField(max_length=200, default='Quezon Province')
+  email = models.EmailField(blank=True, default='m.santos@niyosense.ph')
+  updated_at = models.DateTimeField(auto_now=True)
+
+  class Meta:
+    verbose_name = 'Farm Profile'
+    verbose_name_plural = 'Farm Profiles'
+
+  @classmethod
+  def get_profile(cls):
+    profile, _ = cls.objects.get_or_create(id=1)
+    return profile
+
+  def __str__(self):
+    return f'{self.farm_name} ({self.owner_name})'
+
+
 class PriceSetting(models.Model):
   """Master buying rates configured by the farm owner."""
 
@@ -108,6 +129,7 @@ class GradingLog(models.Model):
       max_length=30, choices=MATURITY_CHOICES
   )
   confidence_score = models.FloatField()
+  device_id = models.CharField(max_length=64, blank=True, default='', db_index=True)
   is_synced = models.BooleanField(default=True)
   created_at = models.DateTimeField(db_index=True)
 

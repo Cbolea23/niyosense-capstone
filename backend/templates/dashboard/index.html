@@ -51,9 +51,6 @@
             {% include 'dashboard/includes/tab_logs.html' %}
         </div>
 
-        <div id="tab-deliveries" class="tab-pane hidden">
-            {% include 'dashboard/includes/tab_deliveries.html' %}
-        </div>
 
         <div id="tab-aggregators" class="tab-pane hidden">
             {% include 'dashboard/includes/tab_aggregators.html' %}
@@ -166,6 +163,107 @@
             }
         });
 
+        // Wayne Proposal: Monthly Ratio Doughnut Chart
+        const monthlyRatioEl = document.getElementById('monthlyRatioChart');
+        let monthlyRatioChart = null;
+        if (monthlyRatioEl) {
+            monthlyRatioChart = new Chart(monthlyRatioEl, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Malauhog', 'Buko (Mature)'],
+                    datasets: [{
+                        data: [prematureCount, matureCount],
+                        backgroundColor: ['#F59E0B', '#10B981'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        // Wayne Proposal: Estimated Valuation Engine
+        function recalculateValuation() {
+            const malauhogPrice = parseFloat(document.getElementById('valMalauhogPrice')?.value) || 0;
+            const bukoPrice = parseFloat(document.getElementById('valBukoPrice')?.value) || 0;
+
+            const grossValue = (prematureCount * malauhogPrice) + (matureCount * bukoPrice);
+
+            const displayEl = document.getElementById('estimatedGrossValueDisplay');
+            if (displayEl) {
+                displayEl.innerText = '₱' + grossValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            const subtitleEl = document.getElementById('valuationFormulaSubtitle');
+            if (subtitleEl) {
+                subtitleEl.innerText = `Based on ${prematureCount} Malauhog @ ₱${malauhogPrice.toFixed(2)} + ${matureCount} Buko @ ₱${bukoPrice.toFixed(2)}`;
+            }
+
+            recalculateReconciliation();
+        }
+
+        // Wayne Proposal: Batch Settlement & Profit Reconciliation
+        function recalculateReconciliation() {
+            const actualReceived = parseFloat(document.getElementById('actualReceivedInput')?.value) || 0;
+            const laborRate = parseFloat(document.getElementById('laborRateInput')?.value) || 0;
+            const totalNuts = prematureCount + matureCount;
+
+            const malauhogPrice = parseFloat(document.getElementById('valMalauhogPrice')?.value) || 0;
+            const bukoPrice = parseFloat(document.getElementById('valBukoPrice')?.value) || 0;
+            const estimatedGross = (prematureCount * malauhogPrice) + (matureCount * bukoPrice);
+
+            const totalLabor = totalNuts * laborRate;
+            const netProfit = actualReceived - totalLabor;
+            const variance = actualReceived - estimatedGross;
+
+            const laborDisplay = document.getElementById('totalLaborDisplay');
+            if (laborDisplay) {
+                laborDisplay.innerText = '₱' + totalLabor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            const netProfitDisplay = document.getElementById('netProfitDisplay');
+            if (netProfitDisplay) {
+                netProfitDisplay.innerText = '₱' + netProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            const varianceDisplay = document.getElementById('varianceDisplay');
+            const varianceCard = document.getElementById('varianceCard');
+            const varianceNotice = document.getElementById('varianceNotice');
+            const varianceIcon = document.getElementById('varianceIcon');
+
+            if (varianceDisplay) {
+                if (variance < 0) {
+                    varianceDisplay.innerText = '-₱' + Math.abs(variance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    if (varianceCard) {
+                        varianceCard.className = "border border-rose-200 bg-rose-50/70 rounded-xl p-4 transition";
+                    }
+                    if (varianceDisplay) varianceDisplay.className = "text-2xl font-bold font-mono text-rose-700";
+                    if (varianceIcon) varianceIcon.innerText = "📉";
+                    if (varianceNotice) varianceNotice.innerText = "Commercial price leakage: Buyer paid below graded batch value.";
+                } else if (variance > 0) {
+                    varianceDisplay.innerText = '+₱' + variance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    if (varianceCard) {
+                        varianceCard.className = "border border-emerald-200 bg-emerald-50/70 rounded-xl p-4 transition";
+                    }
+                    if (varianceDisplay) varianceDisplay.className = "text-2xl font-bold font-mono text-emerald-700";
+                    if (varianceIcon) varianceIcon.innerText = "📈";
+                    if (varianceNotice) varianceNotice.innerText = "Premium pricing: Buyer paid above graded batch value.";
+                } else {
+                    varianceDisplay.innerText = '₱0.00';
+                    if (varianceCard) {
+                        varianceCard.className = "border border-slate-200 bg-slate-50/70 rounded-xl p-4 transition";
+                    }
+                    if (varianceDisplay) varianceDisplay.className = "text-2xl font-bold font-mono text-slate-700";
+                    if (varianceIcon) varianceIcon.innerText = "⚖️";
+                    if (varianceNotice) varianceNotice.innerText = "Balanced: Buyer payout matches estimated graded value.";
+                }
+            }
+        }
+
         function switchTab(tab) {
             document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
             document.querySelectorAll('nav button').forEach(btn => {
@@ -180,8 +278,10 @@
             document.getElementById('header-title').innerText = i18n[lang][titles[tab]] || titles[tab];
 
             // Re-render chart size when tab becomes visible to prevent infinite resize loops
-            if (tab === 'analytics' && yieldChart) {
-                yieldChart.resize();
+            if (tab === 'analytics') {
+                if (yieldChart) yieldChart.resize();
+                if (monthlyRatioChart) monthlyRatioChart.resize();
+                recalculateValuation();
             } else if (tab === 'home') {
                 if (dailyChart) dailyChart.resize();
                 if (maturityChart) maturityChart.resize();
@@ -360,17 +460,26 @@
                     // Append row to table
                     const tbody = document.getElementById('aggregatorsTableBody');
                     if (tbody) {
+                        const newUserId = data.user ? data.user.id : null;
                         const tr = document.createElement('tr');
-                        tr.className = "hover:bg-slate-50/80 transition animate-in fade-in";
+                        tr.className = "hover:bg-slate-50/80 transition animate-in fade-in cursor-pointer group";
+                        if (newUserId) {
+                            tr.id = `aggRow_${newUserId}`;
+                            tr.setAttribute('data-agg-id', newUserId);
+                            tr.onclick = function() { openAggregatorModal(newUserId); };
+                        }
                         tr.innerHTML = `
                             <td class="p-4">
                                 <div class="flex items-center space-x-3">
-                                    <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-xs">
+                                    <div class="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-xs group-hover:scale-105 transition-transform">
                                         ${username.substring(0, 2).toUpperCase()}
                                     </div>
                                     <div>
-                                        <p class="font-bold text-slate-800 text-xs">${username}</p>
-                                        <p class="text-[11px] text-slate-400">${firstName || lastName ? `${firstName} ${lastName}` : 'Field Worker'}</p>
+                                        <p class="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                                            <span>${username}</span>
+                                            <span class="opacity-0 group-hover:opacity-100 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded transition">Manage</span>
+                                        </p>
+                                        <p class="text-[11px] text-slate-400">${firstName || lastName ? `${firstName} ${lastName}` : (email || 'Field Worker')}</p>
                                     </div>
                                 </div>
                             </td>
@@ -383,8 +492,20 @@
                                     <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Active
                                 </span>
                             </td>
+                            <td class="p-4 text-right">
+                                <button type="button" ${newUserId ? `onclick="event.stopPropagation(); openAggregatorModal(${newUserId})"` : ''}
+                                    class="text-xs bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-600 font-semibold px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1">
+                                    <span>⚙️</span> <span>Edit</span>
+                                </button>
+                            </td>
                         `;
                         tbody.insertBefore(tr, tbody.firstChild);
+
+                        const countBadge = document.getElementById('aggregatorTotalCountBadge');
+                        if (countBadge) {
+                            const currentVal = parseInt(countBadge.innerText) || 0;
+                            countBadge.innerText = currentVal + 1;
+                        }
                     }
                 } else {
                     alertEl.className = "text-xs rounded-xl p-3 bg-rose-50 text-rose-800 border border-rose-200 block";
@@ -497,6 +618,22 @@
 
         function closeAggregatorModal() {
             const modal = document.getElementById('aggregatorDetailModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        function openFarmProfileModal() {
+            const modal = document.getElementById('farmProfileModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        }
+
+        function closeFarmProfileModal() {
+            const modal = document.getElementById('farmProfileModal');
             if (modal) {
                 modal.classList.add('hidden');
                 modal.classList.remove('flex');
@@ -816,6 +953,14 @@
             }
         }
 
+        function updateLiveClock() {
+            const clockEl = document.getElementById('liveClockDisplay');
+            if (clockEl) {
+                const now = new Date();
+                clockEl.innerText = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             const savedLang = localStorage.getItem('niyosense_lang') || 'en';
             setDashboardLanguage(savedLang);
@@ -828,6 +973,9 @@
             }
 
             fetchAutoHostIp();
+            recalculateValuation();
+            updateLiveClock();
+            setInterval(updateLiveClock, 10000);
             setInterval(pollDashboardStats, 3000);
         });
     </script>

@@ -10,6 +10,7 @@ class GradingLog {
   final bool isSynced;
   final String createdAt;
   final String? batchId; // Optional link to a batch/delivery session
+  final String? deviceId;
 
   GradingLog({
     required this.uuid,
@@ -23,6 +24,7 @@ class GradingLog {
     this.isSynced = false,
     required this.createdAt,
     this.batchId,
+    this.deviceId,
   });
 
   Map<String, dynamic> toMap() {
@@ -38,6 +40,7 @@ class GradingLog {
       'is_synced': isSynced ? 1 : 0,
       'created_at': createdAt,
       'batch_id': batchId,
+      'device_id': deviceId,
     };
   }
 
@@ -54,6 +57,7 @@ class GradingLog {
       isSynced: map['is_synced'] == 1,
       createdAt: map['created_at'],
       batchId: map['batch_id'] as String?,
+      deviceId: map['device_id'] as String?,
     );
   }
 }

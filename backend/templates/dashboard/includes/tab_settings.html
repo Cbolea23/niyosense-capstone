@@ -19,16 +19,27 @@
         </div>
     </div>
 
-    <!-- User Profile Card -->
-    <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm flex items-center space-x-4">
-        <div
-            class="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-            MS</div>
-        <div>
-            <h4 class="font-bold text-slate-800 text-sm">Maria Santos</h4>
-            <p class="text-xs text-slate-400">m.santos@niyosense.ph</p>
-            <p class="text-[11px] text-emerald-600 font-medium mt-1" data-i18n="farm_location">Santos Coconut Farm • Quezon Province</p>
+    <!-- User Profile Card (Editable) -->
+    <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+            <div class="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm">
+                {{ farm_profile.owner_name|slice:":2"|upper }}
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h4 class="font-bold text-slate-800 text-sm" id="ownerNameDisplay">{{ farm_profile.owner_name|default:"Maria Santos" }}</h4>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Farm Owner</span>
+                </div>
+                <p class="text-xs text-slate-400" id="ownerEmailDisplay">{{ farm_profile.email|default:"m.santos@niyosense.ph" }}</p>
+                <p class="text-[11px] text-emerald-600 font-medium mt-1" id="ownerFarmLocationDisplay">
+                    {{ farm_profile.farm_name|default:"Santos Coconut Farm" }} • {{ farm_profile.location|default:"Quezon Province" }}
+                </p>
+            </div>
         </div>
+        <button type="button" onclick="openFarmProfileModal()"
+            class="text-xs bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 font-semibold px-3 py-2 rounded-xl transition flex items-center gap-1.5 border border-slate-200/60">
+            <span>✏️</span> <span>Edit Profile</span>
+        </button>
     </div>
 
     <!-- Server Configuration Card (Fully Editable Input) -->
@@ -67,7 +78,7 @@
                 <h4 class="font-bold text-sm" data-i18n="install_app_title">NiyoSense Field App (Android)</h4>
                 <p class="text-xs text-emerald-100" data-i18n="install_app_desc">Download APK directly or scan QR code to install on Android phone</p>
                 <div class="flex items-center gap-2 mt-1">
-                    <span class="text-[10px] bg-white/25 font-mono px-2 py-0.5 rounded-full font-semibold">v1.2.0 Release</span>
+                    <span class="text-[10px] bg-white/25 font-mono px-2 py-0.5 rounded-full font-semibold">v{{ app_version }} Release</span>
                     <span class="text-[10px] text-emerald-200">~99 MB • TFLite Ready</span>
                 </div>
             </div>
@@ -85,13 +96,80 @@
         </div>
     </div>
 
-    <!-- App Metadata Card -->
+    <!-- App Metadata Card (Dynamic) -->
     <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm text-xs space-y-2">
-        <div class="flex justify-between text-slate-500"><span data-i18n="meta_version">App Version</span><span
-                class="font-mono text-slate-800">NiyoSense Local v1.2.0</span></div>
-        <div class="flex justify-between text-slate-500"><span data-i18n="meta_pipeline">Model Pipeline</span><span
-                class="font-mono text-slate-800">Multimodal Audio-Visual v2.4</span></div>
-        <div class="flex justify-between text-slate-500"><span data-i18n="meta_engine">Inference Engine</span><span
-                class="font-mono text-slate-800">TFLite (INT8 Quantized)</span></div>
+        <div class="flex justify-between text-slate-500">
+            <span data-i18n="meta_version">App Version</span>
+            <span class="font-mono text-slate-800 font-semibold">NiyoSense v{{ app_version }}</span>
+        </div>
+        <div class="flex justify-between text-slate-500">
+            <span data-i18n="meta_pipeline">Model Pipeline</span>
+            <span class="font-mono text-slate-800 font-semibold">{{ model_pipeline }}</span>
+        </div>
+        <div class="flex justify-between text-slate-500">
+            <span data-i18n="meta_engine">Inference Engine</span>
+            <span class="font-mono text-slate-800 font-semibold">{{ inference_engine }}</span>
+        </div>
     </div>
+</div>
+
+<!-- Modal: Edit Farm Owner Profile -->
+<div id="farmProfileModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4 transition-opacity">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 text-left relative animate-in fade-in zoom-in-95 duration-150">
+        <button onclick="closeFarmProfileModal()" type="button"
+            class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-xl font-bold w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition">
+            &times;
+        </button>
+
+        <div class="flex items-center space-x-3 mb-5 pb-3 border-b border-slate-100">
+            <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 text-lg">
+                👨‍🌾
+            </div>
+            <div>
+                <h3 class="font-bold text-slate-800 text-sm">Edit Farm & Owner Profile</h3>
+                <p class="text-[11px] text-slate-400">Update plantation owner name and location</p>
+            </div>
+        </div>
+
+        <form method="POST" action="/" class="space-y-3.5 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="update_farm_profile" value="1" />
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Farm Owner Name *</label>
+                <input type="text" name="owner_name" required value="{{ farm_profile.owner_name|default:'Maria Santos' }}"
+                    class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" />
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Farm / Plantation Name *</label>
+                <input type="text" name="farm_name" required value="{{ farm_profile.farm_name|default:'Santos Coconut Farm' }}"
+                    class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" />
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Location / Province</label>
+                <input type="text" name="location" value="{{ farm_profile.location|default:'Quezon Province' }}"
+                    class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" />
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Contact Email</label>
+                <input type="email" name="email" value="{{ farm_profile.email|default:'m.santos@niyosense.ph' }}"
+                    class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" />
+            </div>
+
+            <div class="pt-3 flex items-center gap-2">
+                <button type="submit"
+                    class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-sm">
+                    <span>💾</span> <span>Save Farm Profile</span>
+                </button>
+                <button type="button" onclick="closeFarmProfileModal()"
+                    class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold py-2.5 px-4 rounded-xl text-xs transition">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 </div>

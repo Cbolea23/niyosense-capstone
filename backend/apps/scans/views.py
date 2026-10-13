@@ -20,7 +20,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import GradingLog, PriceSetting, DeliveryBatch
+from .models import GradingLog, PriceSetting, DeliveryBatch, FarmProfile
 from .serializers import (
     BulkSyncGradingLogSerializer,
     PriceSettingSerializer,
@@ -29,6 +29,16 @@ from .serializers import (
 
 
 def web_dashboard(request):
+    farm_profile = FarmProfile.get_profile()
+
+    if request.method == 'POST' and 'update_farm_profile' in request.POST:
+        farm_profile.owner_name = request.POST.get('owner_name', farm_profile.owner_name).strip()
+        farm_profile.farm_name = request.POST.get('farm_name', farm_profile.farm_name).strip()
+        farm_profile.location = request.POST.get('location', farm_profile.location).strip()
+        farm_profile.email = request.POST.get('email', farm_profile.email).strip()
+        farm_profile.save()
+        return redirect('/#tab-settings')
+
     if request.method == 'POST' and 'update_prices' in request.POST:
         # Farm Owner updates master buying rates
         price_setting = PriceSetting.get_current_rates()
@@ -39,7 +49,7 @@ def web_dashboard(request):
             price_setting.save()
         except Exception:
             pass
-        return redirect('/#tab-deliveries')
+        return redirect('/#tab-settings')
 
     now = timezone.now()
     today = now.date()
@@ -127,8 +137,38 @@ def web_dashboard(request):
         'current_prices': current_prices,
         'batch_summaries': batch_summaries,
         'total_farm_payout': total_farm_payout,
+        'farm_profile': farm_profile,
+        'app_version': '1.3.4',
+        'model_pipeline': 'Multimodal Audio-Visual v2.4.1',
+        'inference_engine': 'TFLite (INT8 Quantized)',
     }
     return render(request, 'dashboard/index.html', context)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([permissions.AllowAny])
+def farm_profile_api(request):
+    """API to fetch or update farm owner profile."""
+    profile = FarmProfile.get_profile()
+    if request.method == 'POST':
+        profile.owner_name = request.data.get('owner_name', profile.owner_name).strip()
+        profile.farm_name = request.data.get('farm_name', profile.farm_name).strip()
+        profile.location = request.data.get('location', profile.location).strip()
+        profile.email = request.data.get('email', profile.email).strip()
+        profile.save()
+        return Response({
+            'success': True,
+            'owner_name': profile.owner_name,
+            'farm_name': profile.farm_name,
+            'location': profile.location,
+            'email': profile.email,
+        })
+    return Response({
+        'owner_name': profile.owner_name,
+        'farm_name': profile.farm_name,
+        'location': profile.location,
+        'email': profile.email,
+    })
 
 
 # --- REST API Endpoints for Pricing & Delivery Batches ---

@@ -8,7 +8,7 @@
                  class="w-10 h-10 object-contain rounded-xl shadow-sm" />
             <div>
                 <h1 class="font-bold text-slate-800 text-base leading-none">NiyoSense</h1>
-                <span class="text-xs text-emerald-600 font-medium">Local Farm</span>
+                <span class="text-xs text-emerald-600 font-medium truncate block max-w-[130px]" title="{{ farm_profile.farm_name|default:'Local Farm' }}">{{ farm_profile.farm_name|default:"Local Farm" }}</span>
             </div>
         </div>
 
@@ -25,10 +25,7 @@
                 class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-inactive">
                 <span>📅</span> <span data-i18n="nav_logs">Grading Logs</span>
             </button>
-            <button onclick="switchTab('deliveries')" id="nav-deliveries"
-                class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-inactive">
-                <span>💰</span> <span data-i18n="nav_deliveries">Deliveries & Payouts</span>
-            </button>
+
             <button onclick="switchTab('aggregators')" id="nav-aggregators"
                 class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-inactive">
                 <span>👥</span> <span data-i18n="nav_aggregators">Manage Aggregators</span>

@@ -5,6 +5,7 @@ import '../database/db_helper.dart';
 import '../models/grading_log.dart';
 import '../services/tflite_service.dart';
 import '../utils/app_translations.dart';
+import '../utils/app_config.dart';
 
 class ScanResultScreen extends StatefulWidget {
   final String? imagePath;
@@ -79,9 +80,9 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
       _isValidObject = true;
     }
 
-    // Save to local SQLite database with active delivery batch link
+    // Save to local SQLite database with persistent Device ID
     try {
-      final activeBatch = await DatabaseHelper.instance.getActiveBatchSession();
+      final deviceId = await AppConfig.getDeviceId();
       final log = GradingLog(
         uuid: const Uuid().v4(),
         userId: 1,
@@ -93,11 +94,11 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
         confidence: _confidence,
         isSynced: false,
         createdAt: DateTime.now().toIso8601String(),
-        batchId: activeBatch?.batchId,
+        deviceId: deviceId,
       );
 
       await DatabaseHelper.instance.insertScan(log);
-      debugPrint("✅ SUCCESS: Multimodal scan saved to local SQLite database! (Batch: ${activeBatch?.batchId ?? 'None'})");
+      debugPrint("✅ SUCCESS: Multimodal scan saved to local SQLite database! (Device: $deviceId)");
     } catch (dbError) {
       debugPrint("❌ Database save error: $dbError");
     } finally {
