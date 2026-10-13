@@ -11,3 +11,9 @@ class User(AbstractUser):
         choices=Roles.choices, 
         default=Roles.AGGREGATOR
     )
+    # Stored so admin can view/remind field workers of their assigned password
+    plaintext_password = models.CharField(
+        max_length=128, 
+        blank=True, 
+        default=''
+    )

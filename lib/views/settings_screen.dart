@@ -6,10 +6,13 @@ import '../database/db_helper.dart';
 import '../services/auth_service.dart';
 import '../services/sync_service.dart';
 import '../utils/app_translations.dart';
+import '../utils/app_config.dart';
 import 'server_config_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  final VoidCallback? onLogout;
+
+  const SettingsScreen({super.key, this.onLogout});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -439,31 +442,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFECFDF5),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.person_outline, color: Color(0xFF10B981), size: 18),
-                          ),
-                          const SizedBox(width: 10),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          Row(
                             children: [
-                              Text(
-                                AppTranslations.text('operator_account'),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                              Container(
+                                width: 34,
+                                height: 34,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFECFDF5),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.person, color: Color(0xFF10B981), size: 20),
                               ),
-                              Text(
-                                AppTranslations.text('operator_account_sub'),
-                                style: const TextStyle(fontSize: 10.5, color: Colors.black45),
+                              const SizedBox(width: 10),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    AppTranslations.text('current_operator'),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                                  ),
+                                  Text(
+                                    AppTranslations.text('operator_account_sub'),
+                                    style: const TextStyle(fontSize: 10.5, color: Colors.black45),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFD1FAE5),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              AppTranslations.text('operator_active'),
+                              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF047857)),
+                            ),
+                          ),
                         ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Logged-in Operator User Banner
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.badge, color: Color(0xFF10B981), size: 18),
+                                const SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      AppTranslations.text('logged_in_as'),
+                                      style: const TextStyle(color: Colors.black45, fontSize: 10),
+                                    ),
+                                    Text(
+                                      _usernameController.text.isNotEmpty ? _usernameController.text : "maria_santos",
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            if (widget.onLogout != null)
+                              TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  visualDensity: VisualDensity.compact,
+                                  foregroundColor: Colors.red.shade700,
+                                ),
+                                onPressed: () async {
+                                  final nav = Navigator.of(context);
+                                  final prefs = await SharedPreferences.getInstance();
+                                  await prefs.remove('access_token');
+                                  if (mounted) {
+                                    nav.pop();
+                                    widget.onLogout!();
+                                  }
+                                },
+                                icon: const Icon(Icons.logout, size: 14),
+                                label: Text(AppTranslations.text('logout_btn'), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                              ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 14),
 
@@ -542,9 +615,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const Divider(height: 1),
                       _buildInfoRow(AppTranslations.text('device_id'), "NYS-FIELD-0024"),
                       const Divider(height: 1),
-                      _buildInfoRow(AppTranslations.text('app_version'), "NiyoSense Field v1.2.0"),
+                      _buildInfoRow(AppTranslations.text('app_version'), AppConfig.fullVersionString),
                       const Divider(height: 1),
-                      _buildInfoRow(AppTranslations.text('model_engine'), "Vision v2.4.1 (Multimodal)"),
+                      _buildInfoRow(AppTranslations.text('model_engine'), AppConfig.modelEngine),
                     ],
                   ),
                 ),

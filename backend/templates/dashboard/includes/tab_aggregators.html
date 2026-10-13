@@ -63,10 +63,10 @@
             <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                 <div>
                     <h3 class="font-bold text-slate-800 text-sm" data-i18n="active_aggregators_title">Registered Field Aggregators</h3>
-                    <p class="text-xs text-slate-400" data-i18n="active_aggregators_sub">Users authorized to record scans and synchronize from mobile</p>
+                    <p class="text-xs text-slate-400" data-i18n="active_aggregators_sub">Users authorized to record scans and synchronize from mobile. Click any row to view & manage.</p>
                 </div>
                 <span class="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-3 py-1 rounded-full">
-                    {{ aggregators|length }} <span data-i18n="accounts_badge">Accounts</span>
+                    <span id="aggregatorTotalCountBadge">{{ aggregators|length }}</span> <span data-i18n="accounts_badge">Accounts</span>
                 </span>
             </div>
 
@@ -78,18 +78,22 @@
                             <th class="p-4" data-i18n="table_role">Role</th>
                             <th class="p-4" data-i18n="table_date_joined">Date Added</th>
                             <th class="p-4" data-i18n="table_status">Status</th>
+                            <th class="p-4 text-right" data-i18n="table_action">Action</th>
                         </tr>
                     </thead>
                     <tbody id="aggregatorsTableBody" class="divide-y divide-slate-100 text-xs">
                         {% for agg in aggregators %}
-                        <tr class="hover:bg-slate-50/80 transition">
+                        <tr id="aggRow_{{ agg.id }}" class="hover:bg-slate-50/80 transition cursor-pointer group" onclick="openAggregatorModal({{ agg.id }})">
                             <td class="p-4">
                                 <div class="flex items-center space-x-3">
-                                    <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-xs">
+                                    <div class="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-xs group-hover:scale-105 transition-transform">
                                         {{ agg.username|slice:":2"|upper }}
                                     </div>
                                     <div>
-                                        <p class="font-bold text-slate-800 text-xs">{{ agg.username }}</p>
+                                        <p class="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                                            <span>{{ agg.username }}</span>
+                                            <span class="opacity-0 group-hover:opacity-100 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded transition">Manage</span>
+                                        </p>
                                         <p class="text-[11px] text-slate-400">
                                             {% if agg.first_name or agg.last_name %}
                                                 {{ agg.first_name }} {{ agg.last_name }}
@@ -109,14 +113,26 @@
                                 {{ agg.date_joined|date:"M d, Y" }}
                             </td>
                             <td class="p-4">
+                                {% if agg.is_active %}
                                 <span class="inline-flex items-center gap-1.5 text-emerald-600 font-semibold text-[11px]">
                                     <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Active
                                 </span>
+                                {% else %}
+                                <span class="inline-flex items-center gap-1.5 text-slate-400 font-semibold text-[11px]">
+                                    <span class="w-2 h-2 rounded-full bg-slate-300"></span> Disabled
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="p-4 text-right">
+                                <button type="button" onclick="event.stopPropagation(); openAggregatorModal({{ agg.id }})"
+                                    class="text-xs bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-600 font-semibold px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1">
+                                    <span>⚙️</span> <span data-i18n="btn_edit">Edit</span>
+                                </button>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="4" class="p-8 text-center text-slate-400 text-xs" data-i18n="no_aggregators_found">
+                            <td colspan="5" class="p-8 text-center text-slate-400 text-xs" data-i18n="no_aggregators_found">
                                 No aggregators created yet. Use the form on the left to add mobile users.
                             </td>
                         </tr>
@@ -127,7 +143,119 @@
         </div>
 
         <div class="p-4 bg-slate-50 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between">
-            <span data-i18n="admin_credential_notice">💡 Inform field operators to use these usernames and passwords in the mobile app's dedicated login screen.</span>
+            <span data-i18n="admin_credential_notice">💡 Click any account row to view details, reset password, change names, or manage access.</span>
         </div>
+    </div>
+</div>
+
+<!-- Modal: View & Edit Aggregator Account -->
+<div id="aggregatorDetailModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4 transition-opacity duration-200">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 text-left relative animate-in fade-in zoom-in-95 duration-150">
+        <button onclick="closeAggregatorModal()" type="button"
+            class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-xl font-bold w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition">
+            &times;
+        </button>
+
+        <div class="flex items-center space-x-3.5 mb-5 pb-4 border-b border-slate-100">
+            <div id="modalUserAvatar" class="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center font-bold text-base shadow-sm">
+                AG
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h3 id="modalUsernameDisplay" class="text-base font-bold text-slate-800">aggregator_user</h3>
+                    <span id="modalActiveBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Active</span>
+                </div>
+                <p id="modalUserSubDisplay" class="text-xs text-slate-400">Account ID: #0 • Registered Field Operator</p>
+            </div>
+        </div>
+
+        <form id="editAggregatorForm" onsubmit="handleUpdateAggregator(event)" class="space-y-3.5 text-xs">
+            <input type="hidden" id="modalUserId" />
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1" data-i18n="field_first_name">First Name</label>
+                    <input type="text" id="modalFirstName" placeholder="First Name"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition" />
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1" data-i18n="field_last_name">Last Name</label>
+                    <input type="text" id="modalLastName" placeholder="Last Name"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition" />
+                </div>
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1" data-i18n="field_email">Email Address</label>
+                <input type="email" id="modalEmail" placeholder="operator@farm.ph"
+                    class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition" />
+            </div>
+
+            <!-- Active Login Credentials Box for Admin -->
+            <div class="bg-emerald-50/70 border border-emerald-200/90 rounded-2xl p-3.5 space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-emerald-900 font-bold text-xs flex items-center gap-1.5">
+                        <span>🔐</span> <span>Current Login Credentials</span>
+                    </span>
+                    <button type="button" onclick="copyAggregatorCredentials()" class="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1 transition">
+                        <span>📋</span> <span id="copyCredStatusText">Copy</span>
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="bg-white/90 border border-emerald-200/70 rounded-xl p-2">
+                        <span class="block text-[10px] text-slate-400 font-semibold uppercase">Username</span>
+                        <span id="modalCredUsername" class="font-mono font-bold text-slate-800 break-all select-all">--</span>
+                    </div>
+                    <div class="bg-white/90 border border-emerald-200/70 rounded-xl p-2 relative">
+                        <div class="flex items-center justify-between">
+                            <span class="block text-[10px] text-slate-400 font-semibold uppercase">Password</span>
+                            <button type="button" onclick="togglePasswordVisibility()" class="text-xs text-slate-400 hover:text-slate-700 transition" title="Show/Hide Password" id="togglePasswordBtn">
+                                👁️
+                            </button>
+                        </div>
+                        <div class="flex items-center mt-0.5">
+                            <input type="password" id="modalCredPassword" readonly
+                                class="w-full bg-transparent font-mono font-bold text-slate-800 text-xs focus:outline-none select-all" value="" />
+                        </div>
+                    </div>
+                </div>
+                <p class="text-[10px] text-emerald-800/80 leading-relaxed">
+                    💡 If this operator forgets their login details, share this username and password with them.
+                </p>
+            </div>
+
+            <div class="bg-amber-50/60 border border-amber-200/80 rounded-2xl p-3.5 space-y-1.5">
+                <div class="flex items-center gap-1.5 text-amber-800 font-bold text-xs">
+                    <span>🔑</span> <span data-i18n="reset_password_label">Change / Reset Password</span>
+                </div>
+                <p class="text-[11px] text-amber-700/80" data-i18n="reset_password_hint">Leave blank to keep existing password, or enter new password below.</p>
+                <input type="password" id="modalNewPassword" placeholder="New password (optional)" minlength="6"
+                    class="w-full bg-white border border-amber-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition" />
+            </div>
+
+            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div>
+                    <p class="font-bold text-slate-800 text-xs" data-i18n="account_status_label">Account Active Status</p>
+                    <p class="text-[10px] text-slate-400" data-i18n="account_status_sub">Allow operator to log in and sync field scans</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="modalIsActiveCheckbox" class="sr-only peer" checked>
+                    <div class="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
+            </div>
+
+            <div id="modalAlertMessage" class="hidden text-xs rounded-xl p-3"></div>
+
+            <div class="pt-2 flex items-center gap-2">
+                <button type="submit" id="saveAggregatorBtn"
+                    class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-sm">
+                    <span>💾</span> <span data-i18n="btn_save_changes">Save Changes</span>
+                </button>
+                <button type="button" onclick="handleDeleteAggregator()" id="deleteAggregatorBtn"
+                    class="bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold py-2.5 px-3 rounded-xl text-xs transition flex items-center gap-1 border border-rose-100">
+                    <span>🗑️</span> <span data-i18n="btn_delete">Delete</span>
+                </button>
+            </div>
+        </form>
     </div>
 </div>

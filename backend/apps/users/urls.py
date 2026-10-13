@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.permissions import AllowAny
-from .views import RegisterView, manage_aggregators_api
+from .views import RegisterView, manage_aggregators_api, aggregator_detail_api
 
 # Subclass TokenObtainPairView to explicitly guarantee AllowAny permissions
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -15,4 +15,5 @@ urlpatterns = [
     path('login/', CustomTokenObtainPairView.as_view(), name='auth_login'),
     path('refresh/', CustomTokenRefreshView.as_view(), name='auth_refresh'),
     path('aggregators/', manage_aggregators_api, name='manage_aggregators'),
+    path('aggregators/<int:user_id>/', aggregator_detail_api, name='aggregator_detail'),
 ]

@@ -7,8 +7,10 @@ import 'database/db_helper.dart';
 import 'services/auth_service.dart';
 import 'services/sync_service.dart';
 import 'utils/app_translations.dart';
+import 'utils/app_config.dart';
 import 'views/visual_scan_screen.dart';
 import 'views/settings_screen.dart';
+import 'views/login_screen.dart';
 
 List<CameraDescription> cameras = [];
 
@@ -23,8 +25,46 @@ Future<void> main() async {
   runApp(const NiyoSenseApp());
 }
 
-class NiyoSenseApp extends StatelessWidget {
+class NiyoSenseApp extends StatefulWidget {
   const NiyoSenseApp({super.key});
+
+  @override
+  State<NiyoSenseApp> createState() => _NiyoSenseAppState();
+}
+
+class _NiyoSenseAppState extends State<NiyoSenseApp> {
+  bool _isCheckingAuth = true;
+  bool _isLoggedIn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAuth();
+  }
+
+  Future<void> _checkAuth() async {
+    final prefs = await SharedPreferences.getInstance();
+    final user = prefs.getString('operator_username');
+    final token = prefs.getString('access_token');
+    if (mounted) {
+      setState(() {
+        _isLoggedIn = (user != null && user.isNotEmpty && token != null && token.isNotEmpty);
+        _isCheckingAuth = false;
+      });
+    }
+  }
+
+  void _onLoginSuccess() {
+    setState(() {
+      _isLoggedIn = true;
+    });
+  }
+
+  void _onLogout() {
+    setState(() {
+      _isLoggedIn = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +79,16 @@ class NiyoSenseApp extends StatelessWidget {
             primaryColor: const Color(0xFF10B981),
             scaffoldBackgroundColor: const Color(0xFF091512),
           ),
-          home: const HomeScreen(),
+          home: _isCheckingAuth
+              ? const Scaffold(
+                  backgroundColor: Color(0xFF081C15),
+                  body: Center(
+                    child: CircularProgressIndicator(color: Color(0xFF10B981)),
+                  ),
+                )
+              : _isLoggedIn
+                  ? HomeScreen(onLogout: _onLogout)
+                  : LoginScreen(onLoginSuccess: _onLoginSuccess),
         );
       },
     );
@@ -47,7 +96,9 @@ class NiyoSenseApp extends StatelessWidget {
 }
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final VoidCallback onLogout;
+
+  const HomeScreen({super.key, required this.onLogout});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -57,7 +108,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _pendingLogsCount = 0;
   bool _isSyncing = false;
   bool _isServerOnline = false;
-  String _serverBaseUrl = "http://192.168.1.26:8000";
+  String _serverBaseUrl = AppConfig.defaultServerUrl;
+  String _currentOperator = "maria_santos";
 
   @override
   void initState() {
@@ -69,9 +121,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadHomeScreenData() async {
     final prefs = await SharedPreferences.getInstance();
     final savedUrl = prefs.getString('backend_base_url');
+    final savedUser = prefs.getString('operator_username');
     final unsyncedLogs = await DatabaseHelper.instance.getUnsyncedLogs();
 
-    String activeUrl = (savedUrl != null && savedUrl.isNotEmpty) ? savedUrl : "http://192.168.1.26:8000";
+    String activeUrl = (savedUrl != null && savedUrl.isNotEmpty) ? savedUrl : AppConfig.defaultServerUrl;
 
     if (!activeUrl.startsWith("http://") && !activeUrl.startsWith("https://")) {
       activeUrl = "http://$activeUrl";
@@ -84,6 +137,9 @@ class _HomeScreenState extends State<HomeScreen> {
         _serverBaseUrl = activeUrl;
         _pendingLogsCount = unsyncedLogs.length;
         _isServerOnline = online;
+        if (savedUser != null && savedUser.isNotEmpty) {
+          _currentOperator = savedUser;
+        }
       });
     }
   }
@@ -199,25 +255,43 @@ class _HomeScreenState extends State<HomeScreen> {
                                   AppTranslations.text('app_title'),
                                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
                                 ),
-                                Text(
-                                  AppTranslations.text('app_role'),
-                                  style: const TextStyle(color: Colors.white38, fontSize: 11),
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF10B981),
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      "${AppTranslations.text('logged_in_as')}: $_currentOperator",
+                                      style: const TextStyle(color: Color(0xFF6EE7B7), fontSize: 11, fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
                           ],
                         ),
 
-                        // Navigation to Settings Screen
-                        IconButton(
-                          icon: const Icon(Icons.settings, color: Colors.white70, size: 26),
-                          onPressed: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const SettingsScreen()),
-                            );
-                            _loadHomeScreenData(); // Reload after coming back from Settings
-                          },
+                        // Action Buttons: Settings & Logout
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.settings, color: Colors.white70, size: 24),
+                              tooltip: "Settings",
+                              onPressed: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => SettingsScreen(onLogout: widget.onLogout)),
+                                );
+                                _loadHomeScreenData(); // Reload after coming back from Settings
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),

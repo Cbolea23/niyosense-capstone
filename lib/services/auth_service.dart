@@ -15,12 +15,19 @@ class AuthService {
           'username': username,
           'password': password,
         }),
-      );
+      ).timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        // Returns the real access token from your DRF SimpleJWT response
-        return data['data']['access'];
+        // Handle both standardized custom wrapper {"data": {"access": "..."}} and direct DRF JWT {"access": "..."}
+        if (data is Map<String, dynamic>) {
+          if (data.containsKey('data') && data['data'] is Map<String, dynamic>) {
+            return data['data']['access'] as String?;
+          }
+          if (data.containsKey('access')) {
+            return data['access'] as String?;
+          }
+        }
       }
       return null;
     } catch (e) {
