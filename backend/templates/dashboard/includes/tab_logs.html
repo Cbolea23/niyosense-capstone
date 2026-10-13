@@ -1,16 +1,16 @@
-<p class="text-xs text-slate-400 mb-6">Browse scan sessions synchronized from mobile SQLite</p>
+<p class="text-xs text-slate-400 mb-6" data-i18n="logs_sub">Browse scan sessions synchronized from mobile SQLite</p>
 
 <div class="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
     <table class="w-full text-left border-collapse">
         <thead>
             <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-semibold uppercase">
-                <th class="p-4">UUID / Date</th>
-                <th class="p-4">Aggregator</th>
-                <th class="p-4">Visual</th>
-                <th class="p-4">Acoustic</th>
-                <th class="p-4">Final Grade</th>
-                <th class="p-4">Confidence</th>
-                <th class="p-4">Media</th>
+                <th class="p-4" data-i18n="table_uuid_date">UUID / Date</th>
+                <th class="p-4" data-i18n="table_aggregator">Aggregator</th>
+                <th class="p-4" data-i18n="table_visual">Visual</th>
+                <th class="p-4" data-i18n="table_acoustic">Acoustic</th>
+                <th class="p-4" data-i18n="table_final_grade">Final Grade</th>
+                <th class="p-4" data-i18n="table_confidence">Confidence</th>
+                <th class="p-4" data-i18n="table_media">Media</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-slate-100 text-xs">
@@ -30,26 +30,29 @@
                     {% elif log.final_maturity_stage == 'Premature' %}
                     <span
                         class="bg-amber-50 text-amber-700 font-bold px-2.5 py-1 rounded-full text-[11px]">Premature</span>
+                    {% elif log.final_maturity_stage == 'Unrecognized' %}
+                    <span
+                        class="bg-rose-50 text-rose-700 font-bold px-2.5 py-1 rounded-full text-[11px]">Unrecognized</span>
                     {% else %}
                     <span
-                        class="bg-red-50 text-red-700 font-bold px-2.5 py-1 rounded-full text-[11px]">Overmature</span>
+                        class="bg-red-50 text-red-700 font-bold px-2.5 py-1 rounded-full text-[11px]">{{ log.final_maturity_stage }}</span>
                     {% endif %}
                 </td>
                 <td class="p-4 font-semibold text-slate-700">{{ log.confidence_score }}</td>
                 <td class="p-4 flex gap-2">
                     {% if log.image %}
                     <a href="{{ log.image.url }}" target="_blank"
-                        class="text-emerald-600 font-semibold underline">Image</a>
+                        class="text-emerald-600 font-semibold underline" data-i18n="media_image">Image</a>
                     {% endif %}
                     {% if log.audio_file %}
                     <a href="{{ log.audio_file.url }}" target="_blank"
-                        class="text-emerald-600 font-semibold underline">Audio</a>
+                        class="text-emerald-600 font-semibold underline" data-i18n="media_audio">Audio</a>
                     {% endif %}
                 </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="7" class="p-8 text-center text-slate-400 text-xs">No scan logs synced yet. Perform a scan
+                <td colspan="7" class="p-8 text-center text-slate-400 text-xs" data-i18n="no_logs_synced">No scan logs synced yet. Perform a scan
                     on the mobile app and tap Sync.</td>
             </tr>
             {% endfor %}

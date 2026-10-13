@@ -1,0 +1,133 @@
+<p class="text-xs text-slate-400 mb-6" data-i18n="aggregators_sub">Manage field operators and aggregators authorized to use the NiyoSense mobile app</p>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left Column: Create New Aggregator Account Form -->
+    <div class="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm h-fit">
+        <div class="flex items-center space-x-3 mb-4">
+            <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 text-lg">
+                👤➕
+            </div>
+            <div>
+                <h3 class="font-bold text-slate-800 text-sm" data-i18n="add_aggregator_title">Add Field Aggregator</h3>
+                <p class="text-[11px] text-slate-400" data-i18n="add_aggregator_sub">Create credentials for mobile app operator</p>
+            </div>
+        </div>
+
+        <form id="createAggregatorForm" onsubmit="handleCreateAggregator(event)" class="space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="field_username">Username *</label>
+                <div class="relative">
+                    <input type="text" id="agg_username" required placeholder="e.g. carlos_mendoza"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition" />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="field_first_name">First Name</label>
+                    <input type="text" id="agg_first_name" placeholder="Carlos"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition" />
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="field_last_name">Last Name</label>
+                    <input type="text" id="agg_last_name" placeholder="Mendoza"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition" />
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="field_email">Email (Optional)</label>
+                <input type="email" id="agg_email" placeholder="carlos@farm.ph"
+                    class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition" />
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1" data-i18n="field_password">Password *</label>
+                <input type="password" id="agg_password" required placeholder="••••••••" minlength="6"
+                    class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition" />
+                <p class="text-[10px] text-slate-400 mt-1" data-i18n="password_min_hint">Minimum 6 characters. Provide this to the field worker.</p>
+            </div>
+
+            <div id="aggregatorFormAlert" class="hidden text-xs rounded-xl p-3"></div>
+
+            <button type="submit" id="submitAggregatorBtn"
+                class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-sm">
+                <span>➕</span> <span data-i18n="create_account_btn">Create Operator Account</span>
+            </button>
+        </form>
+    </div>
+
+    <!-- Right Column: Active Aggregators Table -->
+    <div class="lg:col-span-2 bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden flex flex-col justify-between">
+        <div>
+            <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div>
+                    <h3 class="font-bold text-slate-800 text-sm" data-i18n="active_aggregators_title">Registered Field Aggregators</h3>
+                    <p class="text-xs text-slate-400" data-i18n="active_aggregators_sub">Users authorized to record scans and synchronize from mobile</p>
+                </div>
+                <span class="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-3 py-1 rounded-full">
+                    {{ aggregators|length }} <span data-i18n="accounts_badge">Accounts</span>
+                </span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50/80 border-b border-slate-200 text-slate-500 text-xs font-semibold uppercase">
+                            <th class="p-4" data-i18n="table_user">Operator</th>
+                            <th class="p-4" data-i18n="table_role">Role</th>
+                            <th class="p-4" data-i18n="table_date_joined">Date Added</th>
+                            <th class="p-4" data-i18n="table_status">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="aggregatorsTableBody" class="divide-y divide-slate-100 text-xs">
+                        {% for agg in aggregators %}
+                        <tr class="hover:bg-slate-50/80 transition">
+                            <td class="p-4">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-xs">
+                                        {{ agg.username|slice:":2"|upper }}
+                                    </div>
+                                    <div>
+                                        <p class="font-bold text-slate-800 text-xs">{{ agg.username }}</p>
+                                        <p class="text-[11px] text-slate-400">
+                                            {% if agg.first_name or agg.last_name %}
+                                                {{ agg.first_name }} {{ agg.last_name }}
+                                            {% else %}
+                                                {{ agg.email|default:"Field Worker" }}
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="p-4">
+                                <span class="bg-teal-50 text-teal-700 font-semibold px-2.5 py-0.5 rounded-full text-[10.5px]">
+                                    {{ agg.role|default:"AGGREGATOR" }}
+                                </span>
+                            </td>
+                            <td class="p-4 text-slate-500 text-[11px]">
+                                {{ agg.date_joined|date:"M d, Y" }}
+                            </td>
+                            <td class="p-4">
+                                <span class="inline-flex items-center gap-1.5 text-emerald-600 font-semibold text-[11px]">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Active
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="p-8 text-center text-slate-400 text-xs" data-i18n="no_aggregators_found">
+                                No aggregators created yet. Use the form on the left to add mobile users.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="p-4 bg-slate-50 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between">
+            <span data-i18n="admin_credential_notice">💡 Inform field operators to use these usernames and passwords in the mobile app's dedicated login screen.</span>
+        </div>
+    </div>
+</div>

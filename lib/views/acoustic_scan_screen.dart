@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:record/record.dart';
+import '../utils/app_translations.dart';
 import 'scan_result_screen.dart';
 
 class AcousticScanScreen extends StatefulWidget {
@@ -43,7 +44,7 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
       if (!await _audioRecorder.hasPermission()) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Microphone permission is required to record tapping sound.")),
+            SnackBar(content: Text(AppTranslations.text('mic_permission_req'))),
           );
         }
         return;
@@ -117,18 +118,26 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
               child: const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 28),
             ),
             const SizedBox(width: 12),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Incomplete Data", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
-                Text("Reduced accuracy warning", style: TextStyle(fontSize: 11, color: Colors.amber)),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    AppTranslations.text('incomplete_data_title'),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                  ),
+                  Text(
+                    AppTranslations.text('reduced_accuracy_warning'),
+                    style: const TextStyle(fontSize: 11, color: Colors.amber),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
-        content: const Text(
-          "Are you sure you want to proceed with only a photo scan? It is highly recommended you take an acoustic recording as well for more accurate results.",
-          style: TextStyle(fontSize: 13, color: Colors.black87),
+        content: Text(
+          AppTranslations.text('incomplete_data_desc'),
+          style: const TextStyle(fontSize: 13, color: Colors.black87),
         ),
         actions: [
           Column(
@@ -142,7 +151,10 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                 ),
                 onPressed: () => Navigator.pop(context),
                 icon: const Icon(Icons.mic, color: Colors.white),
-                label: const Text("Record Audio", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                label: Text(
+                  AppTranslations.text('record_audio_btn'),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
               ),
               const SizedBox(height: 8),
               OutlinedButton(
@@ -155,7 +167,10 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                   Navigator.pop(context);
                   _navigateToResult(hasAudio: false);
                 },
-                child: const Text("Proceed with Photo Only", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+                child: Text(
+                  AppTranslations.text('proceed_photo_only_btn'),
+                  style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
@@ -179,183 +194,203 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: TextButton.icon(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios, size: 16, color: Colors.black54),
-          label: const Text("Back", style: TextStyle(color: Colors.black54)),
-        ),
-        leadingWidth: 90,
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 20),
-            Container(width: 24, height: 2, color: const Color(0xFF10B981), margin: const EdgeInsets.symmetric(horizontal: 4)),
-            Container(
-              width: 24,
-              height: 24,
-              decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle),
-              child: const Center(child: Text("2", style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))),
+    return ValueListenableBuilder<String>(
+      valueListenable: AppTranslations.currentLang,
+      builder: (context, lang, _) {
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            leading: TextButton.icon(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.arrow_back_ios, size: 16, color: Colors.black54),
+              label: Text(AppTranslations.text('back'), style: const TextStyle(color: Colors.black54)),
             ),
-          ],
-        ),
-        actions: [
-          if (widget.imagePath != null)
-            TextButton(
-              onPressed: _showIncompleteDataModal,
-              child: const Row(
-                children: [
-                  Text("Skip", style: TextStyle(color: Colors.black45, fontWeight: FontWeight.bold)),
-                  Icon(Icons.arrow_forward_ios, size: 12, color: Colors.black45),
-                ],
-              ),
+            leadingWidth: 90,
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 20),
+                Container(width: 24, height: 2, color: const Color(0xFF10B981), margin: const EdgeInsets.symmetric(horizontal: 4)),
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle),
+                  child: const Center(child: Text("2", style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))),
+                ),
+              ],
             ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
+            actions: [
+              if (widget.imagePath != null)
+                TextButton(
+                  onPressed: _showIncompleteDataModal,
+                  child: Row(
                     children: [
-                      CircleAvatar(radius: 5, backgroundColor: _isRecording ? Colors.red : Colors.grey),
-                      const SizedBox(width: 8),
-                      Text(
-                        _isRecording ? "Recording tapping signal..." : "Ready to record",
-                        style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.w500),
-                      ),
+                      Text(AppTranslations.text('skip'), style: const TextStyle(color: Colors.black45, fontWeight: FontWeight.bold)),
+                      const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.black45),
                     ],
                   ),
-                  Text("00:0$_recordingSeconds", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'monospace')),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              height: 120,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: const Color(0xFF0B132B),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(
-                    28,
-                    (i) => AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: 4,
-                      height: _isRecording ? (20.0 + (i % 5 * 12)) : 6.0,
-                      margin: const EdgeInsets.symmetric(horizontal: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981),
-                        borderRadius: BorderRadius.circular(4),
+                ),
+            ],
+          ),
+          body: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(radius: 5, backgroundColor: _isRecording ? Colors.red : Colors.grey),
+                          const SizedBox(width: 8),
+                          Text(
+                            _isRecording ? AppTranslations.text('recording_tap_signal') : AppTranslations.text('ready_to_record'),
+                            style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                      Text("00:0$_recordingSeconds", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'monospace')),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  height: 120,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0B132B),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                        28,
+                        (i) => AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          width: 4,
+                          height: _isRecording ? (20.0 + (i % 5 * 12)) : 6.0,
+                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: Column(
-                children: [
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
                     children: [
-                      Text("Tapping Intensity", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
-                      Text("Ideal Range", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF10B981))),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            AppTranslations.text('tapping_intensity'),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+                          ),
+                          Text(
+                            AppTranslations.text('ideal_range'),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF10B981)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value: _isRecording ? 0.65 : 0.0,
+                          minHeight: 10,
+                          backgroundColor: Colors.grey.shade200,
+                          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+                        ),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(
-                      value: _isRecording ? 0.65 : 0.0,
-                      minHeight: 10,
-                      backgroundColor: Colors.grey.shade200,
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
-                    ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF5),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFA7F3D0)),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFECFDF5),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFA7F3D0)),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.adjust, color: Color(0xFF10B981), size: 36),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("Tap the equator (middle)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF065F46))),
-                        SizedBox(height: 2),
-                        Text("Strike the widest center section of the coconut for the most accurate acoustic reading.", style: TextStyle(fontSize: 11, color: Color(0xFF047857))),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Spacer(),
-            GestureDetector(
-              onTap: _toggleRecording,
-              child: Column(
-                children: [
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF10B981),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.3),
-                          blurRadius: 16,
-                          spreadRadius: 4,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.adjust, color: Color(0xFF10B981), size: 36),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              AppTranslations.text('tap_equator_title'),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF065F46)),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              AppTranslations.text('tap_equator_desc'),
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF047857)),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: Icon(_isRecording ? Icons.stop : Icons.mic, color: Colors.white, size: 36),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(_isRecording ? "Tap to Stop" : "Start Recording", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
-                ],
-              ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: _toggleRecording,
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                              blurRadius: 16,
+                              spreadRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: Icon(_isRecording ? Icons.stop : Icons.mic, color: Colors.white, size: 36),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _isRecording ? AppTranslations.text('tap_to_stop') : AppTranslations.text('start_recording'),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
             ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

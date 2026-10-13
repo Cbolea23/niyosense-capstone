@@ -10,6 +10,7 @@ class GradingLog(models.Model):
       ('Overmature', 'Overmature'),
       ('Buko', 'Buko'),
       ('Malauhog', 'Malauhog'),
+      ('Unrecognized', 'Unrecognized'),
   ]
 
   uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -25,7 +26,7 @@ class GradingLog(models.Model):
   audio_prediction = models.CharField(max_length=50, default='N/A')
 
   final_maturity_stage = models.CharField(
-      max_length=20, choices=MATURITY_CHOICES
+      max_length=30, choices=MATURITY_CHOICES
   )
   confidence_score = models.FloatField()
   is_synced = models.BooleanField(default=True)

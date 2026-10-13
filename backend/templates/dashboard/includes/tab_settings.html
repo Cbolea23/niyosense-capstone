@@ -27,14 +27,14 @@
         <div>
             <h4 class="font-bold text-slate-800 text-sm">Maria Santos</h4>
             <p class="text-xs text-slate-400">m.santos@niyosense.ph</p>
-            <p class="text-[11px] text-emerald-600 font-medium mt-1">Santos Coconut Farm • Quezon Province</p>
+            <p class="text-[11px] text-emerald-600 font-medium mt-1" data-i18n="farm_location">Santos Coconut Farm • Quezon Province</p>
         </div>
     </div>
 
     <!-- Server Configuration Card (Fully Editable Input) -->
     <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3">
-        <h4 class="font-bold text-slate-800 text-sm">Server Configuration</h4>
-        <p class="text-xs text-slate-400">Pairing IP endpoint for mobile sync (editable for manual override)</p>
+        <h4 class="font-bold text-slate-800 text-sm" data-i18n="server_config_title">Server Configuration</h4>
+        <p class="text-xs text-slate-400" data-i18n="server_config_desc">Pairing IP endpoint for mobile sync (editable for manual override)</p>
 
         <div class="flex items-center gap-2">
             <div class="relative w-full flex items-center">
@@ -50,20 +50,48 @@
 
             <button onclick="showQrModal()" type="button"
                 class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-xs font-semibold shrink-0 flex items-center gap-2 transition shadow-sm">
-                <span>📷</span> Scan QR Code
+                <span>📷</span> <span data-i18n="scan_qr_code">Scan QR Code</span>
             </button>
         </div>
-        <p class="text-[11px] text-slate-400">If auto-detection returns 127.0.0.1, manually type your host IP above
+        <p class="text-[11px] text-slate-400" data-i18n="server_ip_hint">If auto-detection returns 127.0.0.1, manually type your host IP above
             (e.g., <code class="text-emerald-600 font-mono">http://192.168.1.17:8000</code>) and click Scan QR Code.</p>
+    </div>
+
+    <!-- Mobile App Installation Card -->
+    <div class="bg-gradient-to-br from-emerald-500 to-teal-700 rounded-2xl p-5 shadow-sm text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="flex items-center space-x-4">
+            <div class="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-2xl shrink-0">
+                📲
+            </div>
+            <div>
+                <h4 class="font-bold text-sm" data-i18n="install_app_title">NiyoSense Field App (Android)</h4>
+                <p class="text-xs text-emerald-100" data-i18n="install_app_desc">Download APK directly or scan QR code to install on Android phone</p>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="text-[10px] bg-white/25 font-mono px-2 py-0.5 rounded-full font-semibold">v1.2.0 Release</span>
+                    <span class="text-[10px] text-emerald-200">~99 MB • TFLite Ready</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+            <a href="/media/downloads/niyosense.apk" download="niyosense.apk"
+                class="bg-white text-emerald-700 hover:bg-emerald-50 px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+                <span>⬇️</span> <span data-i18n="download_apk_btn">Download APK</span>
+            </a>
+            <button onclick="showApkQrModal()" type="button"
+                class="bg-white/20 hover:bg-white/30 text-white px-3.5 py-2.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+                <span>📷</span> <span data-i18n="scan_apk_qr">QR</span>
+            </button>
+        </div>
     </div>
 
     <!-- App Metadata Card -->
     <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm text-xs space-y-2">
-        <div class="flex justify-between text-slate-500"><span>App Version</span><span
+        <div class="flex justify-between text-slate-500"><span data-i18n="meta_version">App Version</span><span
                 class="font-mono text-slate-800">NiyoSense Local v1.2.0</span></div>
-        <div class="flex justify-between text-slate-500"><span>Model Pipeline</span><span
+        <div class="flex justify-between text-slate-500"><span data-i18n="meta_pipeline">Model Pipeline</span><span
                 class="font-mono text-slate-800">Multimodal Audio-Visual v2.4</span></div>
-        <div class="flex justify-between text-slate-500"><span>Inference Engine</span><span
+        <div class="flex justify-between text-slate-500"><span data-i18n="meta_engine">Inference Engine</span><span
                 class="font-mono text-slate-800">TFLite (INT8 Quantized)</span></div>
     </div>
 </div>

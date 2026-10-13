@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../database/db_helper.dart';
 import '../models/grading_log.dart';
 import '../services/tflite_service.dart';
+import '../utils/app_translations.dart';
 
 class ScanResultScreen extends StatefulWidget {
   final String? imagePath;
@@ -60,12 +61,12 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
         _isValidObject = result.isValidObject;
         _confidence = result.confidence;
         _visualPred = result.visualLabel;
-        _audioPred = widget.audioRecorded ? result.audioLabel : 'N/A (Skipped)';
+        _audioPred = widget.audioRecorded ? result.audioLabel : AppTranslations.text('skipped_audio');
 
         if (_isValidObject) {
           _finalGrade = result.label.toUpperCase();
         } else {
-          _finalGrade = "UNRECOGNIZED OBJECT";
+          _finalGrade = AppTranslations.text('unrecognized_object');
         }
       }
     } catch (e, stack) {
@@ -74,7 +75,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
       _finalGrade = "MATURE";
       _confidence = 0.90;
       _visualPred = "buko";
-      _audioPred = widget.audioRecorded ? "buko" : "N/A (Skipped)";
+      _audioPred = widget.audioRecorded ? "buko" : AppTranslations.text('skipped_audio');
       _isValidObject = true;
     }
 
@@ -112,150 +113,240 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Image.asset(
-              'assets/logo/logo.png',
-              height: 28,
-              width: 28,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) => const Icon(
-                Icons.spa,
-                color: Color(0xFF10B981),
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Text(
-              "Scan Results",
-              style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-      ),
-      body: _isProcessing
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(color: Color(0xFF10B981)),
-                  SizedBox(height: 16),
-                  Text(
-                    "Performing multimodal inference...",
-                    style: TextStyle(color: Colors.black54, fontWeight: FontWeight.w500),
+    return ValueListenableBuilder<String>(
+      valueListenable: AppTranslations.currentLang,
+      builder: (context, lang, _) {
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8FAFC),
+          appBar: AppBar(
+            title: Row(
+              children: [
+                Image.asset(
+                  'assets/logo/logo.png',
+                  height: 28,
+                  width: 28,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => const Icon(
+                    Icons.spa,
+                    color: Color(0xFF10B981),
                   ),
-                ],
-              ),
-            )
-          : Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: _isValidObject ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: _isValidObject ? const Color(0xFFA7F3D0) : const Color(0xFFFECACA),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  AppTranslations.text('scan_results_title'),
+                  style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.white,
+            elevation: 0,
+            automaticallyImplyLeading: false,
+          ),
+          body: _isProcessing
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const CircularProgressIndicator(color: Color(0xFF10B981)),
+                      const SizedBox(height: 16),
+                      Text(
+                        AppTranslations.text('performing_inference'),
+                        style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w500),
                       ),
-                    ),
+                    ],
+                  ),
+                )
+              : SafeArea(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.all(20.0),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Icon(
-                          _isValidObject ? Icons.check_circle_outline : Icons.help_outline,
-                          size: 64,
-                          color: _isValidObject ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _finalGrade,
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: _isValidObject ? const Color(0xFF065F46) : const Color(0xFF991B1B),
+                        // Result Summary Card
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: _isValidObject ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: _isValidObject ? const Color(0xFFA7F3D0) : const Color(0xFFFECACA),
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                _isValidObject ? Icons.check_circle_outline : Icons.help_outline,
+                                size: 64,
+                                color: _isValidObject ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _finalGrade,
+                                style: TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.bold,
+                                  color: _isValidObject ? const Color(0xFF065F46) : const Color(0xFF991B1B),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                "${AppTranslations.text('fused_confidence')}: ${(_confidence * 100).toStringAsFixed(1)}%",
+                                style: TextStyle(
+                                  color: _isValidObject ? const Color(0xFF047857) : const Color(0xFFB91C1C),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          "Fused Confidence: ${(_confidence * 100).toStringAsFixed(1)}%",
-                          style: TextStyle(
-                            color: _isValidObject ? const Color(0xFF047857) : const Color(0xFFB91C1C),
-                            fontWeight: FontWeight.w600,
+                        const SizedBox(height: 16),
+
+                        // Image Preview
+                        if (widget.imagePath != null && widget.imagePath!.isNotEmpty)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.file(
+                              File(widget.imagePath!),
+                              height: 180,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        const SizedBox(height: 16),
+
+                        // Model Breakdown Card
+                        Card(
+                          color: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      AppTranslations.text('visual_model_husk'),
+                                      style: const TextStyle(color: Colors.black54),
+                                    ),
+                                    Text(
+                                      _visualPred.toUpperCase(),
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 20),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      AppTranslations.text('audio_model_spec'),
+                                      style: const TextStyle(color: Colors.black54),
+                                    ),
+                                    Text(
+                                      _audioPred.toUpperCase(),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF059669)),
+                                    ),
+                                  ],
+                                ),
+                                const Divider(height: 20),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      AppTranslations.text('storage_status'),
+                                      style: const TextStyle(color: Colors.black54),
+                                    ),
+                                    Text(
+                                      AppTranslations.text('saved_sqlite_ready'),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        // Option 1: Cluster / Bungkos Maturity Baseline Notice Card
+                        Container(
+                          margin: const EdgeInsets.only(top: 16),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0FDF4),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFA7F3D0)),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFD1FAE5),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.hub_outlined,
+                                  color: Color(0xFF059669),
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      AppTranslations.text('cluster_notice_title'),
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF065F46),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      AppTranslations.text('cluster_notice_body'),
+                                      style: const TextStyle(
+                                        fontSize: 11.5,
+                                        height: 1.45,
+                                        color: Color(0xFF047857),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Return Home Button
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF10B981),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+                          child: Text(
+                            AppTranslations.text('return_home'),
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  if (widget.imagePath != null && widget.imagePath!.isNotEmpty)
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.file(
-                        File(widget.imagePath!),
-                        height: 180,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  const SizedBox(height: 16),
-                  Card(
-                    color: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: Colors.grey.shade200),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text("Visual Model (Husk)", style: TextStyle(color: Colors.black54)),
-                              Text(_visualPred.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                          const Divider(height: 20),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text("Audio Model (Spectrogram)", style: TextStyle(color: Colors.black54)),
-                              Text(_audioPred.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF059669))),
-                            ],
-                          ),
-                          const Divider(height: 20),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text("Storage Status", style: TextStyle(color: Colors.black54)),
-                              const Text("Saved to SQLite (Ready)", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF10B981),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
-                    child: const Text("RETURN TO HOME", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
-            ),
+                ),
+        );
+      },
     );
   }
 }

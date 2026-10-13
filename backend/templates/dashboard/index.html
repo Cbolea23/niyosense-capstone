@@ -184,11 +184,29 @@
         async function fetchAutoHostIp() {
             const inputEl = document.getElementById('serverIpInput');
 
+            // 1. If currently accessed via a public tunnel or custom domain (e.g. *.trycloudflare.com, *.ngrok-free.app, etc.)
+            const hostname = window.location.hostname;
+            const protocol = window.location.protocol;
+            const isLocal = (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0');
+
+            if (!isLocal) {
+                // If standard HTTPS (443) or HTTP (80) or no explicit port, do NOT append :8000
+                const port = window.location.port;
+                const portSuffix = (port && port !== '80' && port !== '443') ? `:${port}` : '';
+                autoDetectedUrl = `${protocol}//${hostname}${portSuffix}`;
+                if (inputEl && !userHasEditedIp) {
+                    inputEl.value = autoDetectedUrl;
+                }
+                return;
+            }
+
+            // 2. Local fallback: Query the backend host-ip detection API for LAN IP (e.g. 192.168.x.x)
             try {
                 const response = await fetch('/api/v1/system/host-ip/');
                 if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.server_url) {
+                    const jsonRes = await response.json();
+                    const data = (jsonRes.data && typeof jsonRes.data === 'object') ? jsonRes.data : jsonRes;
+                    if (data.server_url) {
                         autoDetectedUrl = data.server_url;
                         if (inputEl && !userHasEditedIp) {
                             inputEl.value = autoDetectedUrl;
@@ -198,11 +216,6 @@
                 }
             } catch (e) {
                 console.error("Failed to fetch host IP from API:", e);
-            }
-
-            if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-                const currentPort = window.location.port ? `:${window.location.port}` : ':8000';
-                autoDetectedUrl = `http://${window.location.hostname}${currentPort}`;
             }
 
             if (inputEl && !userHasEditedIp) {
@@ -246,6 +259,57 @@
 
         function hideQrModal() {
             const modal = document.getElementById('qrModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        // Dynamically Generate APK Download QR Code
+        function showApkQrModal() {
+            const inputEl = document.getElementById('serverIpInput');
+            let baseUrl = (inputEl && inputEl.value.trim() !== "") ? inputEl.value.trim() : autoDetectedUrl;
+
+            if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+                baseUrl = (window.location.protocol === 'https:' ? 'https://' : 'http://') + baseUrl;
+            }
+            if (baseUrl.endsWith('/')) {
+                baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+            }
+
+            const apkInstallPageUrl = baseUrl + '/install/';
+            const apkBinaryUrl = baseUrl + '/media/downloads/niyosense.apk';
+            const qrContainer = document.getElementById('apkQrcode');
+            const qrUrlDisplay = document.getElementById('apkQrUrlDisplay');
+            const directLink = document.getElementById('apkDirectLink');
+
+            if (qrContainer) {
+                qrContainer.innerHTML = "";
+                new QRCode(qrContainer, {
+                    text: apkInstallPageUrl,
+                    width: 180,
+                    height: 180,
+                    colorDark: "#0F172A",
+                    colorLight: "#ffffff"
+                });
+            }
+
+            if (qrUrlDisplay) {
+                qrUrlDisplay.innerText = apkInstallPageUrl;
+            }
+            if (directLink) {
+                directLink.href = apkBinaryUrl;
+            }
+
+            const modal = document.getElementById('apkQrModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        }
+
+        function hideApkQrModal() {
+            const modal = document.getElementById('apkQrModal');
             if (modal) {
                 modal.classList.add('hidden');
                 modal.classList.remove('flex');
@@ -343,7 +407,16 @@
                 server_ip_hint: "If auto-detection returns 127.0.0.1, manually type your host IP above and click Scan QR Code.",
                 meta_version: "App Version",
                 meta_pipeline: "Model Pipeline",
-                meta_engine: "Inference Engine"
+                meta_engine: "Inference Engine",
+                qr_modal_title: "Pair Mobile App",
+                qr_modal_desc: "Scan this QR code in the NiyoSense mobile app to pair with your server endpoint.",
+                qr_modal_close: "Close",
+                install_app_title: "NiyoSense Field App (Android)",
+                install_app_desc: "Download APK directly or scan QR code to install on Android phone",
+                download_apk_btn: "Download APK",
+                scan_apk_qr: "Scan QR",
+                apk_qr_modal_title: "Install Mobile App (APK)",
+                apk_qr_modal_desc: "Scan this QR code with your phone camera to download and install NiyoSense directly."
             },
             tl: {
                 nav_home: "Tahanan",
@@ -391,7 +464,16 @@
                 server_ip_hint: "Kung 127.0.0.1 ang lumabas, i-type nang mano-mano ang host IP sa itaas.",
                 meta_version: "Bersyon ng App",
                 meta_pipeline: "Pipeline ng Model",
-                meta_engine: "Inference Engine"
+                meta_engine: "Inference Engine",
+                qr_modal_title: "I-pair ang Mobile App",
+                qr_modal_desc: "I-scan ang QR code na ito sa NiyoSense mobile app para kumonekta sa iyong server.",
+                qr_modal_close: "Isara",
+                install_app_title: "NiyoSense Field App (Android)",
+                install_app_desc: "I-download ang APK o i-scan ang QR code upang i-install sa Android phone",
+                download_apk_btn: "I-download ang APK",
+                scan_apk_qr: "QR Code",
+                apk_qr_modal_title: "I-install ang Mobile App (APK)",
+                apk_qr_modal_desc: "I-scan ang QR code na ito gamit ang camera ng phone para i-download at i-install ang NiyoSense."
             }
         };
 

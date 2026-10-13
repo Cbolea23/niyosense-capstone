@@ -1,8 +1,10 @@
 import json
+import os
+import platform
+import re
+import shutil
 import socket
 import subprocess
-import re
-import platform
 from datetime import timedelta
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -60,6 +62,10 @@ def web_dashboard(request):
 
     recent_logs = GradingLog.objects.select_related('user').order_by('-created_at')[:50]
 
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    aggregators = User.objects.filter(role=getattr(User.Roles, 'AGGREGATOR', 'AGGREGATOR')).order_by('-date_joined')
+
     context = {
         'total_scans': total_scans,
         'scans_today': scans_today,
@@ -75,6 +81,7 @@ def web_dashboard(request):
         'monthly_labels_json': json.dumps(monthly_labels),
         'monthly_counts_json': json.dumps(monthly_counts),
         'logs': recent_logs,
+        'aggregators': aggregators,
     }
     return render(request, 'dashboard/index.html', context)
 
@@ -108,6 +115,7 @@ class BulkSyncView(APIView):
                 serializer.save(user=request.user, is_synced=True)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
             
+        print("❌ BulkSync validation errors:", serializer.errors, "Payload:", sync_data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -147,8 +155,8 @@ def get_server_ip(request):
                     elif not ip_address:
                         ip_address = ip # Fallback to first valid IP
                         
-        else: # Linux / WSL / macOS
-            output = subprocess.check_output("ip addr show", shell=True).decode('utf-8', errors='ignore')
+        elif shutil.which("ip"):
+            output = subprocess.check_output("ip addr show", shell=True, stderr=subprocess.DEVNULL).decode('utf-8', errors='ignore')
             # Find physical interfaces (eth, enp, wlan)
             matches = re.findall(r'inet\s+([0-9\.]+).*?\s+(eth\d|enp\d|wlan\d)', output)
             for ip, iface in matches:
@@ -156,8 +164,8 @@ def get_server_ip(request):
                     ip_address = ip
                     break
                     
-    except Exception as e:
-        print(f"IP detection error: {e}")
+    except Exception:
+        pass
 
     # Fallback: UDP Socket method (if parsing failed)
     if not ip_address:
@@ -214,3 +222,7 @@ def dashboard_stats_api(request):
         "daily_labels": daily_labels,
         "daily_counts": daily_counts,
     })
+
+
+def download_apk_page(request):
+    return render(request, 'dashboard/download_apk.html')
