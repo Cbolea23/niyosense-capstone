@@ -85,11 +85,22 @@ class SpectrogramService {
     return filterbank;
   }
 
-  /// Reads raw 16-bit PCM audio samples from a WAV file and pads/trims to 88,200 samples
+  /// Reads raw 16-bit PCM audio samples from a WAV file, detects native sample rate,
+  /// downsamples from 44,100 Hz to 22,050 Hz if necessary, and pads/trims to target 88,200 samples
   static Float32List _readAndFixWavAudio(File wavFile) {
     final bytes = wavFile.readAsBytesSync();
     if (bytes.length < 44) {
       throw Exception("Invalid WAV file: size too small.");
+    }
+
+    // Parse sample rate from fmt chunk (bytes 24-27)
+    int fileSampleRate = 44100;
+    try {
+      final headerData = ByteData.sublistView(bytes, 0, 44);
+      fileSampleRate = headerData.getUint32(24, Endian.little);
+      debugPrint("🎵 [AUDIO SPEC] Detected WAV Sample Rate: $fileSampleRate Hz");
+    } catch (_) {
+      fileSampleRate = 44100;
     }
 
     // Locate the 'data' subchunk inside the WAV file header
@@ -113,13 +124,34 @@ class SpectrogramService {
     }
 
     final byteData = ByteData.sublistView(bytes, dataIndex);
-    final int availableSamples = byteData.lengthInBytes ~/ 2;
-    final int samplesToRead = math.min(availableSamples, targetSamples);
+    final int rawSampleCount = byteData.lengthInBytes ~/ 2;
+    final rawSamples = Float32List(rawSampleCount);
+    for (int i = 0; i < rawSampleCount; i++) {
+      rawSamples[i] = byteData.getInt16(i * 2, Endian.little) / 32768.0;
+    }
 
     final pcmSamples = Float32List(targetSamples);
-    for (int i = 0; i < samplesToRead; i++) {
-      pcmSamples[i] = byteData.getInt16(i * 2, Endian.little) / 32768.0;
+
+    // If recorded at ~44,100 Hz, downsample by 2x into 22,050 Hz
+    if (fileSampleRate >= 40000) {
+      debugPrint("🎵 [AUDIO SPEC] Downsampling audio 2x: $fileSampleRate Hz -> 22,050 Hz");
+      final int maxDownsampled = math.min(rawSampleCount ~/ 2, targetSamples);
+      for (int i = 0; i < maxDownsampled; i++) {
+        // Simple 2-point averaging anti-aliasing filter
+        final int srcIdx = i * 2;
+        if (srcIdx + 1 < rawSampleCount) {
+          pcmSamples[i] = (rawSamples[srcIdx] + rawSamples[srcIdx + 1]) / 2.0;
+        } else {
+          pcmSamples[i] = rawSamples[srcIdx];
+        }
+      }
+    } else {
+      final int toCopy = math.min(rawSampleCount, targetSamples);
+      for (int i = 0; i < toCopy; i++) {
+        pcmSamples[i] = rawSamples[i];
+      }
     }
+
     return pcmSamples;
   }
 
@@ -173,6 +205,23 @@ class SpectrogramService {
   /// Generates the exact [1, 3, 224, 224] Float32 tensor matching Librosa + Magma
   static Object generateSpectrogramTensor(File wavFile) {
     final samples = _readAndFixWavAudio(wavFile);
+
+    // --- Physical Guardrail 2: Acoustic Signal Energy Check ---
+    double peakAmp = 0.0;
+    double sumSquares = 0.0;
+    for (int i = 0; i < samples.length; i++) {
+      final double val = samples[i].abs();
+      if (val > peakAmp) peakAmp = val;
+      sumSquares += val * val;
+    }
+    final double rms = math.sqrt(sumSquares / samples.length);
+    debugPrint("🎵 [GUARDRAIL CHECK] Audio Peak Amplitude: ${(peakAmp * 100).toStringAsFixed(1)}% | RMS: ${(rms * 100).toStringAsFixed(2)}%");
+
+    // If audio is practically silent (< 2% peak amplitude), throw exception to trigger invalid object
+    if (peakAmp < 0.02) {
+      debugPrint("⛔ [GUARDRAIL TRIGGERED] Audio rejected: Recording is silent or tap was too quiet!");
+      throw Exception("Silent audio recording");
+    }
 
     // 1. Center-reflect pad audio with nFft // 2 = 1024 samples on both sides
     const int pad = nFft ~/ 2;

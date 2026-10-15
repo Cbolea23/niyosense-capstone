@@ -58,8 +58,14 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
       await _audioRecorder.start(
         const RecordConfig(
           encoder: AudioEncoder.wav,
-          sampleRate: 22050,
+          sampleRate: 44100, // Standard native sample rate across all Android devices
           numChannels: 1, // Mono audio
+          autoGain: false, // Disable automatic gain distortion
+          echoCancel: false, // Disable echo cancellation
+          noiseSuppress: false, // Disable noise suppression that silences taps
+          androidConfig: AndroidRecordConfig(
+            audioSource: AndroidAudioSource.unprocessed, // Disables OS aggressive noise gates
+          ),
         ),
         path: filePath,
       );

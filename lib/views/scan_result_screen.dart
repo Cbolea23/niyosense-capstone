@@ -73,11 +73,11 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
     } catch (e, stack) {
       debugPrint("⚠️ Inference error: $e");
       debugPrint("$stack");
-      _finalGrade = "MATURE";
-      _confidence = 0.90;
-      _visualPred = "buko";
-      _audioPred = widget.audioRecorded ? "buko" : AppTranslations.text('skipped_audio');
-      _isValidObject = true;
+      _finalGrade = AppTranslations.text('unrecognized_object');
+      _confidence = 0.0;
+      _visualPred = "N/A";
+      _audioPred = widget.audioRecorded ? "N/A" : AppTranslations.text('skipped_audio');
+      _isValidObject = false;
     }
 
     // Save to local SQLite database with persistent Device ID

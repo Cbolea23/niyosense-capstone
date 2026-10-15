@@ -63,6 +63,10 @@ class TfliteService {
       final int totalPixels = targetHeight * targetWidth;
       final buffer = Float32List(1 * 3 * totalPixels);
 
+      // --- Physical Guardrail 1: Check Camera Luminance & Contrast ---
+      double totalLuminance = 0.0;
+      double totalLuminanceSq = 0.0;
+
       if (isNCHW) {
         int rIdx = 0;
         int gIdx = totalPixels;
@@ -70,9 +74,17 @@ class TfliteService {
         for (var y = 0; y < targetHeight; y++) {
           for (var x = 0; x < targetWidth; x++) {
             final pixel = resized.getPixel(x, y);
-            buffer[rIdx++] = pixel.r / 255.0;
-            buffer[gIdx++] = pixel.g / 255.0;
-            buffer[bIdx++] = pixel.b / 255.0;
+            final double r = pixel.r / 255.0;
+            final double g = pixel.g / 255.0;
+            final double b = pixel.b / 255.0;
+
+            buffer[rIdx++] = r;
+            buffer[gIdx++] = g;
+            buffer[bIdx++] = b;
+
+            final double lum = (0.299 * r + 0.587 * g + 0.114 * b) * 255.0;
+            totalLuminance += lum;
+            totalLuminanceSq += lum * lum;
           }
         }
       } else {
@@ -80,12 +92,33 @@ class TfliteService {
         for (var y = 0; y < targetHeight; y++) {
           for (var x = 0; x < targetWidth; x++) {
             final pixel = resized.getPixel(x, y);
-            buffer[idx++] = pixel.r / 255.0;
-            buffer[idx++] = pixel.g / 255.0;
-            buffer[idx++] = pixel.b / 255.0;
+            final double r = pixel.r / 255.0;
+            final double g = pixel.g / 255.0;
+            final double b = pixel.b / 255.0;
+
+            buffer[idx++] = r;
+            buffer[idx++] = g;
+            buffer[idx++] = b;
+
+            final double lum = (0.299 * r + 0.587 * g + 0.114 * b) * 255.0;
+            totalLuminance += lum;
+            totalLuminanceSq += lum * lum;
           }
         }
       }
+
+      final double meanLuminance = totalLuminance / totalPixels;
+      final double variance = math.max(0.0, (totalLuminanceSq / totalPixels) - (meanLuminance * meanLuminance));
+      final double stdDev = math.sqrt(variance);
+
+      debugPrint("📸 [GUARDRAIL CHECK] Mean Luminance: ${meanLuminance.toStringAsFixed(1)}/255 | StdDev: ${stdDev.toStringAsFixed(1)}");
+
+      // Dark frame rejection (< 22.0) or featureless blank surface (< 5.0 std dev)
+      if (meanLuminance < 22.0 || stdDev < 5.0) {
+        debugPrint("⛔ [GUARDRAIL TRIGGERED] Camera image rejected: Too dark or lacking texture!");
+        return null;
+      }
+
       return buffer.reshape(shape);
     } catch (e) {
       debugPrint("⚠️ Could not process image: $e");
@@ -115,7 +148,19 @@ class TfliteService {
 
     // 1. Run Visual Model (img_best_v2.tflite)
     final imgInput = _preprocessImageForInterpreter(imageFile, _imgInterpreter!);
-    if (imgInput == null) throw Exception("Failed to decode camera photo.");
+    if (imgInput == null) {
+      debugPrint("🚫 [GUARDRAIL APPLIED] Invalid camera image (too dark or out of domain). Returning Invalid Object.");
+      return PredictionResult(
+        label: "Invalid Object",
+        confidence: 0.0,
+        classProbabilities: {"buko": 0.0, "malauhog": 0.0},
+        visualLabel: "UNRECOGNIZED",
+        visualConfidence: 0.0,
+        audioLabel: "N/A",
+        audioConfidence: 0.0,
+        isValidObject: false,
+      );
+    }
 
     final imgOutputShape = _imgInterpreter!.getOutputTensor(0).shape;
     final int numImgOutputs = imgOutputShape.reduce((a, b) => a * b);
