@@ -5,8 +5,9 @@
         <thead>
             <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-semibold uppercase">
                 <th class="p-4" data-i18n="table_uuid_date">UUID / Date</th>
-                <th class="p-4" data-i18n="table_aggregator">Aggregator</th>
+                <th class="p-4" data-i18n="table_aggregator">Worker</th>
                 <th class="p-4">Device</th>
+                <th class="p-4">Sampling Unit</th>
                 <th class="p-4" data-i18n="table_visual">Visual</th>
                 <th class="p-4" data-i18n="table_acoustic">Acoustic</th>
                 <th class="p-4" data-i18n="table_final_grade">Final Grade</th>
@@ -28,6 +29,11 @@
                     {% else %}
                     <span class="text-slate-400 font-mono text-[10px]">--</span>
                     {% endif %}
+                </td>
+                <td class="p-4">
+                    <span class="inline-flex items-center gap-1 text-[10.5px] font-semibold text-emerald-800 bg-emerald-50/90 border border-emerald-200/60 px-2 py-0.5 rounded-lg" title="Graded sample represents this entire harvested cluster (bungkos)">
+                        <span>🌿</span> <span>Bungkos (Bunch)</span>
+                    </span>
                 </td>
                 <td class="p-4 text-slate-600">{{ log.visual_prediction }}</td>
                 <td class="p-4 text-slate-600">{{ log.audio_prediction }}</td>

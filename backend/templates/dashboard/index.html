@@ -190,8 +190,11 @@
         function recalculateValuation() {
             const malauhogPrice = parseFloat(document.getElementById('valMalauhogPrice')?.value) || 0;
             const bukoPrice = parseFloat(document.getElementById('valBukoPrice')?.value) || 0;
+            const nutsPerBunch = parseFloat(document.getElementById('valNutsPerBunch')?.value) || 1;
 
-            const grossValue = (prematureCount * malauhogPrice) + (matureCount * bukoPrice);
+            const estMalauhogNuts = prematureCount * nutsPerBunch;
+            const estBukoNuts = matureCount * nutsPerBunch;
+            const grossValue = (estMalauhogNuts * malauhogPrice) + (estBukoNuts * bukoPrice);
 
             const displayEl = document.getElementById('estimatedGrossValueDisplay');
             if (displayEl) {
@@ -200,7 +203,11 @@
 
             const subtitleEl = document.getElementById('valuationFormulaSubtitle');
             if (subtitleEl) {
-                subtitleEl.innerText = `Based on ${prematureCount} Malauhog @ ₱${malauhogPrice.toFixed(2)} + ${matureCount} Buko @ ₱${bukoPrice.toFixed(2)}`;
+                if (nutsPerBunch > 1) {
+                    subtitleEl.innerText = `${prematureCount} bunches (~${estMalauhogNuts.toLocaleString()} nuts) @ ₱${malauhogPrice.toFixed(2)} + ${matureCount} bunches (~${estBukoNuts.toLocaleString()} nuts) @ ₱${bukoPrice.toFixed(2)} (×${nutsPerBunch}/bungkos)`;
+                } else {
+                    subtitleEl.innerText = `Based on ${prematureCount} Malauhog @ ₱${malauhogPrice.toFixed(2)} + ${matureCount} Buko @ ₱${bukoPrice.toFixed(2)}`;
+                }
             }
 
             recalculateReconciliation();
@@ -210,11 +217,14 @@
         function recalculateReconciliation() {
             const actualReceived = parseFloat(document.getElementById('actualReceivedInput')?.value) || 0;
             const laborRate = parseFloat(document.getElementById('laborRateInput')?.value) || 0;
-            const totalNuts = prematureCount + matureCount;
+            const nutsPerBunch = parseFloat(document.getElementById('valNutsPerBunch')?.value) || 1;
+            const totalNuts = (prematureCount + matureCount) * nutsPerBunch;
 
             const malauhogPrice = parseFloat(document.getElementById('valMalauhogPrice')?.value) || 0;
             const bukoPrice = parseFloat(document.getElementById('valBukoPrice')?.value) || 0;
-            const estimatedGross = (prematureCount * malauhogPrice) + (matureCount * bukoPrice);
+            const estMalauhogNuts = prematureCount * nutsPerBunch;
+            const estBukoNuts = matureCount * nutsPerBunch;
+            const estimatedGross = (estMalauhogNuts * malauhogPrice) + (estBukoNuts * bukoPrice);
 
             const totalLabor = totalNuts * laborRate;
             const netProfit = actualReceived - totalLabor;
