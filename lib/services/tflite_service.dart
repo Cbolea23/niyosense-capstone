@@ -219,7 +219,33 @@ class TfliteService {
 
     String finalLabel = bukoProb >= malauhogProb ? "buko" : "malauhog";
     double highestConfidence = math.max(bukoProb, malauhogProb);
-    bool isValid = highestConfidence >= confidenceThreshold;
+
+    // --- Physical Gate 3: Dual-Modality Agreement & Confidence Floors ---
+    // Rule:
+    // 1. Overall fused confidence must meet threshold (>= 0.70)
+    // 2. Visual model must independently have confidence >= 0.65 (not a random guess)
+    // 3. If audio was recorded, visual and audio MUST agree on the same class
+    //    and audio must independently have confidence >= 0.65.
+    bool isValid;
+    if (audioFile != null && audioLabel != "N/A (Skipped)") {
+      final bool modalitiesAgree = (visualLabel == audioLabel);
+      final bool visualConfident = (visualConf >= 0.65);
+      final bool audioConfident = (audioConf >= 0.65);
+      final bool fusedConfident = (highestConfidence >= confidenceThreshold);
+
+      isValid = modalitiesAgree && visualConfident && audioConfident && fusedConfident;
+
+      if (!isValid) {
+        debugPrint("⛔ [GATE 3 TRIGGERED] Modalities failed agreement or individual floor: "
+            "Agree=$modalitiesAgree (Visual=$visualLabel vs Audio=$audioLabel), "
+            "VisConf=${(visualConf * 100).toStringAsFixed(1)}%, "
+            "AudConf=${(audioConf * 100).toStringAsFixed(1)}%, "
+            "Fused=${(highestConfidence * 100).toStringAsFixed(1)}%");
+      }
+    } else {
+      // Photo-only fallback
+      isValid = (highestConfidence >= confidenceThreshold) && (visualConf >= 0.70);
+    }
 
     return PredictionResult(
       label: isValid ? finalLabel : "Invalid Object",
