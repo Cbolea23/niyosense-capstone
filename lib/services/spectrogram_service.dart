@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
 
 class SpectrogramService {
@@ -251,6 +252,9 @@ class SpectrogramService {
     final tensorBuffer = Float32List(1 * 3 * targetHeight * targetWidth);
     const int channelSize = targetHeight * targetWidth;
 
+    // Also build an RGB image to save as PNG for visual inspection
+    final img.Image debugImg = img.Image(width: targetWidth, height: targetHeight);
+
     for (int y = 0; y < targetHeight; y++) {
       // In specshow, row 0 (top of image) is highest frequency (mel 127)
       final double melPos = (1.0 - (y / (targetHeight - 1))) * (nMels - 1);
@@ -279,7 +283,26 @@ class SpectrogramService {
         tensorBuffer[0 * channelSize + pixelIndex] = rgb[0]; // Red channel
         tensorBuffer[1 * channelSize + pixelIndex] = rgb[1]; // Green channel
         tensorBuffer[2 * channelSize + pixelIndex] = rgb[2]; // Blue channel
+
+        // Set pixel for inspection PNG
+        debugImg.setPixelRgb(
+          x,
+          y,
+          (rgb[0] * 255).round().clamp(0, 255),
+          (rgb[1] * 255).round().clamp(0, 255),
+          (rgb[2] * 255).round().clamp(0, 255),
+        );
       }
+    }
+
+    // Save PNG alongside audio file for inspection (Test A)
+    try {
+      final pngPath = wavFile.path.replaceAll(RegExp(r'\.wav$', caseSensitive: false), '_spectrogram.png');
+      final pngBytes = img.encodePng(debugImg);
+      File(pngPath).writeAsBytesSync(pngBytes);
+      debugPrint("📸 [TEST A] Saved generated Spectrogram PNG to: $pngPath (${pngBytes.length} bytes)");
+    } catch (e) {
+      debugPrint("⚠️ Could not write debug spectrogram PNG: $e");
     }
 
     return tensorBuffer.reshape([1, 3, targetHeight, targetWidth]);

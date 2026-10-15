@@ -138,9 +138,9 @@ def web_dashboard(request):
         'batch_summaries': batch_summaries,
         'total_farm_payout': total_farm_payout,
         'farm_profile': farm_profile,
-        'app_version': '1.3.4',
-        'model_pipeline': 'Multimodal Audio-Visual v2.4.1',
-        'inference_engine': 'TFLite (INT8 Quantized)',
+        'app_version': '1.3.5',
+        'model_pipeline': 'Multimodal Audio-Visual v2.4.2 (V2 Retrained)',
+        'inference_engine': 'TFLite (Dual-Modality Late Fusion)',
     }
     return render(request, 'dashboard/index.html', context)
 

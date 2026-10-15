@@ -36,10 +36,10 @@ class TfliteService {
 
   Future<void> loadModels() async {
     try {
-      _imgInterpreter = await Interpreter.fromAsset('assets/models/img_best.tflite');
-      _specInterpreter = await Interpreter.fromAsset('assets/models/spec_best.tflite');
+      _imgInterpreter = await Interpreter.fromAsset('assets/models/img_best_v2.tflite');
+      _specInterpreter = await Interpreter.fromAsset('assets/models/spec_best_v2.tflite');
 
-      debugPrint("✅ TFLite models loaded successfully.");
+      debugPrint("✅ TFLite V2 models loaded successfully.");
       debugPrint("📸 Visual Model Input: ${_imgInterpreter!.getInputTensor(0).shape}");
       debugPrint("🎵 Spectrogram Model Input: ${_specInterpreter!.getInputTensor(0).shape}");
     } catch (e) {
@@ -108,12 +108,12 @@ class TfliteService {
   Future<PredictionResult> predict({
     required File imageFile,
     File? audioFile,
-    double visualWeight = 0.6,
-    double confidenceThreshold = 0.60,
+    double visualWeight = 0.50,
+    double confidenceThreshold = 0.70,
   }) async {
     if (!isLoaded) await loadModels();
 
-    // 1. Run Visual Model (img_best.tflite)
+    // 1. Run Visual Model (img_best_v2.tflite)
     final imgInput = _preprocessImageForInterpreter(imageFile, _imgInterpreter!);
     if (imgInput == null) throw Exception("Failed to decode camera photo.");
 
@@ -124,6 +124,9 @@ class TfliteService {
 
     List<double> rawImgProbs = List<double>.from(imgOutputShape.length == 2 ? imgOutput[0] : imgOutput);
     List<double> imgProbs = _normalizeProbs(rawImgProbs);
+
+    debugPrint("📊 [ML_DEBUG - Test C] Raw Image Logits/Outputs: $rawImgProbs");
+    debugPrint("📊 [ML_DEBUG - Test C] Normalized Image Probs: buko=${(imgProbs[0] * 100).toStringAsFixed(2)}%, malauhog=${(imgProbs[1] * 100).toStringAsFixed(2)}%");
 
     String visualLabel = imgProbs[0] >= imgProbs[1] ? "buko" : "malauhog";
     double visualConf = math.max(imgProbs[0], imgProbs[1]);
@@ -146,6 +149,9 @@ class TfliteService {
         List<double> rawSpecProbs = List<double>.from(specOutputShape.length == 2 ? specOutput[0] : specOutput);
         specProbs = _normalizeProbs(rawSpecProbs);
 
+        debugPrint("📊 [ML_DEBUG - Test C] Raw Spectrogram Logits/Outputs: $rawSpecProbs");
+        debugPrint("📊 [ML_DEBUG - Test C] Normalized Audio Probs: buko=${(specProbs[0] * 100).toStringAsFixed(2)}%, malauhog=${(specProbs[1] * 100).toStringAsFixed(2)}%");
+
         audioLabel = specProbs[0] >= specProbs[1] ? "buko" : "malauhog";
         audioConf = math.max(specProbs[0], specProbs[1]);
         debugPrint("🎵 Real Audio Prediction: $audioLabel (${(audioConf * 100).toStringAsFixed(1)}%)");
@@ -164,6 +170,7 @@ class TfliteService {
     // 3. Late Fusion: W * P_visual + (1 - W) * P_audio
     double bukoProb = (visualWeight * imgProbs[0]) + ((1.0 - visualWeight) * specProbs[0]);
     double malauhogProb = (visualWeight * imgProbs[1]) + ((1.0 - visualWeight) * specProbs[1]);
+    debugPrint("🎯 [ML_DEBUG] Fused Probabilities (W=$visualWeight): buko=${(bukoProb * 100).toStringAsFixed(2)}%, malauhog=${(malauhogProb * 100).toStringAsFixed(2)}%");
 
     String finalLabel = bukoProb >= malauhogProb ? "buko" : "malauhog";
     double highestConfidence = math.max(bukoProb, malauhogProb);

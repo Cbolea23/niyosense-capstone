@@ -69,7 +69,9 @@ backend/__pycache__/
 backend/*.pyc
 backend/db.sqlite3
 backend/media/
+backend/media_test/coconuts/
 backend/static/
 backend/.env
 backend/venv/
 backend/.venv/
+

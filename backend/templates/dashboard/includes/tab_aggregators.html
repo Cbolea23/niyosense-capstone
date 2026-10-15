@@ -1,14 +1,14 @@
-<p class="text-xs text-slate-400 mb-6" data-i18n="aggregators_sub">Manage field operators and aggregators authorized to use the NiyoSense mobile app</p>
+<p class="text-xs text-slate-400 mb-6" data-i18n="aggregators_sub">Manage field operators and workers authorized to use the NiyoSense mobile app</p>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Left Column: Create New Aggregator Account Form -->
+    <!-- Left Column: Create New Worker Account Form -->
     <div class="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm h-fit">
         <div class="flex items-center space-x-3 mb-4">
             <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 text-lg">
                 👤➕
             </div>
             <div>
-                <h3 class="font-bold text-slate-800 text-sm" data-i18n="add_aggregator_title">Add Field Aggregator</h3>
+                <h3 class="font-bold text-slate-800 text-sm" data-i18n="add_aggregator_title">Add Field Worker</h3>
                 <p class="text-[11px] text-slate-400" data-i18n="add_aggregator_sub">Create credentials for mobile app operator</p>
             </div>
         </div>
@@ -62,7 +62,7 @@
         <div>
             <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                 <div>
-                    <h3 class="font-bold text-slate-800 text-sm" data-i18n="active_aggregators_title">Registered Field Aggregators</h3>
+                    <h3 class="font-bold text-slate-800 text-sm" data-i18n="active_aggregators_title">Registered Field Workers</h3>
                     <p class="text-xs text-slate-400" data-i18n="active_aggregators_sub">Users authorized to record scans and synchronize from mobile. Click any row to view & manage.</p>
                 </div>
                 <span class="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-3 py-1 rounded-full">
@@ -106,7 +106,7 @@
                             </td>
                             <td class="p-4">
                                 <span class="bg-teal-50 text-teal-700 font-semibold px-2.5 py-0.5 rounded-full text-[10.5px]">
-                                    {{ agg.role|default:"AGGREGATOR" }}
+                                    {{ agg.role|default:"WORKER" }}
                                 </span>
                             </td>
                             <td class="p-4 text-slate-500 text-[11px]">
@@ -133,7 +133,7 @@
                         {% empty %}
                         <tr>
                             <td colspan="5" class="p-8 text-center text-slate-400 text-xs" data-i18n="no_aggregators_found">
-                                No aggregators created yet. Use the form on the left to add mobile users.
+                                No workers created yet. Use the form on the left to add mobile users.
                             </td>
                         </tr>
                         {% endfor %}

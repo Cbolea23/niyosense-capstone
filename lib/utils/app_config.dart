@@ -1,10 +1,10 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppConfig {
-  static const String appVersion = "1.3.4";
-  static const int buildNumber = 6;
+  static const String appVersion = "1.3.5";
+  static const int buildNumber = 7;
   static const String fullVersionString = "NiyoSense Field v$appVersion";
-  static const String modelEngine = "Vision v2.4.1 (Multimodal)";
+  static const String modelEngine = "Vision v2.4.2 (V2 Dual-Modality)";
   static const String defaultServerUrl = "http://192.168.1.26:8000";
 
   /// Returns a persistent unique device identifier (e.g. NYS-PH-A1B2C3D4)

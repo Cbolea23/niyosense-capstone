@@ -52,11 +52,11 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
         final result = await _tfliteService.predict(
           imageFile: imgFile,
           audioFile: audioFile,
-          visualWeight: 0.6,
-          confidenceThreshold: 0.60,
+          visualWeight: 0.50,
+          confidenceThreshold: 0.70,
         );
 
-        debugPrint("🎯 FUSED PREDICTION: ${result.label} (Conf: ${(result.confidence * 100).toStringAsFixed(1)}%)");
+        debugPrint("🎯 FUSED PREDICTION (V2): ${result.label} (Conf: ${(result.confidence * 100).toStringAsFixed(1)}%)");
         debugPrint("📸 Visual: ${result.visualLabel} | 🎵 Audio: ${result.audioLabel}");
 
         _isValidObject = result.isValidObject;
@@ -205,18 +205,69 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Image Preview
-                        if (widget.imagePath != null && widget.imagePath!.isNotEmpty)
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: Image.file(
-                              File(widget.imagePath!),
-                              height: 180,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                            ),
+                        // Image & Spectrogram Previews (Test A Verification)
+                        if (widget.imagePath != null && widget.imagePath!.isNotEmpty) ...[
+                          Row(
+                            children: [
+                              // Visual Camera Capture Preview
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text("📸 Camera Photo", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54)),
+                                    const SizedBox(height: 6),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(14),
+                                      child: Image.file(
+                                        File(widget.imagePath!),
+                                        height: 140,
+                                        width: double.infinity,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Audio Mel-Spectrogram Preview (Test A: Direct PNG Inspection)
+                              Expanded(
+                                child: Builder(
+                                  builder: (context) {
+                                    final specPath = (widget.audioPath != null && widget.audioPath!.isNotEmpty)
+                                        ? widget.audioPath!.replaceAll(RegExp(r'\.wav$', caseSensitive: false), '_spectrogram.png')
+                                        : null;
+                                    final bool specExists = specPath != null && File(specPath).existsSync();
+
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text("🎵 Mel-Spectrogram", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54)),
+                                        const SizedBox(height: 6),
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(14),
+                                          child: specExists
+                                              ? Image.file(
+                                                  File(specPath),
+                                                  height: 140,
+                                                  width: double.infinity,
+                                                  fit: BoxFit.cover,
+                                                )
+                                              : Container(
+                                                  height: 140,
+                                                  color: Colors.grey.shade100,
+                                                  alignment: Alignment.center,
+                                                  child: const Text("Audio Skipped\nor No Tap", textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: Colors.black45)),
+                                                ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
-                        const SizedBox(height: 16),
+                          const SizedBox(height: 16),
+                        ],
 
                         // Model Breakdown Card
                         Card(
