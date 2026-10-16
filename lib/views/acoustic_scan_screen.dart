@@ -64,37 +64,57 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
       }
 
       final dir = await getApplicationDocumentsDirectory();
-      // Record directly to .wav at 22050 Hz matching Wayne's training dataset
       final filePath = path.join(dir.path, 'tap_${DateTime.now().millisecondsSinceEpoch}.wav');
       _currentRecordingPath = filePath;
 
-      await _audioRecorder.start(
-        const RecordConfig(
-          encoder: AudioEncoder.wav,
-          sampleRate: 44100, // Standard native sample rate across all Android devices
-          numChannels: 1, // Mono audio
-          autoGain: false, // Disable automatic gain distortion
-          echoCancel: false, // Disable echo cancellation
-          noiseSuppress: false, // Disable noise suppression that silences taps
-          androidConfig: AndroidRecordConfig(
-            audioSource: AndroidAudioSource.unprocessed, // Disables OS aggressive noise gates
+      // Try recording with standard mic config; fallback to basic WAV config if hardware throws
+      try {
+        await _audioRecorder.start(
+          const RecordConfig(
+            encoder: AudioEncoder.wav,
+            sampleRate: 44100, // Standard native sample rate across all Android devices
+            numChannels: 1, // Mono audio
+            autoGain: false, // Disable automatic gain distortion
+            echoCancel: false, // Disable echo cancellation
+            noiseSuppress: false, // Disable noise suppression that silences taps
+            androidConfig: AndroidRecordConfig(
+              audioSource: AndroidAudioSource.mic,
+            ),
           ),
-        ),
-        path: filePath,
-      );
+          path: filePath,
+        );
+      } catch (err) {
+        debugPrint("⚠️ Specific mic source unsupported, falling back to default RecordConfig: $err");
+        await _audioRecorder.start(
+          const RecordConfig(
+            encoder: AudioEncoder.wav,
+            sampleRate: 44100,
+            numChannels: 1,
+          ),
+          path: filePath,
+        );
+      }
 
       _knocksDetected = 0;
       _currentAmplitudeLevel = 0.0;
+      _lastKnockTimestamp = 0;
+
       _amplitudeSub = _audioRecorder
           .onAmplitudeChanged(const Duration(milliseconds: 60))
           .listen((amp) {
         if (!_isRecording || !mounted) return;
-        // Convert dBFS (-50 dBFS to 0 dBFS) to 0.0 .. 1.0 range
-        final double normalized = ((amp.current + 50.0) / 50.0).clamp(0.0, 1.0);
 
-        // Detect sharp percussive knock spike: current > -18.5 dBFS with 260ms cooldown
+        double db = amp.current;
+        if (db.isNaN || !db.isFinite) {
+          db = -50.0;
+        }
+
+        // Convert dBFS (-50 dBFS to 0 dBFS) to 0.0 .. 1.0 range
+        final double normalized = ((db + 50.0) / 50.0).clamp(0.0, 1.0);
+
+        // Detect sharp percussive knock spike: current > -30.0 dBFS with 200ms cooldown
         final int now = DateTime.now().millisecondsSinceEpoch;
-        if (amp.current > -18.5 && (now - _lastKnockTimestamp) > 260) {
+        if (db > -30.0 && (now - _lastKnockTimestamp) > 200) {
           _lastKnockTimestamp = now;
           _knocksDetected++;
           HapticFeedback.lightImpact();
@@ -124,24 +144,37 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
       });
     } catch (e) {
       debugPrint("❌ Failed to start recording: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to access microphone: $e")),
+        );
+      }
     }
   }
 
   Future<void> _stopRecordingAndNavigate() async {
     _timer?.cancel();
-    _amplitudeSub?.cancel();
-    setState(() => _isRecording = false);
+    _timer = null;
+    await _amplitudeSub?.cancel();
+    _amplitudeSub = null;
+    if (mounted) setState(() => _isRecording = false);
 
     try {
-      final finalPath = await _audioRecorder.stop();
-      final savedPath = finalPath ?? _currentRecordingPath;
+      String? savedPath;
+      if (await _audioRecorder.isRecording()) {
+        final finalPath = await _audioRecorder.stop();
+        savedPath = finalPath ?? _currentRecordingPath;
+      } else {
+        savedPath = _currentRecordingPath;
+      }
 
-      if (savedPath != null && await File(savedPath).exists()) {
+      if (savedPath != null && await File(savedPath).exists() && (await File(savedPath).length()) > 100) {
         debugPrint("🎤 Real 4s WAV recorded: $savedPath (Size: ${await File(savedPath).length()} bytes)");
         if (mounted) {
           await _validateAndNavigateToResult(hasAudio: true, realAudioPath: savedPath);
         }
       } else {
+        debugPrint("⚠️ No audio recorded or empty file. Proceeding with photo only.");
         if (mounted) await _validateAndNavigateToResult(hasAudio: false);
       }
     } catch (e) {
@@ -327,9 +360,14 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
         ),
       );
     } catch (e) {
+      debugPrint("❌ Acoustic scan error: $e");
       if (mounted) {
         setState(() => _isValidating = false);
-        _showRejectionError("No acoustic tap detected in spectrogram. Knock the coconut shoulder 3 times.");
+        _showRejectionError(
+          e.toString().contains("SpectrogramValidationException")
+              ? e.toString().replaceAll("SpectrogramValidationException:", "").trim()
+              : "Acoustic scan error: ${e.toString().replaceAll('Exception:', '').trim()}",
+        );
       }
     }
   }

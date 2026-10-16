@@ -93,8 +93,8 @@ class SpectrogramService {
     return filterbank;
   }
 
-  /// Reads raw 16-bit PCM audio samples from a WAV file, detects native sample rate,
-  /// downsamples from 44,100 Hz to 22,050 Hz if necessary, and pads/trims to target 88,200 samples
+  /// Reads raw 16-bit PCM audio samples from a WAV file, detects native sample rate and channels,
+  /// downmixes stereo to mono if needed, resamples to exactly 22,050 Hz, and pads/trims to target 88,200 samples
   static Float32List _readAndFixWavAudio(File wavFile) {
     final bytes = wavFile.readAsBytesSync();
     if (bytes.length < 44) {
@@ -102,12 +102,15 @@ class SpectrogramService {
     }
 
     int fileSampleRate = 44100;
+    int channels = 1;
     try {
       final headerData = ByteData.sublistView(bytes, 0, 44);
+      channels = headerData.getUint16(22, Endian.little);
       fileSampleRate = headerData.getUint32(24, Endian.little);
-      debugPrint("🎵 [AUDIO SPEC] Detected WAV Sample Rate: $fileSampleRate Hz");
+      debugPrint("🎵 [AUDIO SPEC] Detected WAV: $fileSampleRate Hz, $channels channel(s)");
     } catch (_) {
       fileSampleRate = 44100;
+      channels = 1;
     }
 
     int dataIndex = 36;
@@ -131,28 +134,47 @@ class SpectrogramService {
 
     final byteData = ByteData.sublistView(bytes, dataIndex);
     final int rawSampleCount = byteData.lengthInBytes ~/ 2;
-    final rawSamples = Float32List(rawSampleCount);
-    for (int i = 0; i < rawSampleCount; i++) {
-      rawSamples[i] = byteData.getInt16(i * 2, Endian.little) / 32768.0;
+    if (rawSampleCount == 0) {
+      return Float32List(targetSamples);
+    }
+
+    // Convert raw 16-bit PCM to normalized float [-1.0 .. 1.0] and mixdown to mono
+    Float32List monoSamples;
+    if (channels == 2) {
+      final int numFrames = rawSampleCount ~/ 2;
+      monoSamples = Float32List(numFrames);
+      for (int i = 0; i < numFrames; i++) {
+        final double left = byteData.getInt16(i * 4, Endian.little) / 32768.0;
+        final double right = byteData.getInt16(i * 4 + 2, Endian.little) / 32768.0;
+        monoSamples[i] = (left + right) / 2.0;
+      }
+    } else {
+      monoSamples = Float32List(rawSampleCount);
+      for (int i = 0; i < rawSampleCount; i++) {
+        monoSamples[i] = byteData.getInt16(i * 2, Endian.little) / 32768.0;
+      }
     }
 
     final pcmSamples = Float32List(targetSamples);
 
-    if (fileSampleRate >= 40000) {
-      debugPrint("🎵 [AUDIO SPEC] Downsampling audio 2x: $fileSampleRate Hz -> 22,050 Hz");
-      final int maxDownsampled = math.min(rawSampleCount ~/ 2, targetSamples);
-      for (int i = 0; i < maxDownsampled; i++) {
-        final int srcIdx = i * 2;
-        if (srcIdx + 1 < rawSampleCount) {
-          pcmSamples[i] = (rawSamples[srcIdx] + rawSamples[srcIdx + 1]) / 2.0;
-        } else {
-          pcmSamples[i] = rawSamples[srcIdx];
-        }
-      }
-    } else {
-      final int toCopy = math.min(rawSampleCount, targetSamples);
-      for (int i = 0; i < toCopy; i++) {
-        pcmSamples[i] = rawSamples[i];
+    // Resample monoSamples to exactly 22,050 Hz (88,200 samples for 4.0s)
+    if (fileSampleRate <= 0) fileSampleRate = 44100;
+    final double resampleRatio = fileSampleRate / sampleRate;
+
+    final int samplesToGenerate = math.min(
+      targetSamples,
+      (monoSamples.length / resampleRatio).floor(),
+    );
+
+    for (int i = 0; i < samplesToGenerate; i++) {
+      final double srcPos = i * resampleRatio;
+      final int srcIdx = srcPos.floor();
+      final double frac = srcPos - srcIdx;
+
+      if (srcIdx + 1 < monoSamples.length) {
+        pcmSamples[i] = (1.0 - frac) * monoSamples[srcIdx] + frac * monoSamples[srcIdx + 1];
+      } else if (srcIdx < monoSamples.length) {
+        pcmSamples[i] = monoSamples[srcIdx];
       }
     }
 
@@ -207,37 +229,41 @@ class SpectrogramService {
   }
 
   /// GATE 2: MEL-SPECTROGRAM IMAGE STRIPE COUNTER (100% Phone-Microphone Independent)
-  /// Downsamples generated spectrogram image to 64x64 grid, inspects top 70% rows (y = 0..44),
+  /// Downsamples generated spectrogram image to 64x64 grid, inspects resonance rows (y = 10..60),
   /// computes colEnergy[x] (0-255), medianColEnergy, and counts distinct vertical bright stripes
-  /// where colEnergy[x] > medianColEnergy + 35 and colEnergy[x] > 85, separated by >= 3 dark columns.
+  /// where colEnergy[x] > max(medianColEnergy + 12, 22), separated by >= 2 dark columns.
   static int validateSpectrogramStripes(img.Image specImage) {
     final grid = img.copyResize(specImage, width: 64, height: 64);
-    const int topRows = 45; // Top 70% of 64 rows (0..44), ignoring bottom 30% mic hum
+    // Rows 10 to 60 capture the acoustic percussion spectrum (~120 Hz to 7,500 Hz),
+    // excluding DC sub-bass microphone offset (rows 61..63) and ultra-high hiss (rows 0..9).
+    const int startRow = 10;
+    const int endRow = 60;
+    const int numRows = endRow - startRow + 1;
 
     final List<double> colEnergy = List<double>.filled(64, 0.0);
     for (int x = 0; x < 64; x++) {
       double sumBrightness = 0.0;
-      for (int y = 0; y < topRows; y++) {
+      for (int y = startRow; y <= endRow; y++) {
         final p = grid.getPixel(x, y);
         // Perceived pixel brightness on 0-255 scale (dark purple/black is low, orange/yellow is high)
         final double brightness = 0.299 * p.r + 0.587 * p.g + 0.114 * p.b;
         sumBrightness += brightness;
       }
-      colEnergy[x] = sumBrightness / topRows;
+      colEnergy[x] = sumBrightness / numRows;
     }
 
     final List<double> sortedEnergy = List<double>.from(colEnergy)..sort();
     final double medianColEnergy = (sortedEnergy[31] + sortedEnergy[32]) / 2.0;
-    final double peakThreshold = math.max(medianColEnergy + 35.0, 85.0);
+    final double peakThreshold = math.max(medianColEnergy + 12.0, 22.0);
 
-    // Count distinct vertical bright stripes separated by at least 3 dark columns
+    // Count distinct vertical bright stripes separated by at least 2 dark columns (~125ms)
     int stripeCount = 0;
     int darkColumnsSinceLastStripe = 999; // Allow first stripe immediately
 
     for (int x = 0; x < 64; x++) {
       final bool isBright = colEnergy[x] > peakThreshold;
       if (isBright) {
-        if (darkColumnsSinceLastStripe >= 3) {
+        if (darkColumnsSinceLastStripe >= 2) {
           stripeCount++;
         }
         darkColumnsSinceLastStripe = 0;
@@ -251,13 +277,13 @@ class SpectrogramService {
       "Threshold=${peakThreshold.toStringAsFixed(1)}, DetectedStripes=$stripeCount",
     );
 
-    if (stripeCount < 2) {
+    if (stripeCount < 1) {
       throw SpectrogramValidationException(
         "No acoustic tap detected in spectrogram. Knock the coconut shoulder 3 times.",
         stripeCount: stripeCount,
       );
     }
-    if (stripeCount > 5) {
+    if (stripeCount > 6) {
       throw SpectrogramValidationException(
         "Too many rapid taps or noise spikes detected ($stripeCount spikes). Knock strictly 3 times.",
         stripeCount: stripeCount,

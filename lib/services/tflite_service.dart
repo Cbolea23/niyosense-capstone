@@ -284,9 +284,9 @@ class TfliteService {
     }
   }
 
-  /// Temperature-scaled normalization (T = 1.6) so hyper-confident 99.9% probabilities
-  /// are calibrated to realistic field confidence levels and capped at 96.5%.
-  List<double> _normalizeAndScaleProbs(List<double> raw, {double temperature = 1.6}) {
+  /// Temperature-scaled normalization (T = 1.1) so logits are smoothly calibrated
+  /// without artificially suppressing true field confidence levels, capped at 96.5%.
+  List<double> _normalizeAndScaleProbs(List<double> raw, {double temperature = 1.1}) {
     double sum = raw.fold(0.0, (a, b) => a + b);
     List<double> logits;
     if ((sum - 1.0).abs() < 0.05 && raw.every((v) => v >= 0.0 && v <= 1.0)) {
@@ -302,7 +302,7 @@ class TfliteService {
     final double expSum = exps.fold(0.0, (a, b) => a + b);
     final List<double> probs = exps.map((e) => e / expSum).toList();
 
-    // Also enforce hard cap at 96.5% (0.965)
+    // Enforce hard cap at 96.5% (0.965)
     if (probs.length == 2) {
       if (probs[0] > 0.965) {
         return [0.965, 0.035];
@@ -425,7 +425,7 @@ class TfliteService {
           audioLabel: "INVALID TAP",
           audioConfidence: 0.0,
           isValidObject: false,
-          rejectionReason: "No acoustic tap detected in spectrogram. Knock the coconut shoulder 3 times.",
+          rejectionReason: "Audio analysis failed: ${e.toString().replaceAll('Exception:', '').trim()}",
         );
       }
     } else {
@@ -449,8 +449,8 @@ class TfliteService {
     );
 
     if (audioFile != null && audioLabel != "N/A (Skipped)") {
-      // Require minimum individual confidence floor (0.65) on the dominant audio model
-      if (audioConf < 0.65) {
+      // Require minimum individual confidence floor (0.52) on the dominant audio model (above chance)
+      if (audioConf < 0.52) {
         return PredictionResult(
           label: "Invalid Object",
           confidence: 0.0,
@@ -465,11 +465,11 @@ class TfliteService {
       }
 
       // If Visual and Audio disagree:
-      // Allow 70% Audio to override ambiguous outer husk ONLY if Audio is decisive (>= 0.75) and Fused >= 0.65.
-      // Otherwise reject as Inconclusive Scan.
-      if (visualLabel != audioLabel && (audioConf < 0.75 || highestConfidence < confidenceThreshold)) {
+      // Allow 70% Audio to override ambiguous outer husk when Fused confidence >= 0.58.
+      // Otherwise reject as Inconclusive Scan if both models are in a dead heat (< 58%).
+      if (visualLabel != audioLabel && highestConfidence < 0.58) {
         debugPrint(
-          "⛔ [GATE 3 - VETO] Visual ($visualLabel) != Audio ($audioLabel) and AudioConf (${(audioConf * 100).toStringAsFixed(1)}%) < 75%",
+          "⛔ [GATE 3 - VETO] Visual ($visualLabel) != Audio ($audioLabel) and Fused Conf (${(highestConfidence * 100).toStringAsFixed(1)}%) < 58%",
         );
         return PredictionResult(
           label: "Invalid Object",

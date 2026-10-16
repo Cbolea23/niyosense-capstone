@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import '../models/grading_log.dart';
@@ -53,11 +54,11 @@ class SyncService {
       final List<GradingLog> unsyncedLogs = await db.getUnsyncedLogs();
 
       if (unsyncedLogs.isEmpty) {
-        print("ℹ️ No unsynced logs found in local SQLite database.");
+        debugPrint("ℹ️ No unsynced logs found in local SQLite database.");
         return 0;
       }
 
-      print("🔄 Starting sequential sync for ${unsyncedLogs.length} offline log(s)...");
+      debugPrint("🔄 Starting sequential sync for ${unsyncedLogs.length} offline log(s)...");
       int syncedCount = 0;
 
       for (var log in unsyncedLogs) {
@@ -72,10 +73,10 @@ class SyncService {
         }
       }
 
-      print("🎉 Sequential sync complete: $syncedCount/${unsyncedLogs.length} logs synced.");
+      debugPrint("🎉 Sequential sync complete: $syncedCount/${unsyncedLogs.length} logs synced.");
       return syncedCount;
     } catch (e) {
-      print("❌ Exception during performSequentialSync: $e");
+      debugPrint("❌ Exception during performSequentialSync: $e");
       return 0;
     }
   }
@@ -83,7 +84,7 @@ class SyncService {
   Future<bool> syncSingleLog(GradingLog log, String accessToken, [String? customServerUrl]) async {
     final String rawUrl = (customServerUrl ?? backendBaseUrl ?? '').trim();
     if (rawUrl.isEmpty) {
-      print("❌ Sync Error: No backend server URL provided.");
+      debugPrint("❌ Sync Error: No backend server URL provided.");
       return false;
     }
     final String serverUrl = AppConfig.sanitizeServerUrl(rawUrl);
@@ -189,14 +190,14 @@ class SyncService {
         var response = await http.Response.fromStream(streamedResponse);
 
         if (response.statusCode == 200 || response.statusCode == 201) {
-          print("✅ Sync successful for UUID: $logUuid");
+          debugPrint("✅ Sync successful for UUID: $logUuid");
           return true;
         } else if (response.statusCode >= 500 && attempt < 3) {
-          print("⚠️ Server busy (${response.statusCode}), retrying attempt ${attempt + 1}/3...");
+          debugPrint("⚠️ Server busy (${response.statusCode}), retrying attempt ${attempt + 1}/3...");
           await Future.delayed(Duration(milliseconds: 400 * attempt));
           continue;
         } else {
-          print("❌ Sync failed (${response.statusCode}): ${response.body}");
+          debugPrint("❌ Sync failed (${response.statusCode}): ${response.body}");
           return false;
         }
       } catch (e) {
@@ -204,7 +205,7 @@ class SyncService {
           await Future.delayed(Duration(milliseconds: 400 * attempt));
           continue;
         }
-        print("❌ Exception during syncSingleLog: $e");
+        debugPrint("❌ Exception during syncSingleLog: $e");
         return false;
       }
     }
