@@ -273,11 +273,11 @@ class TfliteService {
     return probs;
   }
 
-  /// Runs Gate 1, Gate 2, and Gate 3 + late-fusion multimodal inference completely offline
+  /// Runs Gate 1, Gate 2, and Gate 3 (70% Audio / 30% Visual Acoustic-Dominant Fusion)
   Future<PredictionResult> predict({
     required File imageFile,
     File? audioFile,
-    double visualWeight = 0.50,
+    double visualWeight = 0.30, // 30% Visual (Husk) / 70% Audio (Spectrogram)
     double confidenceThreshold = 0.65,
   }) async {
     if (!isLoaded) await loadModels();
@@ -394,10 +394,23 @@ class TfliteService {
       audioConf = visualConf;
     }
 
-    // --- GATE 3: CROSS-MODEL VETO & CONFIDENCE CAP ---
+    // --- 70% AUDIO / 30% VISUAL LATE FUSION & GATE 3 (ACOUSTIC-DOMINANT VETO) ---
+    final double audioWeight = 1.0 - visualWeight; // 0.70
+    double bukoProb = (visualWeight * imgProbs[0]) + (audioWeight * specProbs[0]);
+    double malauhogProb = (visualWeight * imgProbs[1]) + (audioWeight * specProbs[1]);
+
+    String finalLabel = bukoProb >= malauhogProb ? "buko" : "malauhog";
+    double highestConfidence = math.min(0.965, math.max(bukoProb, malauhogProb));
+
+    debugPrint(
+      "🎯 [70/30 FUSION] Visual(30%)=$visualLabel(${(visualConf * 100).toStringAsFixed(1)}%), "
+      "Audio(70%)=$audioLabel(${(audioConf * 100).toStringAsFixed(1)}%) -> "
+      "Fused=$finalLabel(${(highestConfidence * 100).toStringAsFixed(1)}%)",
+    );
+
     if (audioFile != null && audioLabel != "N/A (Skipped)") {
-      if (visualLabel != audioLabel) {
-        debugPrint("⛔ [GATE 3 - CROSS-MODEL VETO] Visual ($visualLabel) != Audio ($audioLabel)");
+      // Require minimum individual confidence floor (0.65) on the dominant audio model
+      if (audioConf < 0.65) {
         return PredictionResult(
           label: "Invalid Object",
           confidence: 0.0,
@@ -407,11 +420,17 @@ class TfliteService {
           audioLabel: audioLabel,
           audioConfidence: audioConf,
           isValidObject: false,
-          rejectionReason: "Inconclusive Scan: Visual and audio readings disagree. Please rescan.",
+          rejectionReason: "Inconclusive Scan: Acoustic signal confidence too low. Please knock 3 times clearly.",
         );
       }
 
-      if (visualConf < 0.65 || audioConf < 0.65) {
+      // If Visual and Audio disagree:
+      // Allow 70% Audio to override ambiguous outer husk ONLY if Audio is decisive (>= 0.75) and Fused >= 0.65.
+      // Otherwise reject as Inconclusive Scan.
+      if (visualLabel != audioLabel && (audioConf < 0.75 || highestConfidence < confidenceThreshold)) {
+        debugPrint(
+          "⛔ [GATE 3 - VETO] Visual ($visualLabel) != Audio ($audioLabel) and AudioConf (${(audioConf * 100).toStringAsFixed(1)}%) < 75%",
+        );
         return PredictionResult(
           label: "Invalid Object",
           confidence: 0.0,
@@ -425,6 +444,7 @@ class TfliteService {
         );
       }
     } else {
+      // Photo-only mode requires visualConfidence >= 0.65
       if (visualConf < 0.65) {
         return PredictionResult(
           label: "Invalid Object",
@@ -439,13 +459,6 @@ class TfliteService {
         );
       }
     }
-
-    // Late Fusion: W * P_visual + (1 - W) * P_audio, capped at 96.5%
-    double bukoProb = (visualWeight * imgProbs[0]) + ((1.0 - visualWeight) * specProbs[0]);
-    double malauhogProb = (visualWeight * imgProbs[1]) + ((1.0 - visualWeight) * specProbs[1]);
-
-    String finalLabel = bukoProb >= malauhogProb ? "buko" : "malauhog";
-    double highestConfidence = math.min(0.965, math.max(bukoProb, malauhogProb));
 
     return PredictionResult(
       label: finalLabel,

@@ -265,7 +265,7 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
       final result = await _tfliteService.predict(
         imageFile: imgFile,
         audioFile: audFile,
-        visualWeight: 0.50,
+        visualWeight: 0.30, // 30% Visual / 70% Audio
         confidenceThreshold: 0.65,
       );
 

@@ -74,7 +74,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
         result = await _tfliteService.predict(
           imageFile: imgFile,
           audioFile: audioFile,
-          visualWeight: 0.50,
+          visualWeight: 0.30, // 30% Visual / 70% Audio
           confidenceThreshold: 0.65,
         );
       }
