@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import '../services/tflite_service.dart';
@@ -18,6 +19,10 @@ class _VisualScanScreenState extends State<VisualScanScreen> {
   late CameraController _controller;
   Future<void>? _initializeControllerFuture;
   bool _isFlashOn = false;
+  bool _isStreaming = false;
+  bool _isAnalyzingFrame = false;
+  bool _isAligned = false;
+  String _alignmentStatusKey = 'not_aligned_hint';
 
   @override
   void initState() {
@@ -30,12 +35,144 @@ class _VisualScanScreenState extends State<VisualScanScreen> {
     _initializeControllerFuture = _controller.initialize().then((_) {
       if (mounted) {
         _controller.setFlashMode(FlashMode.off);
+        _startLiveAlignmentStream();
       }
     });
   }
 
+  void _startLiveAlignmentStream() {
+    if (!_controller.value.isInitialized) return;
+    _isStreaming = true;
+    int frameCounter = 0;
+
+    try {
+      _controller.startImageStream((CameraImage image) {
+        if (!_isStreaming) return;
+        frameCounter++;
+        // Throttle to every 8th frame (~3-4 checks/sec) for 0ms UI delay
+        if (frameCounter % 8 != 0) return;
+        if (_isAnalyzingFrame) return;
+
+        _isAnalyzingFrame = true;
+        try {
+          _checkLiveAlignment(image);
+        } catch (e) {
+          debugPrint("Live alignment error: $e");
+        } finally {
+          _isAnalyzingFrame = false;
+        }
+      });
+    } catch (e) {
+      debugPrint("Could not start live image stream: $e");
+    }
+  }
+
+  void _checkLiveAlignment(CameraImage image) {
+    if (image.planes.isEmpty) return;
+    final int w = image.width;
+    final int h = image.height;
+    final yPlane = image.planes[0];
+    final uPlane = image.planes.length > 1 ? image.planes[1] : null;
+    final vPlane = image.planes.length > 2 ? image.planes[2] : null;
+
+    if (uPlane == null || vPlane == null) return;
+
+    final int uRowStride = uPlane.bytesPerRow;
+    final int uPixelStride = uPlane.bytesPerPixel ?? 1;
+    final int vRowStride = vPlane.bytesPerRow;
+    final int vPixelStride = vPlane.bytesPerPixel ?? 1;
+
+    bool isGreenAt(int px, int py) {
+      final int yIdx = py * yPlane.bytesPerRow + px * (yPlane.bytesPerPixel ?? 1);
+      final int uvRow = py ~/ 2;
+      final int uvCol = px ~/ 2;
+      final int uIdx = uvRow * uRowStride + uvCol * uPixelStride;
+      final int vIdx = uvRow * vRowStride + uvCol * vPixelStride;
+
+      if (yIdx >= yPlane.bytes.length || uIdx >= uPlane.bytes.length || vIdx >= vPlane.bytes.length) {
+        return false;
+      }
+
+      final int yVal = yPlane.bytes[yIdx];
+      final int uVal = uPlane.bytes[uIdx];
+      final int vVal = vPlane.bytes[vIdx];
+
+      // Green husk in YUV: U < 118, V < 122, Y in [35, 235]
+      return (uVal < 118) && (vVal < 122) && (yVal >= 35 && yVal <= 235);
+    }
+
+    // 1. Sample 16 Center Grid Points (Central 40% box)
+    int centerGreen = 0;
+    const centerFactors = [0.38, 0.46, 0.54, 0.62];
+    for (final fy in centerFactors) {
+      for (final fx in centerFactors) {
+        if (isGreenAt((w * fx).toInt(), (h * fy).toInt())) {
+          centerGreen++;
+        }
+      }
+    }
+
+    // 2. Sample 16 Outer Border Points (Outer 10% corners and margins)
+    int borderGreen = 0;
+    final borderPoints = [
+      // 4 corners
+      Point((w * 0.08).toInt(), (h * 0.08).toInt()),
+      Point((w * 0.92).toInt(), (h * 0.08).toInt()),
+      Point((w * 0.08).toInt(), (h * 0.92).toInt()),
+      Point((w * 0.92).toInt(), (h * 0.92).toInt()),
+      // 4 mid-edges
+      Point((w * 0.50).toInt(), (h * 0.06).toInt()),
+      Point((w * 0.50).toInt(), (h * 0.94).toInt()),
+      Point((w * 0.06).toInt(), (h * 0.50).toInt()),
+      Point((w * 0.94).toInt(), (h * 0.50).toInt()),
+      // 8 additional border points
+      Point((w * 0.25).toInt(), (h * 0.06).toInt()),
+      Point((w * 0.75).toInt(), (h * 0.06).toInt()),
+      Point((w * 0.25).toInt(), (h * 0.94).toInt()),
+      Point((w * 0.75).toInt(), (h * 0.94).toInt()),
+      Point((w * 0.06).toInt(), (h * 0.25).toInt()),
+      Point((w * 0.06).toInt(), (h * 0.75).toInt()),
+      Point((w * 0.94).toInt(), (h * 0.25).toInt()),
+      Point((w * 0.94).toInt(), (h * 0.75).toInt()),
+    ];
+
+    for (final pt in borderPoints) {
+      if (isGreenAt(pt.x, pt.y)) {
+        borderGreen++;
+      }
+    }
+
+    final double centerRatio = centerGreen / 16.0;
+    final double borderRatio = borderGreen / 16.0;
+
+    bool aligned = false;
+    String statusKey = 'not_aligned_hint';
+
+    if (centerRatio < 0.35) {
+      // Nothing green in center
+      aligned = false;
+      statusKey = 'not_aligned_hint'; // "Position coconut inside circle"
+    } else if (borderRatio >= 0.75) {
+      // The entire camera view is green (too close or solid green wall/paper)
+      aligned = false;
+      statusKey = 'too_close_hint'; // "Too close! Step back to fit circle"
+    } else {
+      // Center is green husk, and border is background/shadows!
+      aligned = true;
+      statusKey = 'coconut_aligned'; // "Coconut Aligned • Ready to Capture"
+    }
+
+    if (mounted && (aligned != _isAligned || statusKey != _alignmentStatusKey)) {
+      setState(() {
+        _isAligned = aligned;
+        _alignmentStatusKey = statusKey;
+      });
+    }
+  }
+
   @override
   void dispose() {
+    _isStreaming = false;
     _controller.setFlashMode(FlashMode.off);
     _controller.dispose();
     super.dispose();
@@ -90,7 +227,12 @@ class _VisualScanScreenState extends State<VisualScanScreen> {
               backgroundColor: const Color(0xFF10B981),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () {
+              Navigator.pop(ctx);
+              if (mounted && !_isStreaming) {
+                _startLiveAlignmentStream();
+              }
+            },
             child: const Text("Retake Photo", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
@@ -101,7 +243,15 @@ class _VisualScanScreenState extends State<VisualScanScreen> {
   Future<void> _takePicture() async {
     try {
       await _initializeControllerFuture;
-      final image = await _controller.takePicture();
+
+      // Safely stop stream before taking high-res picture
+      if (_isStreaming) {
+        _isStreaming = false;
+        try {
+          await _controller.stopImageStream();
+        } catch (_) {}
+        await Future.delayed(const Duration(milliseconds: 60));
+      }
 
       // Explicitly turn off flash after photo capture
       if (_isFlashOn) {
@@ -109,11 +259,19 @@ class _VisualScanScreenState extends State<VisualScanScreen> {
         if (mounted) setState(() => _isFlashOn = false);
       }
 
+      final image = await _controller.takePicture();
+
       if (!mounted) return;
 
-      // Run Gate 1: Camera Image Pixel Gate BEFORE advancing to Step 2
+      // Run Gate 1: High-Res Camera Image Pixel Gate BEFORE advancing
       final String? gate1Rejection = TfliteService.validateCameraImageFile(File(image.path));
       if (gate1Rejection != null) {
+        if (mounted) {
+          setState(() {
+            _isAligned = false;
+            _alignmentStatusKey = 'not_aligned_hint';
+          });
+        }
         _showGateRejectionDialog(gate1Rejection);
         return;
       }
@@ -125,6 +283,9 @@ class _VisualScanScreenState extends State<VisualScanScreen> {
         ),
       );
     } catch (e) {
+      if (mounted) {
+        _startLiveAlignmentStream();
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error capturing photo: $e')),
       );
@@ -132,6 +293,12 @@ class _VisualScanScreenState extends State<VisualScanScreen> {
   }
 
   void _skipToAudioOnly() async {
+    if (_isStreaming) {
+      _isStreaming = false;
+      try {
+        await _controller.stopImageStream();
+      } catch (_) {}
+    }
     if (_isFlashOn) {
       await _controller.setFlashMode(FlashMode.off);
       if (mounted) setState(() => _isFlashOn = false);
@@ -150,6 +317,8 @@ class _VisualScanScreenState extends State<VisualScanScreen> {
     return ValueListenableBuilder<String>(
       valueListenable: AppTranslations.currentLang,
       builder: (context, lang, _) {
+        final Color frameColor = _isAligned ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+
         return Scaffold(
           backgroundColor: const Color(0xFF081C15),
           body: SafeArea(
@@ -229,37 +398,49 @@ class _VisualScanScreenState extends State<VisualScanScreen> {
                           return const Center(child: CircularProgressIndicator(color: Color(0xFF10B981)));
                         },
                       ),
-                      Container(
+
+                      // Dynamic Live Alignment Circular Frame (Turns RED if not aligned / too close)
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
                         width: 260,
                         height: 260,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.5), width: 1.5),
+                          border: Border.all(
+                            color: frameColor,
+                            width: _isAligned ? 2.0 : 2.8,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: frameColor.withValues(alpha: 0.35),
+                              blurRadius: 16,
+                              spreadRadius: 2,
+                            ),
+                          ],
                         ),
-                        child: const Center(
-                          child: Icon(Icons.add, color: Color(0xFF10B981), size: 28),
+                        child: Center(
+                          child: Icon(
+                            Icons.add,
+                            color: frameColor,
+                            size: 28,
+                          ),
                         ),
                       ),
+
                       Positioned(
                         bottom: 16,
                         left: 20,
                         right: 20,
                         child: Column(
                           children: [
-                            Text(
-                              AppTranslations.text('position_coconut'),
-                              style: const TextStyle(color: Colors.white70, fontSize: 13),
-                            ),
-                            const SizedBox(height: 8),
-
                             // Cluster / Bungkos Sampling Tip Banner
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                               margin: const EdgeInsets.only(bottom: 8),
                               decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.6),
+                                color: Colors.black.withValues(alpha: 0.65),
                                 borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
+                                border: Border.all(color: Colors.white24),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -281,21 +462,34 @@ class _VisualScanScreenState extends State<VisualScanScreen> {
                               ),
                             ),
 
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                            // Dynamic Live Alignment Status Pill (Green = Aligned, Red = Misaligned/Too Close)
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF0A2E23),
+                                color: _isAligned ? const Color(0xFF0A2E23) : const Color(0xFF2E0A0A),
                                 borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                                border: Border.all(
+                                  color: frameColor.withValues(alpha: 0.5),
+                                  width: 1.2,
+                                ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const CircleAvatar(radius: 4, backgroundColor: Color(0xFF10B981)),
+                                  Icon(
+                                    _isAligned ? Icons.check_circle : Icons.warning_amber_rounded,
+                                    color: frameColor,
+                                    size: 15,
+                                  ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    AppTranslations.text('ai_ready_step1'),
-                                    style: const TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.w600),
+                                    AppTranslations.text(_alignmentStatusKey),
+                                    style: TextStyle(
+                                      color: frameColor,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -319,16 +513,29 @@ class _VisualScanScreenState extends State<VisualScanScreen> {
                           ),
                           GestureDetector(
                             onTap: _takePicture,
-                            child: Container(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
                               width: 76,
                               height: 76,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                border: Border.all(color: const Color(0xFF10B981), width: 4),
+                                border: Border.all(
+                                  color: frameColor,
+                                  width: 3.5,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: frameColor.withValues(alpha: 0.3),
+                                    blurRadius: 10,
+                                  ),
+                                ],
                               ),
                               child: Container(
                                 margin: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle),
+                                decoration: BoxDecoration(
+                                  color: _isAligned ? const Color(0xFF10B981) : const Color(0xFFDC2626),
+                                  shape: BoxShape.circle,
+                                ),
                                 child: const Icon(Icons.camera_alt, color: Colors.white, size: 32),
                               ),
                             ),

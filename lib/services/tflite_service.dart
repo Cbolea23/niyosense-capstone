@@ -108,6 +108,9 @@ class TfliteService {
     // Outer 15% border ring on 64x64: x < 10 or x >= 54 or y < 10 or y >= 54
     const int borderWidth = 10;
 
+    double sumCenterHue = 0.0;
+    double sumCenterHueSq = 0.0;
+
     for (int y = 0; y < 64; y++) {
       for (int x = 0; x < 64; x++) {
         final p = grid.getPixel(x, y);
@@ -136,6 +139,8 @@ class TfliteService {
           totalCenterPixels++;
           if (isGreenHuskPixel) {
             validCoconutCenterPixels++;
+            sumCenterHue += hue;
+            sumCenterHueSq += hue * hue;
           }
         }
 
@@ -170,7 +175,15 @@ class TfliteService {
       return "No coconut detected. Center a green coconut in the frame.";
     }
 
-    // 3. Grass & Foliage Texture Check (Center 60% ROI edgeRoughness & outer 15% borderGreenRatio)
+    // Hue standard deviation among green center pixels (detects flat artificial solid color)
+    double hueStdDev = 0.0;
+    if (validCoconutCenterPixels > 10) {
+      final double meanCenterHue = sumCenterHue / validCoconutCenterPixels;
+      final double hueVar = math.max(0.0, (sumCenterHueSq / validCoconutCenterPixels) - (meanCenterHue * meanCenterHue));
+      hueStdDev = math.sqrt(hueVar);
+    }
+
+    // 3. Grass, Foliage & Extreme Close-Up / Solid Green Overfill Check
     double sumEdgeDiff = 0.0;
     int edgeCount = 0;
     for (int y = roiStart; y < roiEnd; y++) {
@@ -188,14 +201,41 @@ class TfliteService {
       "📸 [GATE 1 PASS CHECK] meanLum=${meanLuminance.toStringAsFixed(1)}, stdDev=${stdDev.toStringAsFixed(1)}, "
       "centerGreen=${(centerGreenRatio * 100).toStringAsFixed(1)}%, "
       "borderGreen=${(borderGreenRatio * 100).toStringAsFixed(1)}%, "
-      "edgeRoughness=${edgeRoughness.toStringAsFixed(1)}",
+      "edgeRoughness=${edgeRoughness.toStringAsFixed(1)}, "
+      "hueStdDev=${hueStdDev.toStringAsFixed(1)}°",
     );
 
-    if (edgeRoughness > 30.0 || (borderGreenRatio > 0.85 && edgeRoughness > 24.0)) {
-      debugPrint(
-        "⛔ [GATE 1 - FOLIAGE/GRASS] Rejected: edgeRoughness=${edgeRoughness.toStringAsFixed(1)}, borderGreen=${(borderGreenRatio * 100).toStringAsFixed(1)}%",
-      );
+    // Check A: Extreme Close-Up or Solid Green Overfill (flooding outer border margins)
+    if (borderGreenRatio > 0.78) {
+      // If edgeRoughness is low or hue is unnaturally uniform, it's a solid green wall/paper or extreme close-up
+      if (edgeRoughness < 18.0 || hueStdDev < 3.2) {
+        debugPrint(
+          "⛔ [GATE 1 - CLOSE-UP/SOLID GREEN] Rejected: borderGreen=${(borderGreenRatio * 100).toStringAsFixed(1)}%, "
+          "edgeRoughness=${edgeRoughness.toStringAsFixed(1)}, hueStdDev=${hueStdDev.toStringAsFixed(1)}°",
+        );
+        return "Camera is too close or surface is a flat color. Step back so the whole coconut fits inside the circular guide.";
+      }
+      // If edgeRoughness is high, it's grass/foliage
+      if (edgeRoughness > 24.0) {
+        debugPrint(
+          "⛔ [GATE 1 - FOLIAGE/GRASS] Rejected: borderGreen=${(borderGreenRatio * 100).toStringAsFixed(1)}%, edgeRoughness=${edgeRoughness.toStringAsFixed(1)}",
+        );
+        return "Background foliage/grass detected. Hold camera closer to a single coconut husk.";
+      }
+    }
+
+    // Check B: Scattered grass or high-frequency weeds in background
+    if (edgeRoughness > 30.0) {
+      debugPrint("⛔ [GATE 1 - HIGH ROUGHNESS] Rejected: edgeRoughness=${edgeRoughness.toStringAsFixed(1)}");
       return "Background foliage/grass detected. Hold camera closer to a single coconut husk.";
+    }
+
+    // Check C: Flat synthetic solid surface even if centered (e.g. green paper/plastic)
+    if (edgeRoughness < 5.0 && hueStdDev < 2.5) {
+      debugPrint(
+        "⛔ [GATE 1 - SYNTHETIC SOLID COLOR] Rejected: edgeRoughness=${edgeRoughness.toStringAsFixed(1)}, hueStdDev=${hueStdDev.toStringAsFixed(1)}°",
+      );
+      return "Flat solid color detected. Please point camera at a real coconut.";
     }
 
     return null; // Passed all Gate 1 checks!

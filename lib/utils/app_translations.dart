@@ -70,7 +70,11 @@ class AppTranslations {
       'step_1_title': 'Step 1: Visual',
       'step_2_title': 'Step 2: Acoustic',
       'position_coconut': 'Position coconut within frame',
+      'coconut_aligned': 'Coconut Aligned • Ready to Capture',
+      'not_aligned_hint': 'Position coconut inside circle',
+      'too_close_hint': 'Too close! Step back to fit circle',
       'ai_ready_step1': 'AI Ready • Step 1 of 2',
+      'not_aligned_step1': 'Not Aligned • Align to Frame',
       'photo_auto_advance': 'Photo taken → auto-advances to Step 2: Acoustic →',
 
       // Acoustic Scan Screen
@@ -211,7 +215,11 @@ class AppTranslations {
       'step_1_title': 'Hakbang 1: Biswal',
       'step_2_title': 'Hakbang 2: Akustika',
       'position_coconut': 'Ipuwesto ang buko sa loob ng frame',
+      'coconut_aligned': 'Nakatapat ang Buko • Handa nang Kunan',
+      'not_aligned_hint': 'Ipasok ang buong buko sa bilog',
+      'too_close_hint': 'Masyadong malapit! Iatras nang kaunti',
       'ai_ready_step1': 'Handa ang AI • Hakbang 1 ng 2',
+      'not_aligned_step1': 'Hindi Nakatapat • Ipuwesto sa Bilog',
       'photo_auto_advance': 'Kunan ng litrato → kusang tutuloy sa Hakbang 2: Akustika →',
 
       // Acoustic Scan Screen
