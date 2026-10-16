@@ -1,7 +1,7 @@
 # 🥥 NiyoSense: Guide on Bungkos (Cluster) Sampling for Leader & Panel Review
 
 **Branch:** `feature/web-bungkos-sampling`  
-**Live Test Link (No Setup Needed):** [https://applicants-freeware-stylish-prints.trycloudflare.com/](https://applicants-freeware-stylish-prints.trycloudflare.com/)  
+**Live Test Link (No Setup Needed):** [https://relief-bay-prostate-drama.trycloudflare.com/](https://relief-bay-prostate-drama.trycloudflare.com/)  
 *(Or locally if on the same machine: [http://localhost:8080/](http://localhost:8080/))*
 
 ---
@@ -23,7 +23,7 @@ When explaining this to your leader or thesis panel, use this narrative:
 Here is the exact 3-step walkthrough for your leader to verify the feature:
 
 ### Step 1: Check the Home Overview (SOP Transparency)
-1. Open [https://applicants-freeware-stylish-prints.trycloudflare.com/](https://applicants-freeware-stylish-prints.trycloudflare.com/).
+1. Open [https://relief-bay-prostate-drama.trycloudflare.com/](https://relief-bay-prostate-drama.trycloudflare.com/).
 2. Look at the top of the **Home** tab.
 3. **What to look for:**
    - Notice the green informational banner:
