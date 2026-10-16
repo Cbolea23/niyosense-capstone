@@ -2,12 +2,27 @@
 **Prepared for:** Seann Yves Saracho (Manuscript & Documentation Lead)  
 **Authors:** Christian Louis Bolea, Wayne Yzon Nagares, Seann Yves Saracho  
 **Adviser:** Engr. Roselyn A. Maaño | **Technical Mentor / Panelist:** Prof. Eleazar Salanda  
+**Primary Stakeholder / Beneficiary:** Dr. Nona D. Nagares (Coconut Plantation Owner, Quezon Province)  
 **System Version:** `v1.4.0` (Build 12 — Final Production Build)
 
 ---
 
-## 📌 Purpose of This Document
-This guide directly compares our **Original Capstone 1 Proposal Manuscript** against our **Final Implemented System (`v1.4.0`)** so you can update every chapter, table, diagram, and methodology section in the revised Capstone paper with 100% technical accuracy.
+## 🚨 CRITICAL PARADIGM SHIFTS FOR SEANN (READ FIRST!)
+
+Before editing the manuscript, note these **two major panel-mandated shifts** from the original Capstone 1 Proposal Paper:
+
+### 1. Target Beneficiary Shift: From "Small-Scale Aggregators" $\rightarrow$ **"Coconut Plantation Owners and Farm Managers"**
+* **Old Paper:** Targeted *"Small-Scale Coconut Aggregators"* and labeled the mobile user as *"Aggregator"*.
+* **New Revised Paper (`v1.4.0`):** Targets **Coconut Plantation Owners and Farm Managers** (such as our primary stakeholder, Dr. Nona D. Nagares) and their **Field Operators / Sorters (*Mambubuko*)**.
+  * **Plantation Owner / Farm Manager (Web Dashboard):** Monitors total plantation harvest volume by *bungkos* (clusters), tracks **Estimated Harvest Valuation**, audits **Commercial Batch Settlement & Profit Reconciliation (Price Variance / Leakage)** when selling or paying out harvests, and manages **Field Operator accounts & synchronized farm devices**.
+  * **Field Operator / Sorter (Mobile App):** Uses the offline-first mobile app in the plantation field to scan harvested *bungkos*, record delivery batches, and generate digital harvest receipts.
+
+### 2. Model Terminology Shift: From "Multimodal Fusion" $\rightarrow$ **"Dual-Model Audio-Visual Classification Architecture"**
+* **Old Paper:** Described a single *"Multimodal Fusion Model"* using YOLOv11 + Python Librosa.
+* **New Revised Paper (`v1.4.0`):** Must be described as a **Dual-Model Audio-Visual Machine Learning Architecture** (NOT a single fused neural network):
+  * **Model 1 — Visual Husk Model (`img_best_v2.tflite`):** A standalone **YOLOv8-cls** convolutional neural network trained on `320×320` coconut husk images.
+  * **Model 2 — Acoustic Spectrogram Model (`spec_best_v2.tflite`):** A second standalone **YOLOv8-cls** convolutional neural network trained on `320×320` Mel-spectrogram images generated on-device from 4.0-second coconut knocking audio.
+  * **Dual-Model Weighted Decision Combiner (70% Acoustic / 30% Visual):** Both models run independently on-device via TensorFlow Lite (`tflite_flutter`), and their calibrated probability outputs are combined via a deterministic **70% Acoustic / 30% Visual weighted decision rule** ($P_{\text{final}} = 0.70 \cdot P_{\text{audio}} + 0.30 \cdot P_{\text{visual}}$).
 
 ---
 
@@ -15,14 +30,15 @@ This guide directly compares our **Original Capstone 1 Proposal Manuscript** aga
 
 | Manuscript Section / Topic | What Was Written in Old Paper (Capstone 1) | What Must Be Written in New Paper (`v1.4.0` Capstone 2) |
 | :--- | :--- | :--- |
-| **ML Model Architecture** | Mentioned **YOLOv11** + server-side **Python Librosa** | **Dual On-Device YOLOv8-cls (`img_best_v2.tflite` & `spec_best_v2.tflite`)** exported to TensorFlow Lite (`tflite_flutter`), running **100% offline on the smartphone** with a custom **Pure-Dart STFT & Slaney Mel-Spectrogram DSP Engine (`SpectrogramService.dart`)** that mathematically replicates Python `librosa` on-device. |
-| **Input Tensor Format** | `[1, 3, 224, 224]` NCHW or unspecified | **`[1, 320, 320, 3]` NHWC RGB Float32** normalized to `[0.0, 1.0]` for both Visual and Acoustic Mel-Spectrogram models. |
+| **Research Title & Target Users** | *"…using Multimodal Audio-Visual Machine Learning for Small-Scale Coconut Aggregators"* | *"NiyoSense: Development of a Web and Mobile Coconut Maturity Profiling and Grading System using **Dual-Model** Audio-Visual Machine Learning for **Coconut Plantation Owners and Farm Managers**"* (or keep approved title if locked by registrar, while shifting all body text to **Plantation Owners, Farm Managers, and Field Operators**). |
+| **ML Architecture Terminology** | Called *"Multimodal Fusion"* with YOLOv11 + server-side Python Librosa | **Dual-Model On-Device YOLOv8-cls Architecture (`img_best_v2.tflite` & `spec_best_v2.tflite`)** running **100% offline on the smartphone** via `tflite_flutter`, paired with a custom **Pure-Dart STFT & Slaney Mel-Spectrogram DSP Engine (`SpectrogramService.dart`)**. |
+| **Input Tensor Format** | `[1, 3, 224, 224]` NCHW or unspecified | **`[1, 320, 320, 3]` NHWC RGB Float32** normalized to `[0.0, 1.0]` for both the Visual Husk model and the Acoustic Mel-Spectrogram model. |
 | **Maturity Classes** | 3 classes (`Premature`, `Mature`, `Overmature`) + `50` samples each (`150` total) | **2 Target Young Coconut Classes** (`0: Buko` [Marketable / Mature Young Coconut with firm meat] vs. `1: Malauhog` [Premature / Mucus-like thin meat]) + **Deterministic Out-of-Distribution (`Unrecognized`) Rejection State** via a 3-Gate Pre-Inference Validation Pipeline. |
-| **Multimodal Late-Fusion Formula** | Unspecified or `60% Visual / 40% Audio` (`0.60 V + 0.40 A`) | **70% Acoustic / 30% Visual Weighted Late-Fusion** ($P_{\text{fused}} = 0.70 \cdot P_{\text{audio}} + 0.30 \cdot P_{\text{visual}}$). **Justification:** External green husks of *Buko* and *Malauhog* are visually near-identical in the field, whereas internal endosperm meat thickness and water cavity resonance produce distinct acoustic knock signatures. |
+| **Dual-Model Decision Weighting** | Unspecified or `60% Visual / 40% Audio` fusion | **70% Acoustic / 30% Visual Dual-Model Weighted Decision Rule** ($P_{\text{final}} = 0.70 \cdot P_{\text{audio}} + 0.30 \cdot P_{\text{visual}}$). **Justification:** External green husks of *Buko* and *Malauhog* are visually near-identical in plantation piles, whereas internal endosperm meat thickness and water cavity resonance produce distinct acoustic knock signatures. |
 | **Out-of-Distribution (OOD) / Non-Coconut Handling** | None (relied on raw CNN output) | **3-Gate Deterministic Pre-Inference & Post-Inference Validation Pipeline** (Gate 1: `64×64` HSV Husk Color + Luminance + Sobel Grass/Foliage Edge-Roughness Gate; Gate 2: `64×64` Spectrogram Vertical Tap-Stripe Counter requiring `2–5` knocks; Gate 3: Softmax Temperature Scaling $T=1.6$, `96.5%` confidence cap, and Acoustic-Dominant Cross-Model Verification). |
 | **Audio Recording Format & Preprocessing** | Recorded in `.M4A` format indoors | Recorded in **uncompressed 16-bit PCM `.WAV` (`22,050 Hz`, mono, 4.0 seconds)** using `AndroidAudioSource.unprocessed` (hardware AGC/Noise-Suppression disabled), followed by a **300 Hz High-Pass Filter**, **1.5s Peak-Window Auto-Centering**, **Hann STFT (`n_fft=2048, hop=512`)**, **128 Slaney Mel bands**, **$-80\text{ dB}$ to $0\text{ dB}$ normalization**, and **Matplotlib `magma` colormap**. |
-| **Post-Harvest Sampling Unit** | Individual coconut per scan (`1 scan = 1 nut`) | **Bungkos (Cluster) Representative Sampling (`bunch_count`)**: In real Quezon Province farm workflows, coconuts are harvested and graded by cluster (*bungkos*, typically 8–15 nuts per bunch). Scanning 1 representative nut profiles the entire *bungkos*, and the sorter inputs the exact **Bungkos Coconut Count (`bunch_count`)** so all dashboard volume KPIs, charts, and financial valuations track both **Total Coconuts** and **Sampled Bunches**. |
-| **Commercial & Financial Features** | Only mentioned basic inventory & grading logs | **Batch Delivery Session & Farmer Payout Voucher System** (mobile) + **Estimated Valuation Engine & Commercial Settlement / Profit Reconciliation (Price Variance / Leakage Detection)** (web dashboard). |
+| **Post-Harvest Sampling Unit** | Individual coconut per scan (`1 scan = 1 nut`) | **Bungkos (Cluster) Representative Sampling (`bunch_count`)**: In real Quezon Province plantation harvests, coconuts are cut and graded by cluster (*bungkos*, typically 8–15 nuts per bunch). Scanning 1 representative nut profiles the entire *bungkos*, and the field operator inputs the exact **Bungkos Coconut Count (`bunch_count`)** so all dashboard volume KPIs, charts, and financial valuations track both **Total Coconuts** and **Sampled Bunches**. |
+| **Plantation Management & Financial Features** | Only mentioned basic aggregator inventory & grading logs | **Plantation Harvest Batch Session & Tally Voucher System** (mobile) + **Estimated Harvest Valuation Engine & Commercial Settlement / Profit Reconciliation (Price Variance / Leakage Detection)** (web dashboard for Plantation Owners & Farm Managers). |
 | **Multi-Device & Multi-Operator Architecture** | Mentioned single user / Vercel + Neon serverless | **Dockerized Django + Gunicorn + WhiteNoise + Cloudflare Tunnel (`trycloudflare.com`)** with **30-Day Multi-Device JWT Authentication**, **SQLite WAL Mode + 5-Attempt Atomic Locking Retry** for simultaneous multi-phone synchronization, **Unique Hardware Device ID (`device_id`)**, and **Role-Based Field Operator Accounts**. |
 
 ---
@@ -30,61 +46,78 @@ This guide directly compares our **Original Capstone 1 Proposal Manuscript** aga
 ## 📖 2. Chapter-by-Chapter Manuscript Revisions (Exact Replacements)
 
 ### 2.1 Abstract (Lines 162–164 of Old Paper)
-**What to Change:**
-- Replace `YOLOv11` with **YOLOv8-cls deployed via TensorFlow Lite (`tflite_flutter`)**.
-- Mention the **70% Acoustic / 30% Visual Late-Fusion Architecture** and the **3-Gate Pre-Inference Out-of-Distribution (OOD) Validation Pipeline**.
-- Mention **Bungkos (Cluster) Sampling** and **Commercial Batch Valuation & Settlement Reconciliation**.
+**What Was Wrong in Old Abstract:**
+- Used *"Small-scale coconut aggregators"*, *"YOLOv11"*, and *"late-fusion classification architecture"*.
 
-**Ready-to-Paste Revised Abstract:**
-> Small-scale coconut aggregators in the Philippines rely on subjective manual tapping and visual inspection for maturity grading, leading to inconsistent quality assessment, sorting disputes, and post-harvest financial losses. Existing digital solutions lack integrated, offline-capable mobile tools that combine both visual and acoustic data for accurate field sorting. This study develops **NiyoSense**, a web and mobile coconut maturity profiling and grading system that utilizes multimodal audio-visual machine learning to provide standardized, objective grading for small-scale aggregators. The system employs dual **YOLOv8-cls** convolutional neural networks exported to **TensorFlow Lite (`320×320` Float32)** for visual husk analysis and acoustic Mel-spectrogram classification, supported by a pure-Dart Short-Time Fourier Transform (STFT) signal processing pipeline that converts 4-second raw `.wav` knock recordings into 128-band Slaney Mel-spectrograms on-device. To reflect the physical reality that external green husks of *Buko* (mature marketable young coconut) and *Malauhog* (premature mucus-like coconut) are visually similar while internal meat thickness alters acoustic resonance, predictions are combined via an **acoustic-dominant 70/30 late-fusion architecture ($0.70 \cdot P_{\text{audio}} + 0.30 \cdot P_{\text{visual}}$)** protected by a **3-Gate Out-of-Distribution (OOD) Validation Pipeline** and Softmax temperature scaling ($T = 1.6$). Built with Flutter and local SQLite storage, the mobile application supports 100% offline field grading, **cluster (*bungkos*) volume accounting**, and farmer delivery batch payout vouchers, while a Dockerized Django web dashboard provides concurrent multi-device synchronization, real-time harvest analytics, and commercial settlement reconciliation. Evaluation against ISO/IEC 25010 standards validates the system's functional suitability, performance efficiency, usability, and reliability for rural post-harvest operations.
+**Ready-to-Paste Revised Abstract (Aligned to Dual-Model & Plantation Owners/Managers):**
+> Coconut plantation owners and farm managers in the Philippines rely on subjective manual tapping and visual inspection by field sorters for post-harvest maturity grading, leading to inconsistent quality assessment, pricing disputes, and post-harvest financial losses. Existing digital solutions lack integrated, offline-capable mobile tools that evaluate both visual husk traits and internal acoustic resonance for accurate field sorting. This study develops **NiyoSense**, a web and mobile coconut maturity profiling and grading system that utilizes a **dual-model audio-visual machine learning architecture** to provide standardized, objective harvest grading for coconut plantation owners and farm managers. The system deploys two independent **YOLOv8-cls** convolutional neural networks exported to **TensorFlow Lite (`320×320` Float32)**: a visual model for outer husk classification and an acoustic model for Mel-spectrogram classification, supported by a pure-Dart Short-Time Fourier Transform (STFT) signal processing pipeline that converts 4-second raw `.wav` knock recordings into 128-band Slaney Mel-spectrograms on-device. Because external green husks of *Buko* (mature marketable young coconut) and *Malauhog* (premature mucus-like coconut) are visually similar while internal meat thickness alters acoustic resonance, predictions from the two models are combined via an **acoustic-dominant 70/30 dual-model decision rule ($0.70 \cdot P_{\text{audio}} + 0.30 \cdot P_{\text{visual}}$)** protected by a **3-Gate Out-of-Distribution (OOD) Validation Pipeline** and Softmax temperature scaling ($T = 1.6$). Built with Flutter and local SQLite storage, the mobile application enables field operators to perform 100% offline grading, **cluster (*bungkos*) volume accounting**, and harvest batch tallying, while a Dockerized Django web dashboard empowers plantation owners and managers with concurrent multi-device synchronization, real-time harvest analytics, estimated valuation, and commercial settlement reconciliation. Evaluation against ISO/IEC 25010 standards validates the system's functional suitability, performance efficiency, usability, and reliability for plantation post-harvest management.
 >
-> **Index Terms:** *Acoustic signal processing, agricultural automation, audio-visual late fusion, bungkos cluster sampling, coconut maturity grading, Mel-spectrogram, mobile decision support system, TensorFlow Lite, YOLOv8-cls.*
+> **Index Terms:** *Acoustic signal processing, agricultural decision support system, bungkos cluster sampling, coconut maturity grading, dual-model machine learning, Mel-spectrogram, plantation management, TensorFlow Lite, YOLOv8-cls.*
 
 ---
 
-### 2.2 Chapter 2: Introduction — Objectives & Scope (Lines 170–187 of Old Paper)
-**Updates Needed in Section 2.3 (Specific Objectives):**
-1. **Specific Objective 1 (Dataset):** Update from *"150 coconut samples (50 per category) in PNG and M4A"* to:
-   - Gathering and preprocessing a multimodal dataset of young coconuts categorized into **Buko** (mature young coconut with firm, marketable meat) and **Malauhog** (premature young coconut with thin, mucus-like meat), capturing visual husk images and standardized 4.0-second uncompressed `.wav` acoustic tapping signals (3–4 taps per sample) converted into `320×320` Mel-spectrograms (`magma` colormap).
-2. **Specific Objective 3 (Model Development):** Update from *"YOLOv11"* to:
-   - Developing and training dual **YOLOv8-cls** deep learning classification models (`img_best_v2.tflite` and `spec_best_v2.tflite`) integrated with a **3-Gate Out-of-Distribution (OOD) Pre-Inference Validation Pipeline** and an **Acoustic-Dominant 70/30 Late-Fusion Engine**.
-3. **Specific Objective 4 (Mobile & Web Development):** Add:
-   - Developing the offline-first Flutter mobile app with **Bungkos (Cluster) coconut count input**, **Farmer Delivery Batch Session & Payout Voucher generation**, and **English/Tagalog localization**, paired with a Dockerized Django Web Dashboard featuring **concurrent multi-device bulk synchronization**, **Estimated Harvest Valuation**, and **Commercial Settlement Reconciliation**.
+### 2.2 Chapter 2: Introduction — Context, Objectives, Significance & Scope (Lines 166–187 of Old Paper)
 
-**Updates Needed in Section 2.5 (Scope and Limitation):**
-- **Binary Target Focus (*Buko* vs. *Malauhog*):** Clarify that the deployed model focuses on the critical post-harvest commercial distinction between **Buko (Mature / Marketable Young Coconut)** and **Malauhog (Premature / Mucus-like Young Coconut)**, while providing manual/commercial tally fields for **Bungi (Reject/Damaged)** during batch settlement.
-- **Bungkos (Cluster) Sampling Methodology:** State that following standard agricultural practice in Quezon Province, harvested coconuts are grouped by cluster (*bungkos*). Scanning one representative nut from a *bungkos* establishes the maturity grade for that cluster, with the operator recording the cluster's nut count (`bunch_count`, typically 8–15 pieces).
-- **Environmental Guardrails:** Instead of passively suffering from background noise or non-coconut images, the system actively enforces **Gate 1 (Camera Pixel & Texture Gate)** and **Gate 2 (Spectrogram Tap-Stripe Gate)** to reject invalid captures (`Unrecognized`) and prompt the operator to re-scan.
+#### A. Project Context & Purpose (Sections 2.1 & 2.2)
+- Replace references to *"small-scale aggregators"* with **"coconut plantation owners, farm managers, and their field sorting teams"**.
+- Replace *"multimodal fusion"* with **"dual-model audio-visual classification"** where two specialized YOLOv8-cls models independently analyze the visual husk and the acoustic knocking Mel-spectrogram.
+
+#### B. Main and Specific Objectives (Section 2.3)
+- **Main Objective:**
+  > To design, develop, and evaluate a Web and Mobile Coconut Maturity Profiling and Grading System using **Dual-Model Audio-Visual Machine Learning**, aiming to provide **coconut plantation owners, farm managers, and field operators** with an accurate, offline-capable tool for determining young coconut maturity stages (*Buko* vs. *Malauhog*) and auditing harvest value during the post-harvest sorting phase.
+- **Specific Objectives:**
+  1. **Dataset Preparation:** To gather and preprocess a paired audio-visual dataset of young coconuts from the stakeholder's plantation in Quezon Province categorized into **Buko** (mature young coconut with firm, marketable meat) and **Malauhog** (premature young coconut with thin, mucus-like meat), capturing visual husk images and standardized 4.0-second uncompressed `.wav` acoustic tapping signals (3–4 taps per sample) converted into `320×320` Mel-spectrograms (`magma` colormap).
+  2. **UI/UX Prototyping:** To design the user interface for both the mobile field-scanning application and the centralized plantation management web dashboard.
+  3. **Dual-Model Development:** To develop and train **two independent YOLOv8-cls deep learning models** (`img_best_v2.tflite` for visual husk images and `spec_best_v2.tflite` for acoustic Mel-spectrograms) integrated with a **3-Gate Out-of-Distribution (OOD) Pre-Inference Validation Pipeline** and a **70% Acoustic / 30% Visual Dual-Model Weighted Decision Combiner**.
+  4. **Mobile & Web System Development:** To develop the offline-first Flutter mobile application with local SQLite storage, **Bungkos (Cluster) coconut count input (`bunch_count`)**, **Harvest Batch Session & Voucher generation**, and **English/Tagalog localization** for field operators, alongside a Dockerized Django Web Dashboard that allows **plantation owners and farm managers** to monitor multi-device grading logs, calculate **Estimated Harvest Valuation**, and perform **Commercial Settlement & Profit Reconciliation**.
+  5. **Testing & Evaluation:** To test the system using the black-box testing method and evaluate its quality characteristics according to the **ISO/IEC 25010** standard.
+
+#### C. Significance of the Research (Section 2.4 — Lines 180–184)
+Replace the old beneficiary list with:
+- **Coconut Plantation Owners and Farm Managers:** Provides a centralized Web Dashboard for real-time harvest inventory tracking by cluster (*bungkos*), automated market valuation, and commercial settlement reconciliation to prevent revenue leakage caused by subjective manual misgrading.
+- **Field Operators and Harvesters (*Mambubuko*):** Provides an objective, offline-capable mobile scanning tool that removes guesswork and fatigue during post-harvest sorting and produces transparent batch tally receipts.
+- **Coconut Buyers and Supply Chain Stakeholders:** Establishes a consistent, verifiable grading standard between **Buko** and **Malauhog** deliveries.
+- **Future Researchers:** Serves as a technical reference for deploying lightweight, **dual-model on-device audio-visual deep learning (`YOLOv8-cls` + pure-Dart STFT Mel-spectrograms)** in rural agricultural environments.
+
+#### D. Scope and Limitation (Section 2.5 — Lines 185–187)
+- **Target Users & Locale:** Designed for **coconut plantation owners, farm managers, and field operators** in Quezon Province (specifically validated with the plantation operations of Dr. Nona D. Nagares).
+- **Dual-Model Binary Classification (*Buko* vs. *Malauhog*):** The on-device dual-model pipeline classifies harvested young coconuts into **Buko (Mature / Marketable Young Coconut)** and **Malauhog (Premature / Mucus-like Young Coconut)**, while also supporting commercial tally entry for **Bungi (Reject / Damaged)** nuts during batch settlement.
+- **Bungkos (Cluster) Sampling Methodology:** Following standard plantation harvesting practice where nuts are cut by bunch (*bungkos*), scanning one representative coconut profiles the entire *bungkos*, and the operator inputs the cluster's nut count (`bunch_count`, typically 8–15 pieces).
+- **Environmental Guardrails:** The system enforces **Gate 1 (Camera Pixel & Texture Gate)** and **Gate 2 (Spectrogram Tap-Stripe Gate)** to automatically flag invalid captures as `Unrecognized` and prompt a re-scan.
 
 ---
 
 ### 2.3 Chapter 3: Theoretical & Conceptual Framework (Lines 189–287 of Old Paper)
 1. **Section 3.1 (Concept Map) & Section 3.4 (Conceptual Framework - Fig. 3):**
-   - Replace `YOLOv11` $\rightarrow$ **`YOLOv8-cls (TensorFlow Lite)`**.
+   - Replace `YOLOv11` $\rightarrow$ **`Dual YOLOv8-cls Models (TensorFlow Lite)`**.
+   - Replace `Multimodal Fusion` $\rightarrow$ **`Dual-Model Audio-Visual Classification (70% Acoustic / 30% Visual)`**.
    - Replace `Python Librosa (Backend)` $\rightarrow$ **`On-Device Dart STFT & Slaney Mel-Spectrogram Engine (SpectrogramService)`**.
+   - Replace `Small-Scale Aggregator` $\rightarrow$ **`Plantation Owner / Farm Manager (Web) & Field Operator (Mobile)`**.
    - Replace `Vercel` $\rightarrow$ **`Dockerized Django Server + Gunicorn + Cloudflare Tunnel`**.
-   - Update **Definition of Terms (Section 3.5)** to include:
-     - **Buko:** Marketable young coconut stage characterized by a firm, spoon-soft endosperm layer and resonant hollow acoustic tap signature.
+2. **Section 3.5 (Definition of Terms — Lines 259–271):**
+   - **Remove/Replace** *"Multimodal Fusion"* with:
+     - **Dual-Model Architecture:** An AI system design utilizing two separate, specialized deep learning models—one trained on visual coconut husk images and one trained on acoustic Mel-spectrogram images—whose probability outputs are combined using a weighted decision rule.
+     - **Buko:** Marketable young coconut stage characterized by a firm, spoon-soft endosperm meat layer and a resonant acoustic tap signature.
      - **Malauhog:** Premature young coconut stage characterized by a very thin, translucent, mucus-like endosperm layer and a dull/dampened acoustic tap signature.
-     - **Bungkos (Cluster Sampling):** A harvested bunch/cluster of coconuts from a single spadix (typically 8–15 nuts) that shares a uniform physiological maturity stage.
+     - **Bungkos (Cluster Sampling):** A harvested bunch/cluster of coconuts from a single tree spadix (typically 8–15 nuts) that shares a uniform physiological maturity stage.
      - **Mel-Spectrogram:** A time-frequency visual representation of an acoustic signal mapped onto the perceptual Mel frequency scale and rendered using the `magma` color lookup table for CNN classification.
-     - **Late Fusion (70/30 Acoustic-Visual Split):** A multimodal decision-level integration strategy that weights the acoustic classification probability at 70% and the visual husk probability at 30%.
-     - **Out-of-Distribution (OOD) Validation Gate:** Deterministic pre-inference signal and image checks that reject non-coconut objects, extreme lighting, or invalid tap counts before neural network fusion.
+     - **Plantation Owner / Farm Manager:** The primary administrative user of the NiyoSense Web Dashboard responsible for overseeing harvest grading logs, operator accounts, batch valuations, and commercial settlement reconciliation.
+     - **Field Operator:** The mobile application user on the plantation who captures visual and acoustic coconut scans, inputs *bungkos* nut counts, and synchronizes field logs to the central dashboard.
 
 ---
 
 ### 2.4 Chapter 4: Operational Framework — Software & Data Tables (Lines 288–371 of Old Paper)
 **Update Table 2 (Software Requirements):**
-- **Machine Learning:** `Ultralytics YOLOv8-cls` & `TensorFlow Lite (tflite_flutter ^0.12.1)` — Used for training `320×320` visual and Mel-spectrogram classification models and executing 100% offline inference on Android smartphones.
-- **Audio Signal Processing:** `Python Librosa` (for offline dataset preparation) & **Custom Pure-Dart DSP (`SpectrogramService.dart`)** — Implements 300 Hz high-pass filtering, 1.5s peak-window centering, Hann STFT (`n_fft=2048, hop=512`), and 128 Slaney Mel filterbanks directly on the mobile device.
-- **Web/Backend Hosting & Deployment:** `Docker Compose + Gunicorn + WhiteNoise + Cloudflare Tunnel (cloudflared)` — Containerized production environment with persistent volume mounts (`/app/media` and `/app/static`) and HTTPS zero-trust tunneling for multi-network mobile synchronization.
-- **Database:** `SQLite (sqflite)` on mobile for offline storage; `SQLite WAL (Write-Ahead Logging) / PostgreSQL` on backend with 30-second busy timeout and 5-attempt atomic transaction retry for concurrent multi-phone sync.
+- **Machine Learning:** `Ultralytics YOLOv8-cls` & `TensorFlow Lite (tflite_flutter ^0.12.1)` — Used to train and execute two independent on-device `320×320` classification models (`img_best_v2.tflite` and `spec_best_v2.tflite`).
+- **Audio Signal Processing:** `Python Librosa` (for offline training dataset preparation) & **Custom Pure-Dart DSP (`SpectrogramService.dart`)** — Performs on-device 300 Hz high-pass filtering, 1.5s peak-window centering, Hann STFT (`n_fft=2048, hop=512`), and 128 Slaney Mel filterbanks.
+- **Web/Backend Hosting & Deployment:** `Docker Compose + Gunicorn + WhiteNoise + Cloudflare Tunnel (cloudflared)` — Replaces Vercel; provides containerized backend deployment with persistent media storage (`/app/media`) and HTTPS tunneling for concurrent multi-device synchronization.
+- **Database:** `SQLite (sqflite)` on mobile for offline storage; `SQLite WAL (Write-Ahead Logging) / PostgreSQL` on the backend with 30-second busy timeout and 5-attempt atomic transaction retry.
 
 ---
 
 ## 🔬 3. Chapter 5: Complete Technical Methodology & Mathematical Formulas (New Section Content for Paper)
 
-Your 3rd member should include the following **5 core technical subsections and equations** in **Chapter 5 (Description of Methods or Approach / System Architecture)** to align with panel and adviser expectations:
+Include these **5 core technical subsections and equations** in **Chapter 5 (Description of Methods or Approach / System Architecture)**:
 
 ### 3.1 On-Device Acoustic Signal Processing Pipeline (`SpectrogramService.dart`)
 When the field operator taps a coconut 3–4 times during the 4.0-second recording window, the mobile application captures raw audio and transforms it into a `320×320` RGB Mel-spectrogram image entirely offline:
@@ -97,7 +130,7 @@ When the field operator taps a coconut 3–4 times during the 4.0-second recordi
 ---
 
 ### 3.2 3-Gate Pre-Inference & Post-Inference Out-of-Distribution (OOD) Validation Pipeline
-Because standard Softmax classification networks (`YOLOv8-cls`) trained on closed-set classes (*Buko* vs. *Malauhog*) can assign high probabilities to out-of-distribution inputs (e.g., grass, concrete, faces, or silent/noisy audio) without requiring a third "non-coconut" class that could degrade boundary precision, NiyoSense implements a deterministic **3-Gate Validation Pipeline** in [`ModelService.dart`](file:///d:/desktop/GITHUB/niyosense-capstone/lib/services/model_service.dart):
+Because standard Softmax classification networks (`YOLOv8-cls`) trained on closed-set classes (*Buko* vs. *Malauhog*) can assign high probabilities to out-of-distribution inputs (e.g., grass, concrete, faces, or silent/noisy audio) without adding a third "non-coconut" class that could degrade visual feature boundaries, NiyoSense implements a deterministic **3-Gate Validation Pipeline** in [`ModelService.dart`](file:///d:/desktop/GITHUB/niyosense-capstone/lib/services/model_service.dart):
 
 - **Gate 1: Camera Pixel & Texture Validation (`64×64` Downsampled RGB):**
   1. *Luminance & Exposure Check:* Rejects covered lenses or overexposed glare if mean luminance $\mu_Y \notin [28, 242]$ or standard deviation $\sigma_Y < 8.0$.
@@ -111,72 +144,65 @@ Because standard Softmax classification networks (`YOLOv8-cls`) trained on close
   - Distinct vertical stripes separated by at least 3 time columns are counted (`stripeCount`). A scan is accepted **if and only if `2 <= stripeCount <= 5`** (matching the SOP of 3–4 taps). Silence (`0–1` stripes) or continuous speech/clapping (`> 5` stripes) is immediately rejected as `Unrecognized`.
 
 - **Gate 3: Softmax Temperature Scaling ($T = 1.6$), Confidence Cap (`96.5%`), & Cross-Model Agreement:**
-  - Raw YOLOv8-cls probabilities $p_i$ are softened via temperature scaling ($T = 1.6$) to prevent artificial `99.9%–100.0%` saturation:
+  - Raw YOLOv8-cls probabilities $p_i$ from each model are softened via temperature scaling ($T = 1.6$) to prevent artificial `99.9%–100.0%` saturation:
     $$\hat{P}_i = \frac{p_i^{1/T}}{\sum_{j} p_j^{1/T}}, \quad T = 1.6$$
   - Displayed confidence is capped at **96.5%** ($\min(\text{conf}, 0.965)$).
-  - Minimum fused confidence threshold is **65.0%**. If the Visual and Acoustic models predict opposite classes, the scan is rejected as `Unrecognized` **unless** the Acoustic model is highly decisive ($\max(P_{\text{audio}}) \ge 0.75$), in which case the 70/30 fusion proceeds.
+  - Minimum final confidence threshold is **65.0%**. If the Visual and Acoustic models predict opposite classes, the scan is rejected as `Unrecognized` **unless** the Acoustic model is highly decisive ($\max(\hat{P}_{\text{audio}}) \ge 0.75$), in which case the 70/30 dual-model weighting proceeds.
 
 ---
 
-### 3.3 Acoustic-Dominant 70/30 Multimodal Late-Fusion Formula
-In field conditions, *Buko* and *Malauhog* harvested from green bunches exhibit nearly identical outer husk color and shape, whereas internal meat thickness and water cavity volume strongly modulate acoustic knock resonance. Therefore, the late-fusion classifier applies a **70% Acoustic / 30% Visual weighting**:
-$$P_{\text{fused}}(c) = 0.70 \cdot \hat{P}_{\text{audio}}(c) + 0.30 \cdot \hat{P}_{\text{visual}}(c), \quad c \in \{\text{Buko}, \text{Malauhog}\}$$
-$$\text{Predicted Stage} = \arg\max_{c} P_{\text{fused}}(c)$$
+### 3.3 Acoustic-Dominant 70/30 Dual-Model Decision Formula
+In plantation field conditions, *Buko* and *Malauhog* harvested from green bunches exhibit nearly identical outer husk color and shape, whereas internal meat thickness and water cavity volume strongly modulate acoustic knock resonance. Therefore, the dual-model decision combiner applies a **70% Acoustic / 30% Visual weighting** across the two independent YOLOv8-cls models:
+$$P_{\text{final}}(c) = 0.70 \cdot \hat{P}_{\text{audio}}(c) + 0.30 \cdot \hat{P}_{\text{visual}}(c), \quad c \in \{\text{Buko}, \text{Malauhog}\}$$
+$$\text{Predicted Stage} = \arg\max_{c} P_{\text{final}}(c)$$
 
 ---
 
-### 3.4 Bungkos (Cluster) Sampling & Volume Accounting Formula
-In small-scale coconut aggregation, harvesters cut entire clusters (*bungkos*) from a tree spadix. Since nuts within a single *bungkos* develop simultaneously, scanning one representative coconut grades the entire cluster. On `ScanResultScreen`, the operator inputs the cluster's nut count $n_i$ (`bunch_count`, default `10`, quick-select chips `8, 10, 12, 15`). Total graded volume across $K$ scanned clusters is computed as:
+### 3.4 Bungkos (Cluster) Sampling & Plantation Volume Accounting Formula
+In coconut plantation operations, harvesters cut entire clusters (*bungkos*) from a tree spadix. Since nuts within a single *bungkos* develop simultaneously, scanning one representative coconut grades the entire cluster. On `ScanResultScreen`, the field operator inputs the cluster's nut count $n_i$ (`bunch_count`, default `10`, quick-select chips `8, 10, 12, 15`). Total graded volume across $K$ scanned clusters is computed as:
 $$\text{Total Graded Coconuts} = \sum_{i=1}^{K} n_i, \qquad \text{Total Sampled Bunches} = K$$
 $$\text{Stage Volume}(s) = \sum_{i \in \Omega_s} n_i$$
 where $\Omega_s$ is the set of scanned clusters classified under maturity stage $s$.
 
 ---
 
-### 3.5 Commercial Valuation & Profit Reconciliation (Leakage) Formulas
-1. **Estimated Batch Valuation ($V_{\text{est}}$):**
+### 3.5 Plantation Harvest Valuation & Commercial Settlement Reconciliation Formulas
+1. **Estimated Harvest Valuation ($V_{\text{est}}$):**
    $$V_{\text{est}} = \left(N_{\text{Buko}} \times R_{\text{Buko}}\right) + \left(N_{\text{Malauhog}} \times R_{\text{Malauhog}}\right) + \left(N_{\text{Bungi}} \times R_{\text{Bungi}}\right)$$
-   where $N_s$ is the coconut count for stage $s$ and $R_s$ is the configured unit buying rate (PHP/nut).
+   where $N_s$ is the coconut count for stage $s$ and $R_s$ is the configured unit market rate (PHP/nut).
 2. **Commercial Price Variance / Leakage ($\Delta V$):**
-   When an aggregator settles a delivery with a buyer or farmer at an actual paid amount $V_{\text{actual}}$, the Web Dashboard's **Batch Settlement & Profit Reconciliation Engine** computes the financial variance resulting from subjective manual misgrading:
+   When a plantation owner or farm manager settles a harvest batch against an actual buyer payout $V_{\text{actual}}$, the Web Dashboard's **Batch Settlement & Profit Reconciliation Engine** computes the financial variance resulting from subjective manual misgrading:
    $$\Delta V = V_{\text{est}} - V_{\text{actual}}$$
-   - If $\Delta V > 0$: **Revenue Leakage / Underpayment** (high-value *Buko* nuts were manually downgraded).
-   - If $\Delta V < 0$: **Overpayment Loss** (premature *Malauhog* or *Bungi* rejects were overpaid at *Buko* rates).
+   - If $\Delta V > 0$: **Revenue Leakage / Underpayment** (high-value *Buko* nuts were manually downgraded during buyer sorting).
+   - If $\Delta V < 0$: **Overpayment Variance** (premature *Malauhog* or *Bungi* rejects were priced at *Buko* rates).
 
 ---
 
-## 🖥️ 4. Updated System Features to Describe in Section 5.3 (Prototype & Final System UI)
+## 🖥️ 4. Updated User Roles & System Features for Section 5.2 & 5.3 (Diagrams & UI Captions)
 
-When updating **Section 5.3 (Description of Prototype / Final System)** and **Figures 7–19**, make sure the captions and text describe these implemented `v1.4.0` modules:
+### Update Fig. 5 (Use Case Diagram) & Fig. 6 (User Flow Diagram):
+- **Role 1: Field Operator / Sorter (Mobile App User)** — Logs in with operator credentials, captures Visual Husk image + 4.0s Acoustic Knocking audio offline, views Dual-Model classification (*Buko* vs. *Malauhog*), inputs **Bungkos Coconut Count (`bunch_count`)**, records **Harvest Delivery Batch Sessions**, and synchronizes logs to the plantation server when connected.
+- **Role 2: Plantation Owner / Farm Manager (Web Dashboard Administrator)** — Monitors real-time plantation harvest KPIs (Total Graded Coconuts & Sampled Bunches), configures unit market rates in the **Estimated Valuation Engine**, audits buyer/farmer payouts in the **Batch Settlement & Profit Reconciliation Calculator**, inspects synced Grading Logs with `.wav` audio playback and dual-model confidence bars, and manages **Field Operator Accounts & Synchronized Farm Devices**.
 
-### Mobile App (Flutter — `v1.4.0` Build 12)
-1. **Home Screen (`HomeScreen`)**:
-   - Displays **Active Delivery Session Card** (Farmer name, batch code, total coconuts scanned, live payout in PHP), **Total Scans / Unsynced Counter**, **One-Tap Cloud Sync Button** (with exponential retry), and **Recent Scans History**.
-2. **Step 1: Visual Capture (`VisualScanScreen`)**:
-   - Guides user to frame a single coconut husk inside the bounding guide with a **Cluster (*Bungkos*) Sampling Badge** reminding the sorter that 1 nut represents its harvested cluster.
-3. **Step 2: Acoustic Capture (`AcousticScanScreen`)**:
-   - Records 4.0 seconds of raw `22,050 Hz` PCM audio while the user taps the coconut 3–4 times, immediately generating and previewing the on-device `magma` Mel-spectrogram.
-4. **Step 3: Fused Result & Bungkos Input (`ScanResultScreen`)**:
-   - Displays the fused classification (**Buko / Mature**, **Malauhog / Premature**, or **Unrecognized / Scan Invalid**), individual **Visual (30%)** and **Acoustic (70%)** confidence bars, an interactive **Bungkos Coconut Count (`bunch_count`) Selector** (`8, 10, 12, 15` chips or custom count), and a **Save / Discard** workflow.
-5. **Farmer Delivery Batch & Payout Voucher (`BatchSessionScreen`)**:
-   - Allows aggregators to start a named farmer delivery session, set buying rates per piece (`₱/pc`), track live counts per grade, and generate a **Shareable Digital Delivery Voucher / Receipt** to eliminate pricing disputes.
-6. **Settings & Multi-Operator Profile (`SettingsScreen`)**:
-   - Includes **Field Operator Account Login**, **Server URL Configuration with Automatic URL Sanitizer**, **Unique Hardware Device ID (`device_id`)**, and **Instant English / Tagalog (`EN / TL`) Language Toggle**.
+### Mobile App UI Screens (Flutter — `v1.4.0` Build 12)
+1. **Home Screen (`HomeScreen`)**: Active Harvest Batch Session card, Total Scans / Unsynced counter, One-Tap Cloud Sync button, and Recent Scans list.
+2. **Step 1: Visual Capture (`VisualScanScreen`)**: Camera framing guide with **Cluster (*Bungkos*) Sampling Badge**.
+3. **Step 2: Acoustic Capture (`AcousticScanScreen`)**: 4.0-second `22,050 Hz` unprocessed `.wav` recording with instant on-device `magma` Mel-spectrogram preview.
+4. **Step 3: Dual-Model Result & Bungkos Input (`ScanResultScreen`)**: Displays final classification (**Buko / Mature**, **Malauhog / Premature**, or **Unrecognized / Scan Invalid**), separate **Visual Model (30%)** and **Acoustic Model (70%)** confidence bars, **Bungkos Coconut Count (`bunch_count`) Selector** (`8, 10, 12, 15`), and Save/Discard controls.
+5. **Harvest Batch & Tally Voucher (`BatchSessionScreen`)**: Per-batch piece-rate configuration (`₱/pc`), live grade tallies, and shareable digital harvest voucher/receipt.
+6. **Settings & Operator Profile (`SettingsScreen`)**: Field Operator login, Server URL with auto-sanitizer, Unique Hardware Device ID (`device_id`), and reactive **English / Tagalog (`EN / TL`)** toggle.
 
-### Web Dashboard (Django + Docker — `v1.4.0`)
-1. **Overview & Analytics Tab (`tab_analytics.html`)**:
-   - Displays 4 real-time KPI cards (**Total Graded Coconuts** with **Sampled Bunches** subtitle, **Buko / Marketable Volume**, **Malauhog / Premature Volume**, and **Synchronized Devices**), an **Estimated Valuation Engine** with customizable PHP market rates, **Batch Settlement & Profit Reconciliation (Commercial Leakage Calculator)**, and Chart.js visualizations (**Maturity Stage Distribution Doughnut Chart** & **7-Day Grading Trend Bar Chart**).
-2. **Grading Logs Tab (`tab_logs.html`)**:
-   - Features **Live 3-Second Auto-Polling**, search and stage filtering (`Mature`, `Premature`, `Overmature`, `Unrecognized`), **Bungkos Count Badge (`X coconuts (1 bungkos)`)**, **Visual vs. Acoustic Confidence Progress Bars**, **Device / Operator Attribution**, and an **Inspection Modal** that plays back the synced 4-second `.wav` audio alongside the captured coconut image.
-3. **Settings & Operator Management Tab (`tab_settings.html`)**:
-   - Features **Editable Farm Owner Profile**, **Field Operator Account Management** (create, toggle active/inactive, reset password, delete), **Synchronized Hardware Devices Table**, and an **Install Mobile App (Android) Card** with direct APK download and **Scan-to-Install QR Code Modal**.
+### Web Dashboard UI Tabs (Django + Docker — `v1.4.0`)
+1. **Overview & Analytics Tab (`tab_analytics.html`)**: 4 KPI cards (**Total Graded Coconuts** + **Sampled Bunches**, **Buko Volume**, **Malauhog Volume**, **Synchronized Devices**), **Estimated Valuation Engine**, **Batch Settlement & Profit Reconciliation**, and Chart.js Doughnut & 7-Day Trend charts.
+2. **Grading Logs Tab (`tab_logs.html`)**: **Live 3-Second Auto-Polling**, stage filter & search, **Bungkos Count Badge (`X coconuts (1 bungkos)`)**, **Visual vs. Acoustic Model Confidence Bars**, **Operator/Device Attribution**, and **Audio/Image Inspection Modal**.
+3. **Settings & Farm Management Tab (`tab_settings.html`)**: **Editable Plantation Owner / Farm Manager Profile**, **Field Operator Account Management**, **Synchronized Hardware Devices Table**, and **Install Mobile App (Android) QR Code & Direct APK Download**.
 
 ---
 
-## ✅ 5. Checklist for Seann Before Final Manuscript Submission
-- [ ] Global Find & Replace `YOLOv11` $\rightarrow$ **`YOLOv8-cls (TensorFlow Lite)`**.
-- [ ] Update Abstract, Introduction, Conceptual Framework (Fig. 3), and Software Requirements (Table 2) to reflect **on-device TFLite inference** and **Docker + Cloudflare Tunnel deployment** instead of Vercel.
-- [ ] Add the **70% Acoustic / 30% Visual Late-Fusion Equation** and its agricultural justification (visual similarity of green husks vs. acoustic resonance of internal meat thickness).
-- [ ] Add the **3-Gate Out-of-Distribution (OOD) Validation Pipeline** description (Camera HSV/Texture Gate + Spectrogram Vertical Tap-Stripe Gate + Softmax Temperature Scaling $T=1.6$).
-- [ ] Add the **Bungkos (Cluster) Representative Sampling** explanation and volume summation formula.
-- [ ] Replace old Figma prototype screenshots (Figs. 7–19) with screenshots of the live `v1.4.0` Web Dashboard and Android App.
+## ✅ 5. Final Revision Checklist for Seann
+- [ ] **Beneficiary Terminology:** Replace *"Small-Scale Coconut Aggregators"* across the manuscript with **"Coconut Plantation Owners and Farm Managers"** (for the Web Dashboard) and **"Field Operators / Sorters"** (for the Mobile App).
+- [ ] **Architecture Terminology:** Replace *"Multimodal Fusion"* and *"YOLOv11"* with **"Dual-Model Audio-Visual Machine Learning Architecture"** using **two independent on-device `YOLOv8-cls` TensorFlow Lite models (`img_best_v2.tflite` and `spec_best_v2.tflite`)**.
+- [ ] **70/30 Dual-Model Equation:** Include $P_{\text{final}}(c) = 0.70 \cdot \hat{P}_{\text{audio}}(c) + 0.30 \cdot \hat{P}_{\text{visual}}(c)$ and its field justification (outer green husks of *Buko* and *Malauhog* look almost identical, whereas internal meat thickness alters acoustic resonance).
+- [ ] **3-Gate OOD Validation Pipeline:** Document Gate 1 (`64×64` HSV Husk + Luminance + Sobel Texture), Gate 2 (`64×64` Spectrogram Vertical Tap-Stripe Counter requiring `2–5` knocks), and Gate 3 (Softmax Temperature Scaling $T=1.6$ + `96.5%` cap).
+- [ ] **Bungkos (Cluster) Sampling & Plantation Valuation:** Add the `bunch_count` cluster volume equation and the Commercial Settlement Reconciliation ($\Delta V = V_{\text{est}} - V_{\text{actual}}$) equation.
+- [ ] **Deployment & Screenshots:** Update Fig. 21 (Deployment Diagram) from Vercel to **Docker + Gunicorn + Cloudflare Tunnel**, and replace old Figma screenshots (Figs. 7–19) with live `v1.4.0` screenshots.
