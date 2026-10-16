@@ -372,15 +372,15 @@ def app_version_check_api(request):
 
     host = request.get_host()
     scheme = 'https' if request.is_secure() or request.headers.get('x-forwarded-proto') == 'https' else 'http'
-    download_url = f"{scheme}://{host}/media/downloads/niyosense.apk?v=1.3.4"
+    download_url = f"{scheme}://{host}/media/downloads/niyosense.apk?v=1.3.8"
     install_page_url = f"{scheme}://{host}/install/"
 
     return Response({
         "success": True,
-        "latest_version": "1.3.4",
-        "latest_build_number": 6,
-        "release_title": "NiyoSense Field v1.3.4",
-        "release_notes": "Lock price editing to Owner-only from dashboard, enhanced in-app updater, and batch session payout tracking.",
+        "latest_version": "1.3.8",
+        "latest_build_number": 10,
+        "release_title": "NiyoSense Field v1.3.8",
+        "release_notes": "Hard 3-Gate Pre-Inference Validation (64x64 HSV & Texture Gate, Mel-Spectrogram Stripe Counter, Cross-Model Veto) + Bungkos Coconut Counter.",
         "download_url": download_url,
         "install_page_url": install_page_url,
         "file_size_mb": file_size_mb,

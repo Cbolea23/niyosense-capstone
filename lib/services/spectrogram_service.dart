@@ -1,9 +1,17 @@
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
+
+class SpectrogramValidationException implements Exception {
+  final String message;
+  final int stripeCount;
+  SpectrogramValidationException(this.message, {this.stripeCount = 0});
+
+  @override
+  String toString() => message;
+}
 
 class SpectrogramService {
   static const int sampleRate = 22050;
@@ -90,10 +98,9 @@ class SpectrogramService {
   static Float32List _readAndFixWavAudio(File wavFile) {
     final bytes = wavFile.readAsBytesSync();
     if (bytes.length < 44) {
-      throw Exception("Invalid WAV file: size too small.");
+      throw SpectrogramValidationException("No acoustic tap detected in spectrogram. Knock the coconut shoulder 3 times.");
     }
 
-    // Parse sample rate from fmt chunk (bytes 24-27)
     int fileSampleRate = 44100;
     try {
       final headerData = ByteData.sublistView(bytes, 0, 44);
@@ -103,7 +110,6 @@ class SpectrogramService {
       fileSampleRate = 44100;
     }
 
-    // Locate the 'data' subchunk inside the WAV file header
     int dataIndex = 36;
     for (int i = 12; i < bytes.length - 4; i++) {
       if (bytes[i] == 0x64 &&
@@ -116,7 +122,7 @@ class SpectrogramService {
     }
 
     if (dataIndex >= bytes.length) {
-      dataIndex = 44; // Standard WAV header fallback
+      dataIndex = 44;
     }
 
     if (dataIndex >= bytes.length) {
@@ -132,12 +138,10 @@ class SpectrogramService {
 
     final pcmSamples = Float32List(targetSamples);
 
-    // If recorded at ~44,100 Hz, downsample by 2x into 22,050 Hz
     if (fileSampleRate >= 40000) {
       debugPrint("🎵 [AUDIO SPEC] Downsampling audio 2x: $fileSampleRate Hz -> 22,050 Hz");
       final int maxDownsampled = math.min(rawSampleCount ~/ 2, targetSamples);
       for (int i = 0; i < maxDownsampled; i++) {
-        // Simple 2-point averaging anti-aliasing filter
         final int srcIdx = i * 2;
         if (srcIdx + 1 < rawSampleCount) {
           pcmSamples[i] = (rawSamples[srcIdx] + rawSamples[srcIdx + 1]) / 2.0;
@@ -202,25 +206,83 @@ class SpectrogramService {
     }
   }
 
+  /// GATE 2: MEL-SPECTROGRAM IMAGE STRIPE COUNTER (100% Phone-Microphone Independent)
+  /// Downsamples generated spectrogram image to 64x64 grid, inspects top 70% rows (y = 0..44),
+  /// computes colEnergy[x] (0-255), medianColEnergy, and counts distinct vertical bright stripes
+  /// where colEnergy[x] > medianColEnergy + 35 and colEnergy[x] > 85, separated by >= 3 dark columns.
+  static int validateSpectrogramStripes(img.Image specImage) {
+    final grid = img.copyResize(specImage, width: 64, height: 64);
+    const int topRows = 45; // Top 70% of 64 rows (0..44), ignoring bottom 30% mic hum
+
+    final List<double> colEnergy = List<double>.filled(64, 0.0);
+    for (int x = 0; x < 64; x++) {
+      double sumBrightness = 0.0;
+      for (int y = 0; y < topRows; y++) {
+        final p = grid.getPixel(x, y);
+        // Perceived pixel brightness on 0-255 scale (dark purple/black is low, orange/yellow is high)
+        final double brightness = 0.299 * p.r + 0.587 * p.g + 0.114 * p.b;
+        sumBrightness += brightness;
+      }
+      colEnergy[x] = sumBrightness / topRows;
+    }
+
+    final List<double> sortedEnergy = List<double>.from(colEnergy)..sort();
+    final double medianColEnergy = (sortedEnergy[31] + sortedEnergy[32]) / 2.0;
+    final double peakThreshold = math.max(medianColEnergy + 35.0, 85.0);
+
+    // Count distinct vertical bright stripes separated by at least 3 dark columns
+    int stripeCount = 0;
+    int darkColumnsSinceLastStripe = 999; // Allow first stripe immediately
+
+    for (int x = 0; x < 64; x++) {
+      final bool isBright = colEnergy[x] > peakThreshold;
+      if (isBright) {
+        if (darkColumnsSinceLastStripe >= 3) {
+          stripeCount++;
+        }
+        darkColumnsSinceLastStripe = 0;
+      } else {
+        darkColumnsSinceLastStripe++;
+      }
+    }
+
+    debugPrint(
+      "🎵 [GATE 2 - STRIPE COUNTER] MedianEnergy=${medianColEnergy.toStringAsFixed(1)}, "
+      "Threshold=${peakThreshold.toStringAsFixed(1)}, DetectedStripes=$stripeCount",
+    );
+
+    if (stripeCount < 2) {
+      throw SpectrogramValidationException(
+        "No acoustic tap detected in spectrogram. Knock the coconut shoulder 3 times.",
+        stripeCount: stripeCount,
+      );
+    }
+    if (stripeCount > 5) {
+      throw SpectrogramValidationException(
+        "Too many rapid taps or noise spikes detected ($stripeCount spikes). Knock strictly 3 times.",
+        stripeCount: stripeCount,
+      );
+    }
+
+    return stripeCount;
+  }
+
   /// Generates the exact [1, 3, 224, 224] Float32 tensor matching Librosa + Magma
+  /// and runs Gate 2 (Mel-Spectrogram Image Stripe Counter) before returning.
   static Object generateSpectrogramTensor(File wavFile) {
     final samples = _readAndFixWavAudio(wavFile);
 
-    // --- Physical Guardrail 2: Acoustic Signal Energy Check ---
+    // Raw silence floor check (prevents amplifying pure digital zeros into white noise)
     double peakAmp = 0.0;
-    double sumSquares = 0.0;
     for (int i = 0; i < samples.length; i++) {
       final double val = samples[i].abs();
       if (val > peakAmp) peakAmp = val;
-      sumSquares += val * val;
     }
-    final double rms = math.sqrt(sumSquares / samples.length);
-    debugPrint("🎵 [GUARDRAIL CHECK] Audio Peak Amplitude: ${(peakAmp * 100).toStringAsFixed(1)}% | RMS: ${(rms * 100).toStringAsFixed(2)}%");
-
-    // If audio is practically silent (< 2% peak amplitude), throw exception to trigger invalid object
-    if (peakAmp < 0.02) {
-      debugPrint("⛔ [GUARDRAIL TRIGGERED] Audio rejected: Recording is silent or tap was too quiet!");
-      throw Exception("Silent audio recording");
+    if (peakAmp < 0.005) {
+      throw SpectrogramValidationException(
+        "No acoustic tap detected in spectrogram. Knock the coconut shoulder 3 times.",
+        stripeCount: 0,
+      );
     }
 
     // 1. Center-reflect pad audio with nFft // 2 = 1024 samples on both sides
@@ -288,9 +350,7 @@ class SpectrogramService {
       }
     }
 
-    // Top-dB clipping floor (-80 dB below peak)
     const double topDb = 80.0;
-
     for (int m = 0; m < nMels; m++) {
       for (int f = 0; f < numFrames; f++) {
         sDb[m][f] = math.max(sDb[m][f] - maxVal, -topDb);
@@ -301,11 +361,9 @@ class SpectrogramService {
     final tensorBuffer = Float32List(1 * 3 * targetHeight * targetWidth);
     const int channelSize = targetHeight * targetWidth;
 
-    // Also build an RGB image to save as PNG for visual inspection
     final img.Image debugImg = img.Image(width: targetWidth, height: targetHeight);
 
     for (int y = 0; y < targetHeight; y++) {
-      // In specshow, row 0 (top of image) is highest frequency (mel 127)
       final double melPos = (1.0 - (y / (targetHeight - 1))) * (nMels - 1);
       final int m0 = melPos.floor().clamp(0, nMels - 2);
       final double mRatio = melPos - m0;
@@ -315,7 +373,6 @@ class SpectrogramService {
         final int f0 = framePos.floor().clamp(0, numFrames - 2);
         final double fRatio = framePos - f0;
 
-        // Bilinear interpolation of dB value
         final double v00 = sDb[m0][f0];
         final double v10 = sDb[m0 + 1][f0];
         final double v01 = sDb[m0][f0 + 1];
@@ -324,16 +381,14 @@ class SpectrogramService {
         final double interpDb = (1 - mRatio) * ((1 - fRatio) * v00 + fRatio * v01) +
             mRatio * ((1 - fRatio) * v10 + fRatio * v11);
 
-        // Normalize [-80, 0] dB to [0.0, 1.0]
         final double normalized = (interpDb + topDb) / topDb;
         final rgb = _magma(normalized);
 
         final int pixelIndex = y * targetWidth + x;
-        tensorBuffer[0 * channelSize + pixelIndex] = rgb[0]; // Red channel
-        tensorBuffer[1 * channelSize + pixelIndex] = rgb[1]; // Green channel
-        tensorBuffer[2 * channelSize + pixelIndex] = rgb[2]; // Blue channel
+        tensorBuffer[0 * channelSize + pixelIndex] = rgb[0];
+        tensorBuffer[1 * channelSize + pixelIndex] = rgb[1];
+        tensorBuffer[2 * channelSize + pixelIndex] = rgb[2];
 
-        // Set pixel for inspection PNG
         debugImg.setPixelRgb(
           x,
           y,
@@ -344,7 +399,7 @@ class SpectrogramService {
       }
     }
 
-    // Save PNG alongside audio file for inspection (Test A)
+    // Save PNG alongside audio file for inspection
     try {
       final pngPath = wavFile.path.replaceAll(RegExp(r'\.wav$', caseSensitive: false), '_spectrogram.png');
       final pngBytes = img.encodePng(debugImg);
@@ -353,6 +408,9 @@ class SpectrogramService {
     } catch (e) {
       debugPrint("⚠️ Could not write debug spectrogram PNG: $e");
     }
+
+    // 7. Run Gate 2: Mel-Spectrogram Image Stripe Counter on the 224x224 Magma image
+    validateSpectrogramStripes(debugImg);
 
     return tensorBuffer.reshape([1, 3, targetHeight, targetWidth]);
   }

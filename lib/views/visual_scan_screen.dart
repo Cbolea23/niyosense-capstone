@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import '../services/tflite_service.dart';
 import '../utils/app_translations.dart';
 import 'acoustic_scan_screen.dart';
 
@@ -49,6 +51,53 @@ class _VisualScanScreenState extends State<VisualScanScreen> {
     }
   }
 
+  void _showGateRejectionDialog(String reason) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(reason),
+        backgroundColor: Colors.red.shade800,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFFFEF2F2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: Colors.red.shade100, shape: BoxShape.circle),
+              child: const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 26),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                "Visual Check Failed",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF991B1B)),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          reason,
+          style: const TextStyle(fontSize: 13.5, color: Color(0xFF7F1D1D), height: 1.4),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Retake Photo", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _takePicture() async {
     try {
       await _initializeControllerFuture;
@@ -61,6 +110,13 @@ class _VisualScanScreenState extends State<VisualScanScreen> {
       }
 
       if (!mounted) return;
+
+      // Run Gate 1: Camera Image Pixel Gate BEFORE advancing to Step 2
+      final String? gate1Rejection = TfliteService.validateCameraImageFile(File(image.path));
+      if (gate1Rejection != null) {
+        _showGateRejectionDialog(gate1Rejection);
+        return;
+      }
 
       Navigator.push(
         context,

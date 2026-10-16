@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:record/record.dart';
+import '../services/tflite_service.dart';
 import '../utils/app_translations.dart';
 import 'scan_result_screen.dart';
 
@@ -18,8 +19,10 @@ class AcousticScanScreen extends StatefulWidget {
 
 class _AcousticScanScreenState extends State<AcousticScanScreen> {
   final AudioRecorder _audioRecorder = AudioRecorder();
+  final TfliteService _tfliteService = TfliteService();
 
   bool _isRecording = false;
+  bool _isValidating = false;
   int _recordingSeconds = 0;
   Timer? _timer;
   String? _currentRecordingPath;
@@ -28,10 +31,12 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
   void dispose() {
     _timer?.cancel();
     _audioRecorder.dispose();
+    _tfliteService.dispose();
     super.dispose();
   }
 
   Future<void> _toggleRecording() async {
+    if (_isValidating) return;
     if (_isRecording) {
       await _stopRecordingAndNavigate();
     } else {
@@ -99,15 +104,74 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
       if (savedPath != null && await File(savedPath).exists()) {
         debugPrint("🎤 Real 4s WAV recorded: $savedPath (Size: ${await File(savedPath).length()} bytes)");
         if (mounted) {
-          _navigateToResult(hasAudio: true, realAudioPath: savedPath);
+          await _validateAndNavigateToResult(hasAudio: true, realAudioPath: savedPath);
         }
       } else {
-        if (mounted) _navigateToResult(hasAudio: false);
+        if (mounted) await _validateAndNavigateToResult(hasAudio: false);
       }
     } catch (e) {
       debugPrint("❌ Failed to stop recording: $e");
-      if (mounted) _navigateToResult(hasAudio: false);
+      if (mounted) await _validateAndNavigateToResult(hasAudio: false);
     }
+  }
+
+  void _showRejectionError(String reason) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(reason),
+        backgroundColor: Colors.red.shade800,
+        duration: const Duration(seconds: 4),
+      ),
+    );
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFFFEF2F2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: Colors.red.shade100, shape: BoxShape.circle),
+              child: const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 26),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                "Scan Validation Failed",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF991B1B)),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          reason,
+          style: const TextStyle(fontSize: 13.5, color: Color(0xFF7F1D1D), height: 1.4),
+        ),
+        actions: [
+          if (reason.contains("disagree"))
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFF991B1B)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.pop(context); // Return to camera for full rescan
+              },
+              child: const Text("Retake Photo", style: TextStyle(color: Color(0xFF991B1B), fontWeight: FontWeight.bold)),
+            ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Record Tap Again", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showIncompleteDataModal() {
@@ -171,7 +235,7 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                 ),
                 onPressed: () {
                   Navigator.pop(context);
-                  _navigateToResult(hasAudio: false);
+                  _validateAndNavigateToResult(hasAudio: false);
                 },
                 child: Text(
                   AppTranslations.text('proceed_photo_only_btn'),
@@ -185,17 +249,54 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
     );
   }
 
-  void _navigateToResult({required bool hasAudio, String? realAudioPath}) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ScanResultScreen(
-          imagePath: widget.imagePath,
-          audioRecorded: hasAudio,
-          audioPath: realAudioPath,
+  Future<void> _validateAndNavigateToResult({required bool hasAudio, String? realAudioPath}) async {
+    if (widget.imagePath == null || widget.imagePath!.isEmpty) {
+      _showRejectionError("No coconut detected. Center a green coconut in the frame.");
+      return;
+    }
+
+    setState(() => _isValidating = true);
+    try {
+      final imgFile = File(widget.imagePath!);
+      final File? audFile = (hasAudio && realAudioPath != null && realAudioPath.isNotEmpty)
+          ? File(realAudioPath)
+          : null;
+
+      final result = await _tfliteService.predict(
+        imageFile: imgFile,
+        audioFile: audFile,
+        visualWeight: 0.50,
+        confidenceThreshold: 0.65,
+      );
+
+      if (!mounted) return;
+      setState(() => _isValidating = false);
+
+      if (!result.isValidObject) {
+        // Gate 1, Gate 2, or Gate 3 failed -> Abort immediately! Do NOT navigate and do NOT save to SQLite!
+        _showRejectionError(
+          result.rejectionReason ?? "Inconclusive Scan: Visual and audio readings disagree. Please rescan.",
+        );
+        return;
+      }
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ScanResultScreen(
+            imagePath: widget.imagePath,
+            audioRecorded: hasAudio,
+            audioPath: realAudioPath,
+            precomputedResult: result,
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isValidating = false);
+        _showRejectionError("No acoustic tap detected in spectrogram. Knock the coconut shoulder 3 times.");
+      }
+    }
   }
 
   @override

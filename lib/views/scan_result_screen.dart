@@ -11,12 +11,14 @@ class ScanResultScreen extends StatefulWidget {
   final String? imagePath;
   final bool audioRecorded;
   final String? audioPath;
+  final PredictionResult? precomputedResult;
 
   const ScanResultScreen({
     super.key,
     this.imagePath,
     this.audioRecorded = false,
     this.audioPath,
+    this.precomputedResult,
   });
 
   @override
@@ -60,7 +62,8 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
 
   Future<void> _runInferenceAndSave() async {
     try {
-      if (widget.imagePath != null && widget.imagePath!.isNotEmpty) {
+      PredictionResult? result = widget.precomputedResult;
+      if (result == null && widget.imagePath != null && widget.imagePath!.isNotEmpty) {
         final imgFile = File(widget.imagePath!);
         File? audioFile;
 
@@ -68,13 +71,15 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
           audioFile = File(widget.audioPath!);
         }
 
-        final result = await _tfliteService.predict(
+        result = await _tfliteService.predict(
           imageFile: imgFile,
           audioFile: audioFile,
           visualWeight: 0.50,
-          confidenceThreshold: 0.70,
+          confidenceThreshold: 0.65,
         );
+      }
 
+      if (result != null) {
         debugPrint("🎯 FUSED PREDICTION (V2): ${result.label} (Conf: ${(result.confidence * 100).toStringAsFixed(1)}%)");
         debugPrint("📸 Visual: ${result.visualLabel} | 🎵 Audio: ${result.audioLabel}");
 
@@ -99,41 +104,40 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
       _isValidObject = false;
     }
 
-    // Save to local SQLite database with persistent Device ID & Bungkos Count
-    try {
-      final deviceId = await AppConfig.getDeviceId();
-      final activeBatch = await DatabaseHelper.instance.getActiveBatchSession();
-      _currentUuid = const Uuid().v4();
-      final initialBunchCount = _isValidObject ? _bunchCount : 1;
-      if (!_isValidObject) {
-        _bunchCount = 1;
-        _bunchCountController.text = '1';
-      }
+    // ONLY save to SQLite if all pre-inference gates and cross-model checks passed
+    if (_isValidObject) {
+      try {
+        final deviceId = await AppConfig.getDeviceId();
+        final activeBatch = await DatabaseHelper.instance.getActiveBatchSession();
+        _currentUuid = const Uuid().v4();
 
-      final log = GradingLog(
-        uuid: _currentUuid,
-        userId: 1,
-        imagePath: widget.imagePath ?? '',
-        audioPath: widget.audioPath ?? '',
-        visualPred: _visualPred,
-        audioPred: _audioPred,
-        finalStage: _finalGrade,
-        confidence: _confidence,
-        isSynced: false,
-        createdAt: DateTime.now().toIso8601String(),
-        batchId: activeBatch?.batchId,
-        deviceId: deviceId,
-        bunchCount: initialBunchCount,
-      );
+        final log = GradingLog(
+          uuid: _currentUuid,
+          userId: 1,
+          imagePath: widget.imagePath ?? '',
+          audioPath: widget.audioPath ?? '',
+          visualPred: _visualPred,
+          audioPred: _audioPred,
+          finalStage: _finalGrade,
+          confidence: _confidence,
+          isSynced: false,
+          createdAt: DateTime.now().toIso8601String(),
+          batchId: activeBatch?.batchId,
+          deviceId: deviceId,
+          bunchCount: _bunchCount,
+        );
 
-      await DatabaseHelper.instance.insertScan(log);
-      debugPrint("✅ SUCCESS: Multimodal scan saved to local SQLite! (Device: $deviceId, Bungkos: $initialBunchCount)");
-    } catch (dbError) {
-      debugPrint("❌ Database save error: $dbError");
-    } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
+        await DatabaseHelper.instance.insertScan(log);
+        debugPrint("✅ SUCCESS: Valid coconut scan saved to local SQLite! (Device: $deviceId, Bungkos: $_bunchCount)");
+      } catch (dbError) {
+        debugPrint("❌ Database save error: $dbError");
       }
+    } else {
+      debugPrint("🚫 Scan did not pass validation gates — NOT saved to SQLite.");
+    }
+
+    if (mounted) {
+      setState(() => _isProcessing = false);
     }
   }
 
@@ -320,7 +324,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                                     ),
                                     Text(
                                       _visualPred.toUpperCase(),
-                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF059669)),
                                     ),
                                   ],
                                 ),

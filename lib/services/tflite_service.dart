@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
@@ -15,6 +14,7 @@ class PredictionResult {
   final String audioLabel;
   final double audioConfidence;
   final bool isValidObject;
+  final String? rejectionReason;
 
   PredictionResult({
     required this.label,
@@ -25,6 +25,7 @@ class PredictionResult {
     required this.audioLabel,
     required this.audioConfidence,
     required this.isValidObject,
+    this.rejectionReason,
   });
 }
 
@@ -47,13 +48,162 @@ class TfliteService {
     }
   }
 
-  /// Preprocesses a camera photo into an NCHW [1, 3, 224, 224] Float32List tensor
-  Object? _preprocessImageForInterpreter(File file, Interpreter interpreter) {
+  /// Helper: Converts RGB (0.0-1.0) to HSV [Hue (0-360°), Saturation (0-1), Value (0-1)]
+  static List<double> _rgbToHsv(double r, double g, double b) {
+    final double maxC = math.max(r, math.max(g, b));
+    final double minC = math.min(r, math.min(g, b));
+    final double delta = maxC - minC;
+
+    double h = 0.0;
+    if (delta > 1e-6) {
+      if (maxC == r) {
+        h = 60.0 * (((g - b) / delta) % 6.0);
+      } else if (maxC == g) {
+        h = 60.0 * (((b - r) / delta) + 2.0);
+      } else {
+        h = 60.0 * (((r - g) / delta) + 4.0);
+      }
+      if (h < 0.0) h += 360.0;
+    }
+
+    final double s = maxC <= 1e-6 ? 0.0 : (delta / maxC);
+    final double v = maxC;
+    return [h, s, v];
+  }
+
+  /// GATE 1: CAMERA IMAGE PIXEL GATE (Blocks Non-Coconuts, Faces, Black Screens, & Grass)
+  /// Downsamples photo to 64x64 RGB pixels and returns null if valid, or the exact rejection message if invalid.
+  static String? validateCameraImageFile(File file) {
     try {
       final bytes = file.readAsBytesSync();
       final decoded = img.decodeImage(bytes);
-      if (decoded == null) return null;
+      if (decoded == null) {
+        return "Camera obstructed or invalid lighting.";
+      }
+      return validateDecodedCameraImage(decoded);
+    } catch (e) {
+      debugPrint("⚠️ Gate 1 error reading image: $e");
+      return "Camera obstructed or invalid lighting.";
+    }
+  }
 
+  static String? validateDecodedCameraImage(img.Image decoded) {
+    final grid = img.copyResize(decoded, width: 64, height: 64);
+    const int totalPixels = 64 * 64;
+
+    double sumLum = 0.0;
+    double sumLumSq = 0.0;
+    final List<List<double>> lumGrid = List.generate(64, (_) => List<double>.filled(64, 0.0));
+
+    int validCoconutCenterPixels = 0;
+    int totalCenterPixels = 0;
+
+    int borderGreenPixels = 0;
+    int totalBorderPixels = 0;
+
+    // Center 60% ROI box on 64x64: [13 .. 50] inclusive (38x38 = 1444 pixels)
+    const int roiStart = 13;
+    const int roiEnd = 50;
+
+    // Outer 15% border ring on 64x64: x < 10 or x >= 54 or y < 10 or y >= 54
+    const int borderWidth = 10;
+
+    for (int y = 0; y < 64; y++) {
+      for (int x = 0; x < 64; x++) {
+        final p = grid.getPixel(x, y);
+        final double r = p.r / 255.0;
+        final double g = p.g / 255.0;
+        final double b = p.b / 255.0;
+
+        final double lum = (0.299 * r + 0.587 * g + 0.114 * b) * 255.0;
+        lumGrid[y][x] = lum;
+        sumLum += lum;
+        sumLumSq += lum * lum;
+
+        final hsv = _rgbToHsv(r, g, b);
+        final double hue = hsv[0];
+        final double sat = hsv[1];
+        final double val = hsv[2];
+
+        // Green Coconut Husk HSV Check: Hue 32° to 158°, Saturation 0.14 to 0.92, Value 0.15 to 0.92
+        final bool isGreenHuskPixel =
+            (hue >= 32.0 && hue <= 158.0) &&
+            (sat >= 0.14 && sat <= 0.92) &&
+            (val >= 0.15 && val <= 0.92);
+
+        // Center 60% ROI check
+        if (x >= roiStart && x <= roiEnd && y >= roiStart && y <= roiEnd) {
+          totalCenterPixels++;
+          if (isGreenHuskPixel) {
+            validCoconutCenterPixels++;
+          }
+        }
+
+        // Outer 15% border ring check
+        if (x < borderWidth || x >= (64 - borderWidth) || y < borderWidth || y >= (64 - borderWidth)) {
+          totalBorderPixels++;
+          if (isGreenHuskPixel) {
+            borderGreenPixels++;
+          }
+        }
+      }
+    }
+
+    // 1. Black / Overexposed Check
+    final double meanLuminance = sumLum / totalPixels;
+    final double variance = math.max(0.0, (sumLumSq / totalPixels) - (meanLuminance * meanLuminance));
+    final double stdDev = math.sqrt(variance);
+
+    if (meanLuminance < 28.0 || meanLuminance > 242.0 || stdDev < 8.0) {
+      debugPrint(
+        "⛔ [GATE 1 - LUMINANCE] Rejected: meanLum=${meanLuminance.toStringAsFixed(1)}, stdDev=${stdDev.toStringAsFixed(1)}",
+      );
+      return "Camera obstructed or invalid lighting.";
+    }
+
+    // 2. Green Coconut Husk HSV Check (Center 60% ROI)
+    final double centerGreenRatio = totalCenterPixels > 0 ? (validCoconutCenterPixels / totalCenterPixels) : 0.0;
+    if (centerGreenRatio < 0.40) {
+      debugPrint(
+        "⛔ [GATE 1 - HSV HUSK] Rejected: centerGreenRatio=${(centerGreenRatio * 100).toStringAsFixed(1)}% (< 40%)",
+      );
+      return "No coconut detected. Center a green coconut in the frame.";
+    }
+
+    // 3. Grass & Foliage Texture Check (Center 60% ROI edgeRoughness & outer 15% borderGreenRatio)
+    double sumEdgeDiff = 0.0;
+    int edgeCount = 0;
+    for (int y = roiStart; y < roiEnd; y++) {
+      for (int x = roiStart; x < roiEnd; x++) {
+        final double diffX = (lumGrid[y][x] - lumGrid[y][x + 1]).abs();
+        final double diffY = (lumGrid[y][x] - lumGrid[y + 1][x]).abs();
+        sumEdgeDiff += (diffX + diffY);
+        edgeCount++;
+      }
+    }
+    final double edgeRoughness = edgeCount > 0 ? (sumEdgeDiff / edgeCount) : 0.0;
+    final double borderGreenRatio = totalBorderPixels > 0 ? (borderGreenPixels / totalBorderPixels) : 0.0;
+
+    debugPrint(
+      "📸 [GATE 1 PASS CHECK] meanLum=${meanLuminance.toStringAsFixed(1)}, stdDev=${stdDev.toStringAsFixed(1)}, "
+      "centerGreen=${(centerGreenRatio * 100).toStringAsFixed(1)}%, "
+      "borderGreen=${(borderGreenRatio * 100).toStringAsFixed(1)}%, "
+      "edgeRoughness=${edgeRoughness.toStringAsFixed(1)}",
+    );
+
+    if (edgeRoughness > 30.0 || (borderGreenRatio > 0.85 && edgeRoughness > 24.0)) {
+      debugPrint(
+        "⛔ [GATE 1 - FOLIAGE/GRASS] Rejected: edgeRoughness=${edgeRoughness.toStringAsFixed(1)}, borderGreen=${(borderGreenRatio * 100).toStringAsFixed(1)}%",
+      );
+      return "Background foliage/grass detected. Hold camera closer to a single coconut husk.";
+    }
+
+    return null; // Passed all Gate 1 checks!
+  }
+
+  /// Preprocesses a camera photo into an NCHW [1, 3, 224, 224] Float32List tensor
+  Object? _preprocessImageForInterpreter(img.Image decoded, Interpreter interpreter) {
+    try {
       final shape = interpreter.getInputTensor(0).shape;
       final bool isNCHW = shape.length == 4 && shape[1] == 3;
       final int targetHeight = isNCHW ? shape[2] : shape[1];
@@ -63,10 +213,6 @@ class TfliteService {
       final int totalPixels = targetHeight * targetWidth;
       final buffer = Float32List(1 * 3 * totalPixels);
 
-      // --- Physical Guardrail 1: Check Camera Luminance & Contrast ---
-      double totalLuminance = 0.0;
-      double totalLuminanceSq = 0.0;
-
       if (isNCHW) {
         int rIdx = 0;
         int gIdx = totalPixels;
@@ -74,17 +220,9 @@ class TfliteService {
         for (var y = 0; y < targetHeight; y++) {
           for (var x = 0; x < targetWidth; x++) {
             final pixel = resized.getPixel(x, y);
-            final double r = pixel.r / 255.0;
-            final double g = pixel.g / 255.0;
-            final double b = pixel.b / 255.0;
-
-            buffer[rIdx++] = r;
-            buffer[gIdx++] = g;
-            buffer[bIdx++] = b;
-
-            final double lum = (0.299 * r + 0.587 * g + 0.114 * b) * 255.0;
-            totalLuminance += lum;
-            totalLuminanceSq += lum * lum;
+            buffer[rIdx++] = pixel.r / 255.0;
+            buffer[gIdx++] = pixel.g / 255.0;
+            buffer[bIdx++] = pixel.b / 255.0;
           }
         }
       } else {
@@ -92,31 +230,11 @@ class TfliteService {
         for (var y = 0; y < targetHeight; y++) {
           for (var x = 0; x < targetWidth; x++) {
             final pixel = resized.getPixel(x, y);
-            final double r = pixel.r / 255.0;
-            final double g = pixel.g / 255.0;
-            final double b = pixel.b / 255.0;
-
-            buffer[idx++] = r;
-            buffer[idx++] = g;
-            buffer[idx++] = b;
-
-            final double lum = (0.299 * r + 0.587 * g + 0.114 * b) * 255.0;
-            totalLuminance += lum;
-            totalLuminanceSq += lum * lum;
+            buffer[idx++] = pixel.r / 255.0;
+            buffer[idx++] = pixel.g / 255.0;
+            buffer[idx++] = pixel.b / 255.0;
           }
         }
-      }
-
-      final double meanLuminance = totalLuminance / totalPixels;
-      final double variance = math.max(0.0, (totalLuminanceSq / totalPixels) - (meanLuminance * meanLuminance));
-      final double stdDev = math.sqrt(variance);
-
-      debugPrint("📸 [GUARDRAIL CHECK] Mean Luminance: ${meanLuminance.toStringAsFixed(1)}/255 | StdDev: ${stdDev.toStringAsFixed(1)}");
-
-      // Dark frame rejection (< 22.0) or featureless blank surface (< 5.0 std dev)
-      if (meanLuminance < 22.0 || stdDev < 5.0) {
-        debugPrint("⛔ [GUARDRAIL TRIGGERED] Camera image rejected: Too dark or lacking texture!");
-        return null;
       }
 
       return buffer.reshape(shape);
@@ -126,30 +244,48 @@ class TfliteService {
     }
   }
 
-  List<double> _normalizeProbs(List<double> raw) {
+  /// Temperature-scaled normalization (T = 1.6) so hyper-confident 99.9% probabilities
+  /// are calibrated to realistic field confidence levels and capped at 96.5%.
+  List<double> _normalizeAndScaleProbs(List<double> raw, {double temperature = 1.6}) {
     double sum = raw.fold(0.0, (a, b) => a + b);
+    List<double> logits;
     if ((sum - 1.0).abs() < 0.05 && raw.every((v) => v >= 0.0 && v <= 1.0)) {
-      return raw;
+      // Convert post-softmax probabilities back to log-space logits before temperature scaling
+      logits = raw.map((p) => math.log(math.max(p, 1e-4))).toList();
+    } else {
+      logits = List<double>.from(raw);
     }
-    double maxVal = raw.reduce((a, b) => a > b ? a : b);
-    List<double> exps = raw.map((v) => math.exp(v - maxVal)).toList();
-    double expSum = exps.fold(0.0, (a, b) => a + b);
-    return exps.map((e) => e / expSum).toList();
+
+    final scaledLogits = logits.map((l) => l / temperature).toList();
+    final double maxVal = scaledLogits.reduce((a, b) => a > b ? a : b);
+    final List<double> exps = scaledLogits.map((v) => math.exp(v - maxVal)).toList();
+    final double expSum = exps.fold(0.0, (a, b) => a + b);
+    final List<double> probs = exps.map((e) => e / expSum).toList();
+
+    // Also enforce hard cap at 96.5% (0.965)
+    if (probs.length == 2) {
+      if (probs[0] > 0.965) {
+        return [0.965, 0.035];
+      } else if (probs[1] > 0.965) {
+        return [0.035, 0.965];
+      }
+    }
+    return probs;
   }
 
-  /// Runs late-fusion multimodal inference completely offline
+  /// Runs Gate 1, Gate 2, and Gate 3 + late-fusion multimodal inference completely offline
   Future<PredictionResult> predict({
     required File imageFile,
     File? audioFile,
     double visualWeight = 0.50,
-    double confidenceThreshold = 0.70,
+    double confidenceThreshold = 0.65,
   }) async {
     if (!isLoaded) await loadModels();
 
-    // 1. Run Visual Model (img_best_v2.tflite)
-    final imgInput = _preprocessImageForInterpreter(imageFile, _imgInterpreter!);
-    if (imgInput == null) {
-      debugPrint("🚫 [GUARDRAIL APPLIED] Invalid camera image (too dark or out of domain). Returning Invalid Object.");
+    // --- GATE 1: CAMERA IMAGE PIXEL GATE ---
+    final bytes = imageFile.readAsBytesSync();
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) {
       return PredictionResult(
         label: "Invalid Object",
         confidence: 0.0,
@@ -159,6 +295,37 @@ class TfliteService {
         audioLabel: "N/A",
         audioConfidence: 0.0,
         isValidObject: false,
+        rejectionReason: "Camera obstructed or invalid lighting.",
+      );
+    }
+
+    final String? gate1Error = validateDecodedCameraImage(decoded);
+    if (gate1Error != null) {
+      return PredictionResult(
+        label: "Invalid Object",
+        confidence: 0.0,
+        classProbabilities: {"buko": 0.0, "malauhog": 0.0},
+        visualLabel: "UNRECOGNIZED",
+        visualConfidence: 0.0,
+        audioLabel: "N/A",
+        audioConfidence: 0.0,
+        isValidObject: false,
+        rejectionReason: gate1Error,
+      );
+    }
+
+    final imgInput = _preprocessImageForInterpreter(decoded, _imgInterpreter!);
+    if (imgInput == null) {
+      return PredictionResult(
+        label: "Invalid Object",
+        confidence: 0.0,
+        classProbabilities: {"buko": 0.0, "malauhog": 0.0},
+        visualLabel: "UNRECOGNIZED",
+        visualConfidence: 0.0,
+        audioLabel: "N/A",
+        audioConfidence: 0.0,
+        isValidObject: false,
+        rejectionReason: "Camera obstructed or invalid lighting.",
       );
     }
 
@@ -168,22 +335,19 @@ class TfliteService {
     _imgInterpreter!.run(imgInput, imgOutput);
 
     List<double> rawImgProbs = List<double>.from(imgOutputShape.length == 2 ? imgOutput[0] : imgOutput);
-    List<double> imgProbs = _normalizeProbs(rawImgProbs);
-
-    debugPrint("📊 [ML_DEBUG - Test C] Raw Image Logits/Outputs: $rawImgProbs");
-    debugPrint("📊 [ML_DEBUG - Test C] Normalized Image Probs: buko=${(imgProbs[0] * 100).toStringAsFixed(2)}%, malauhog=${(imgProbs[1] * 100).toStringAsFixed(2)}%");
+    List<double> imgProbs = _normalizeAndScaleProbs(rawImgProbs, temperature: 1.6);
 
     String visualLabel = imgProbs[0] >= imgProbs[1] ? "buko" : "malauhog";
     double visualConf = math.max(imgProbs[0], imgProbs[1]);
 
-    // 2. Run Acoustic Spectrogram Model (spec_best.tflite)
+    // --- GATE 2: MEL-SPECTROGRAM STRIPE COUNTER & AUDIO INFERENCE ---
     List<double> specProbs;
     String audioLabel = "N/A";
     double audioConf = 0.0;
 
     if (audioFile != null && await audioFile.exists()) {
       try {
-        debugPrint("🎵 Generating Dart Mel-Spectrogram for: ${audioFile.path}");
+        debugPrint("🎵 Generating Dart Mel-Spectrogram & running Gate 2 for: ${audioFile.path}");
         final specInput = SpectrogramService.generateSpectrogramTensor(audioFile);
 
         final specOutputShape = _specInterpreter!.getOutputTensor(0).shape;
@@ -192,19 +356,37 @@ class TfliteService {
         _specInterpreter!.run(specInput, specOutput);
 
         List<double> rawSpecProbs = List<double>.from(specOutputShape.length == 2 ? specOutput[0] : specOutput);
-        specProbs = _normalizeProbs(rawSpecProbs);
-
-        debugPrint("📊 [ML_DEBUG - Test C] Raw Spectrogram Logits/Outputs: $rawSpecProbs");
-        debugPrint("📊 [ML_DEBUG - Test C] Normalized Audio Probs: buko=${(specProbs[0] * 100).toStringAsFixed(2)}%, malauhog=${(specProbs[1] * 100).toStringAsFixed(2)}%");
+        specProbs = _normalizeAndScaleProbs(rawSpecProbs, temperature: 1.6);
 
         audioLabel = specProbs[0] >= specProbs[1] ? "buko" : "malauhog";
         audioConf = math.max(specProbs[0], specProbs[1]);
         debugPrint("🎵 Real Audio Prediction: $audioLabel (${(audioConf * 100).toStringAsFixed(1)}%)");
+      } on SpectrogramValidationException catch (specErr) {
+        debugPrint("⛔ [GATE 2 REJECTED] ${specErr.message}");
+        return PredictionResult(
+          label: "Invalid Object",
+          confidence: 0.0,
+          classProbabilities: {"buko": 0.0, "malauhog": 0.0},
+          visualLabel: visualLabel,
+          visualConfidence: visualConf,
+          audioLabel: "INVALID TAP",
+          audioConfidence: 0.0,
+          isValidObject: false,
+          rejectionReason: specErr.message,
+        );
       } catch (e) {
-        debugPrint("⚠️ Audio spectrogram inference failed, falling back to visual: $e");
-        specProbs = List.from(imgProbs);
-        audioLabel = visualLabel;
-        audioConf = visualConf;
+        debugPrint("⛔ [GATE 2 ERROR] $e");
+        return PredictionResult(
+          label: "Invalid Object",
+          confidence: 0.0,
+          classProbabilities: {"buko": 0.0, "malauhog": 0.0},
+          visualLabel: visualLabel,
+          visualConfidence: visualConf,
+          audioLabel: "INVALID TAP",
+          audioConfidence: 0.0,
+          isValidObject: false,
+          rejectionReason: "No acoustic tap detected in spectrogram. Knock the coconut shoulder 3 times.",
+        );
       }
     } else {
       specProbs = List.from(imgProbs);
@@ -212,43 +394,61 @@ class TfliteService {
       audioConf = visualConf;
     }
 
-    // 3. Late Fusion: W * P_visual + (1 - W) * P_audio
-    double bukoProb = (visualWeight * imgProbs[0]) + ((1.0 - visualWeight) * specProbs[0]);
-    double malauhogProb = (visualWeight * imgProbs[1]) + ((1.0 - visualWeight) * specProbs[1]);
-    debugPrint("🎯 [ML_DEBUG] Fused Probabilities (W=$visualWeight): buko=${(bukoProb * 100).toStringAsFixed(2)}%, malauhog=${(malauhogProb * 100).toStringAsFixed(2)}%");
-
-    String finalLabel = bukoProb >= malauhogProb ? "buko" : "malauhog";
-    double highestConfidence = math.max(bukoProb, malauhogProb);
-
-    // --- Physical Gate 3: Dual-Modality Agreement & Confidence Floors ---
-    // Rule:
-    // 1. Overall fused confidence must meet threshold (>= 0.70)
-    // 2. Visual model must independently have confidence >= 0.65 (not a random guess)
-    // 3. If audio was recorded, visual and audio MUST agree on the same class
-    //    and audio must independently have confidence >= 0.65.
-    bool isValid;
+    // --- GATE 3: CROSS-MODEL VETO & CONFIDENCE CAP ---
     if (audioFile != null && audioLabel != "N/A (Skipped)") {
-      final bool modalitiesAgree = (visualLabel == audioLabel);
-      final bool visualConfident = (visualConf >= 0.65);
-      final bool audioConfident = (audioConf >= 0.65);
-      final bool fusedConfident = (highestConfidence >= confidenceThreshold);
+      if (visualLabel != audioLabel) {
+        debugPrint("⛔ [GATE 3 - CROSS-MODEL VETO] Visual ($visualLabel) != Audio ($audioLabel)");
+        return PredictionResult(
+          label: "Invalid Object",
+          confidence: 0.0,
+          classProbabilities: {"buko": 0.0, "malauhog": 0.0},
+          visualLabel: visualLabel,
+          visualConfidence: visualConf,
+          audioLabel: audioLabel,
+          audioConfidence: audioConf,
+          isValidObject: false,
+          rejectionReason: "Inconclusive Scan: Visual and audio readings disagree. Please rescan.",
+        );
+      }
 
-      isValid = modalitiesAgree && visualConfident && audioConfident && fusedConfident;
-
-      if (!isValid) {
-        debugPrint("⛔ [GATE 3 TRIGGERED] Modalities failed agreement or individual floor: "
-            "Agree=$modalitiesAgree (Visual=$visualLabel vs Audio=$audioLabel), "
-            "VisConf=${(visualConf * 100).toStringAsFixed(1)}%, "
-            "AudConf=${(audioConf * 100).toStringAsFixed(1)}%, "
-            "Fused=${(highestConfidence * 100).toStringAsFixed(1)}%");
+      if (visualConf < 0.65 || audioConf < 0.65) {
+        return PredictionResult(
+          label: "Invalid Object",
+          confidence: 0.0,
+          classProbabilities: {"buko": 0.0, "malauhog": 0.0},
+          visualLabel: visualLabel,
+          visualConfidence: visualConf,
+          audioLabel: audioLabel,
+          audioConfidence: audioConf,
+          isValidObject: false,
+          rejectionReason: "Inconclusive Scan: Visual and audio readings disagree. Please rescan.",
+        );
       }
     } else {
-      // Photo-only fallback
-      isValid = (highestConfidence >= confidenceThreshold) && (visualConf >= 0.70);
+      if (visualConf < 0.65) {
+        return PredictionResult(
+          label: "Invalid Object",
+          confidence: 0.0,
+          classProbabilities: {"buko": 0.0, "malauhog": 0.0},
+          visualLabel: visualLabel,
+          visualConfidence: visualConf,
+          audioLabel: audioLabel,
+          audioConfidence: audioConf,
+          isValidObject: false,
+          rejectionReason: "No coconut detected. Center a green coconut in the frame.",
+        );
+      }
     }
 
+    // Late Fusion: W * P_visual + (1 - W) * P_audio, capped at 96.5%
+    double bukoProb = (visualWeight * imgProbs[0]) + ((1.0 - visualWeight) * specProbs[0]);
+    double malauhogProb = (visualWeight * imgProbs[1]) + ((1.0 - visualWeight) * specProbs[1]);
+
+    String finalLabel = bukoProb >= malauhogProb ? "buko" : "malauhog";
+    double highestConfidence = math.min(0.965, math.max(bukoProb, malauhogProb));
+
     return PredictionResult(
-      label: isValid ? finalLabel : "Invalid Object",
+      label: finalLabel,
       confidence: highestConfidence,
       classProbabilities: {
         "buko": bukoProb,
@@ -258,7 +458,8 @@ class TfliteService {
       visualConfidence: visualConf,
       audioLabel: audioLabel,
       audioConfidence: audioConf,
-      isValidObject: isValid,
+      isValidObject: true,
+      rejectionReason: null,
     );
   }
 
