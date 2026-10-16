@@ -31,12 +31,31 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
   double _confidence = 0.85;
   bool _isValidObject = true;
 
+  String _currentUuid = "";
+  int _bunchCount = 10;
+  final TextEditingController _bunchCountController = TextEditingController(text: '10');
+
   final TfliteService _tfliteService = TfliteService();
 
   @override
   void initState() {
     super.initState();
     _runInferenceAndSave();
+  }
+
+  Future<void> _updateBunchCount(int newCount) async {
+    final validCount = newCount < 1 ? 1 : (newCount > 100 ? 100 : newCount);
+    setState(() {
+      _bunchCount = validCount;
+      _bunchCountController.text = validCount.toString();
+      _bunchCountController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _bunchCountController.text.length),
+      );
+    });
+    if (_currentUuid.isNotEmpty) {
+      await DatabaseHelper.instance.updateScanBunchCount(_currentUuid, validCount);
+      debugPrint("🌿 Updated Bungkos count for $_currentUuid -> $validCount coconuts");
+    }
   }
 
   Future<void> _runInferenceAndSave() async {
@@ -80,11 +99,19 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
       _isValidObject = false;
     }
 
-    // Save to local SQLite database with persistent Device ID
+    // Save to local SQLite database with persistent Device ID & Bungkos Count
     try {
       final deviceId = await AppConfig.getDeviceId();
+      final activeBatch = await DatabaseHelper.instance.getActiveBatchSession();
+      _currentUuid = const Uuid().v4();
+      final initialBunchCount = _isValidObject ? _bunchCount : 1;
+      if (!_isValidObject) {
+        _bunchCount = 1;
+        _bunchCountController.text = '1';
+      }
+
       final log = GradingLog(
-        uuid: const Uuid().v4(),
+        uuid: _currentUuid,
         userId: 1,
         imagePath: widget.imagePath ?? '',
         audioPath: widget.audioPath ?? '',
@@ -94,11 +121,13 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
         confidence: _confidence,
         isSynced: false,
         createdAt: DateTime.now().toIso8601String(),
+        batchId: activeBatch?.batchId,
         deviceId: deviceId,
+        bunchCount: initialBunchCount,
       );
 
       await DatabaseHelper.instance.insertScan(log);
-      debugPrint("✅ SUCCESS: Multimodal scan saved to local SQLite database! (Device: $deviceId)");
+      debugPrint("✅ SUCCESS: Multimodal scan saved to local SQLite! (Device: $deviceId, Bungkos: $initialBunchCount)");
     } catch (dbError) {
       debugPrint("❌ Database save error: $dbError");
     } finally {
@@ -110,6 +139,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
 
   @override
   void dispose() {
+    _bunchCountController.dispose();
     _tfliteService.dispose();
     super.dispose();
   }
@@ -327,7 +357,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                           ),
                         ),
 
-                        // Option 1: Cluster / Bungkos Maturity Baseline Notice Card
+                        // Cluster / Bungkos Maturity Baseline + Interactive Bunch Coconut Counter Card
                         Container(
                           margin: const EdgeInsets.only(top: 16),
                           padding: const EdgeInsets.all(16),
@@ -336,46 +366,185 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(color: const Color(0xFFA7F3D0)),
                           ),
-                          child: Row(
+                          child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFD1FAE5),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Icon(
-                                  Icons.hub_outlined,
-                                  color: Color(0xFF059669),
-                                  size: 22,
-                                ),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFD1FAE5),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Icon(
+                                      Icons.hub_outlined,
+                                      color: Color(0xFF059669),
+                                      size: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          AppTranslations.text('cluster_notice_title'),
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF065F46),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          AppTranslations.text('cluster_notice_body'),
+                                          style: const TextStyle(
+                                            fontSize: 11.5,
+                                            height: 1.45,
+                                            color: Color(0xFF047857),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                              if (_isValidObject) ...[
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  child: Divider(height: 1, color: Color(0xFFA7F3D0)),
+                                ),
+                                Text(
+                                  AppTranslations.text('bunch_count_label'),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF065F46),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  AppTranslations.text('bunch_count_sub'),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF047857),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
                                   children: [
-                                    Text(
-                                      AppTranslations.text('cluster_notice_title'),
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF065F46),
+                                    // Decrement Button (-)
+                                    InkWell(
+                                      onTap: () => _updateBunchCount(_bunchCount - 1),
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Container(
+                                        width: 42,
+                                        height: 42,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: const Color(0xFF6EE7B7)),
+                                        ),
+                                        child: const Icon(Icons.remove, color: Color(0xFF065F46), size: 20),
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      AppTranslations.text('cluster_notice_body'),
-                                      style: const TextStyle(
-                                        fontSize: 11.5,
-                                        height: 1.45,
-                                        color: Color(0xFF047857),
+                                    const SizedBox(width: 10),
+                                    // Numeric Text Field
+                                    SizedBox(
+                                      width: 85,
+                                      height: 42,
+                                      child: TextField(
+                                        controller: _bunchCountController,
+                                        keyboardType: TextInputType.number,
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF065F46),
+                                        ),
+                                        decoration: InputDecoration(
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                          contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(color: Color(0xFF10B981), width: 1.5),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(color: Color(0xFF059669), width: 2),
+                                          ),
+                                        ),
+                                        onChanged: (val) {
+                                          final parsed = int.tryParse(val);
+                                          if (parsed != null && parsed >= 1) {
+                                            _updateBunchCount(parsed);
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    // Increment Button (+)
+                                    InkWell(
+                                      onTap: () => _updateBunchCount(_bunchCount + 1),
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Container(
+                                        width: 42,
+                                        height: 42,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF10B981),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: const Icon(Icons.add, color: Colors.white, size: 20),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        "🌿 $_bunchCount ${AppTranslations.text('bunch_count_unit')}",
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF065F46),
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
+                                const SizedBox(height: 10),
+                                // Quick-select presets
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: [1, 8, 10, 12, 15].map((preset) {
+                                    final isSelected = _bunchCount == preset;
+                                    return InkWell(
+                                      onTap: () => _updateBunchCount(preset),
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                        decoration: BoxDecoration(
+                                          color: isSelected ? const Color(0xFF059669) : Colors.white,
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: isSelected ? const Color(0xFF059669) : const Color(0xFFA7F3D0),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          preset == 1 ? "1 (Single)" : "$preset pcs",
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: isSelected ? Colors.white : const Color(0xFF065F46),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
                             ],
                           ),
                         ),

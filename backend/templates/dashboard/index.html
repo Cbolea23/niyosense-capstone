@@ -742,21 +742,29 @@
                     if (jsonResponse.success || data.total_scans !== undefined) {
                         const totalEl = document.getElementById('stat-total-scans');
                         const todayEl = document.getElementById('stat-scans-today');
+                        const bunchesEl = document.getElementById('stat-total-bunches');
 
                         if (totalEl && data.total_scans !== undefined) {
                             totalEl.innerText = data.total_scans;
                         }
                         if (todayEl && data.scans_today !== undefined) {
-                            todayEl.innerText = `+${data.scans_today} today`;
+                            todayEl.innerText = `+${data.scans_today} nuts today`;
+                        }
+                        if (bunchesEl && data.total_bunches !== undefined) {
+                            bunchesEl.innerText = `${data.total_bunches} Bunches Sampled`;
                         }
 
                         if (data.mature_count !== undefined && maturityChart) {
+                            matureCount = data.mature_count;
+                            prematureCount = data.premature_count;
+                            overmatureCount = data.overmature_count;
                             maturityChart.data.datasets[0].data = [
                                 data.mature_count,
                                 data.premature_count,
                                 data.overmature_count
                             ];
                             maturityChart.update('none');
+                            recalculateValuation();
                         }
 
                         if (data.daily_labels && dailyChart) {

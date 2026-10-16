@@ -42,13 +42,13 @@
                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">SOP Standard</span>
             </div>
             <p class="text-[11px] text-slate-500 mt-0.5">
-                Each field scan grades 1 representative sample nut per harvest cluster. The result sets the baseline maturity for that entire bunch (bungkos).
+                Workers input the exact coconut count per harvested bunch (bungkos) on the mobile app. All dashboard tallies reflect actual coconut volume.
             </p>
         </div>
     </div>
     <div class="flex items-center gap-2 self-start sm:self-auto shrink-0">
         <span class="text-xs bg-white border border-emerald-200 text-emerald-800 font-bold px-3 py-1.5 rounded-xl shadow-2xs flex items-center gap-1.5">
-            <span>📦</span> <span>1 Scan = 1 Bunch (Bungkos)</span>
+            <span>📦</span> <span id="stat-total-bunches">{{ total_bunches|default:0 }} Bunches Sampled</span>
         </span>
     </div>
 </div>
@@ -61,11 +61,11 @@
             </div>
             <span id="stat-scans-today"
                 class="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold">+{{ scans_today }}
-                today</span>
+                nuts today</span>
         </div>
         <h2 id="stat-total-scans" class="text-4xl font-extrabold mb-1">{{ total_scans }}</h2>
-        <p class="text-xs text-emerald-100 font-medium" data-i18n="total_scans">Total Coconuts Scanned</p>
-        <p class="text-[10px] text-emerald-200/70 mt-1" data-i18n="all_time_visits">All-time across recorded visits</p>
+        <p class="text-xs text-emerald-100 font-medium" data-i18n="total_scans">Total Coconuts Graded (from Bunches)</p>
+        <p class="text-[10px] text-emerald-200/70 mt-1" data-i18n="all_time_visits">Sum of all coconuts across {{ total_bunches|default:0 }} sampled bunches</p>
     </div>
 </div>
 

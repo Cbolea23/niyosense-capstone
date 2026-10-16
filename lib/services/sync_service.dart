@@ -119,6 +119,12 @@ class SyncService {
       if (deviceId.isEmpty) deviceId = getProp(['device_id', 'deviceId']);
       if (deviceId.isNotEmpty) request.fields['device_id'] = deviceId;
 
+      // Pass bunch_count (coconuts in this bungkos/bunch)
+      String bunchCount = '';
+      try { bunchCount = dLog.bunchCount?.toString() ?? dLog.bunch_count?.toString() ?? ''; } catch (_) {}
+      if (bunchCount.isEmpty) bunchCount = getProp(['bunch_count', 'bunchCount']);
+      request.fields['bunch_count'] = bunchCount.isNotEmpty ? bunchCount : '1';
+
       // Attach Image File
       String? imgPath;
       try { imgPath = dLog.imagePath?.toString() ?? dLog.image_path?.toString() ?? dLog.image?.toString(); } catch (_) {}

@@ -21,7 +21,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -41,7 +41,8 @@ class DatabaseHelper {
         is_synced INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
         batch_id TEXT,
-        device_id TEXT
+        device_id TEXT,
+        bunch_count INTEGER NOT NULL DEFAULT 10
       )
     ''');
 
@@ -80,11 +81,26 @@ class DatabaseHelper {
         await db.execute('ALTER TABLE grading_logs ADD COLUMN device_id TEXT');
       } catch (_) {}
     }
+    if (oldVersion < 4) {
+      try {
+        await db.execute('ALTER TABLE grading_logs ADD COLUMN bunch_count INTEGER NOT NULL DEFAULT 10');
+      } catch (_) {}
+    }
   }
 
   Future<int> insertScan(GradingLog log) async {
     final db = await instance.database;
     return await db.insert('grading_logs', log.toMap());
+  }
+
+  Future<int> updateScanBunchCount(String uuid, int bunchCount) async {
+    final db = await instance.database;
+    return await db.update(
+      'grading_logs',
+      {'bunch_count': bunchCount, 'is_synced': 0},
+      where: 'uuid = ?',
+      whereArgs: [uuid],
+    );
   }
 
   Future<List<GradingLog>> getUnsyncedLogs() async {
@@ -166,16 +182,17 @@ class DatabaseHelper {
 
     for (var log in logs) {
       final stage = (log['final_stage'] as String? ?? '').toUpperCase();
+      final int nuts = (log['bunch_count'] as num?)?.toInt() ?? 1;
       if (stage.contains('MATURE') && !stage.contains('PREMATURE')) {
-        matureCount++;
+        matureCount += nuts;
       } else if (stage.contains('PREMATURE') || stage.contains('MALAUHOG')) {
-        prematureCount++;
+        prematureCount += nuts;
       } else {
-        rejectCount++;
+        rejectCount += nuts;
       }
     }
 
-    final int total = logs.length;
+    final int total = matureCount + prematureCount + rejectCount;
     final double payout = (matureCount * session.maturePrice) +
         (prematureCount * session.prematurePrice) +
         (rejectCount * session.rejectPrice);

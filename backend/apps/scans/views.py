@@ -11,8 +11,8 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Count
-from django.db.models.functions import TruncMonth
+from django.db.models import Count, Sum
+from django.db.models.functions import TruncMonth, Coalesce
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from rest_framework import parsers, permissions, status
@@ -26,6 +26,11 @@ from .serializers import (
     PriceSettingSerializer,
     DeliveryBatchSerializer,
 )
+
+
+def _sum_bunch(queryset):
+    """Helper to sum bunch_count (number of coconuts) for a GradingLog queryset."""
+    return queryset.aggregate(total=Coalesce(Sum('bunch_count'), 0))['total'] or 0
 
 
 def web_dashboard(request):
@@ -53,14 +58,15 @@ def web_dashboard(request):
 
     now = timezone.now()
     today = now.date()
-    total_scans = GradingLog.objects.count()
-    scans_today = GradingLog.objects.filter(created_at__date=today).count()
-    mature_count = GradingLog.objects.filter(final_maturity_stage__iexact='Mature').count()
-    premature_count = GradingLog.objects.filter(final_maturity_stage__iexact='Premature').count()
-    overmature_count = GradingLog.objects.filter(final_maturity_stage__iexact='Overmature').count()
-    this_month_scans = GradingLog.objects.filter(
-        created_at__year=now.year, created_at__month=now.month
-    ).count()
+    total_bunches = GradingLog.objects.count()
+    total_scans = _sum_bunch(GradingLog.objects.all())
+    scans_today = _sum_bunch(GradingLog.objects.filter(created_at__date=today))
+    mature_count = _sum_bunch(GradingLog.objects.filter(final_maturity_stage__iexact='Mature'))
+    premature_count = _sum_bunch(GradingLog.objects.filter(final_maturity_stage__iexact='Premature'))
+    overmature_count = _sum_bunch(GradingLog.objects.filter(final_maturity_stage__iexact='Overmature'))
+    this_month_scans = _sum_bunch(
+        GradingLog.objects.filter(created_at__year=now.year, created_at__month=now.month)
+    )
     mature_rate = round((mature_count / total_scans) * 100, 1) if total_scans > 0 else 0.0
     premature_rate = round((premature_count / total_scans) * 100, 1) if total_scans > 0 else 0.0
     overmature_rate = round((overmature_count / total_scans) * 100, 1) if total_scans > 0 else 0.0
@@ -69,14 +75,14 @@ def web_dashboard(request):
     daily_counts = []
     for i in range(6, -1, -1):
         day_date = today - timedelta(days=i)
-        cnt = GradingLog.objects.filter(created_at__date=day_date).count()
+        cnt = _sum_bunch(GradingLog.objects.filter(created_at__date=day_date))
         daily_labels.append('Today' if i == 0 else day_date.strftime('%b %d'))
         daily_counts.append(cnt)
 
     monthly_yield_qs = (
         GradingLog.objects.annotate(month=TruncMonth('created_at'))
         .values('month')
-        .annotate(count=Count('uuid'))
+        .annotate(count=Coalesce(Sum('bunch_count'), 0))
         .order_by('month')
     )
     monthly_labels = []
@@ -103,15 +109,15 @@ def web_dashboard(request):
 
     for b in batches:
         b_scans = b.scans.all()
-        m_cnt = sum(1 for s in b_scans if 'mature' in s.final_maturity_stage.lower() and 'premature' not in s.final_maturity_stage.lower())
-        p_cnt = sum(1 for s in b_scans if 'premature' in s.final_maturity_stage.lower() or 'malauhog' in s.final_maturity_stage.lower())
-        r_cnt = len(b_scans) - m_cnt - p_cnt
+        m_cnt = sum((s.bunch_count or 1) for s in b_scans if 'mature' in s.final_maturity_stage.lower() and 'premature' not in s.final_maturity_stage.lower())
+        p_cnt = sum((s.bunch_count or 1) for s in b_scans if 'premature' in s.final_maturity_stage.lower() or 'malauhog' in s.final_maturity_stage.lower())
+        r_cnt = sum((s.bunch_count or 1) for s in b_scans) - m_cnt - p_cnt
         payout = (Decimal(m_cnt) * b.mature_price) + (Decimal(p_cnt) * b.premature_price) + (Decimal(r_cnt) * b.reject_price)
         total_farm_payout += payout
 
         batch_summaries.append({
             'batch': b,
-            'total_scans': len(b_scans),
+            'total_scans': m_cnt + p_cnt + r_cnt,
             'mature_count': m_cnt,
             'premature_count': p_cnt,
             'reject_count': r_cnt,
@@ -120,6 +126,7 @@ def web_dashboard(request):
 
     context = {
         'total_scans': total_scans,
+        'total_bunches': total_bunches,
         'scans_today': scans_today,
         'mature_count': mature_count,
         'premature_count': premature_count,
@@ -216,9 +223,17 @@ class BulkSyncView(APIView):
     def post(self, request, *args, **kwargs):
         log_uuid = request.data.get('uuid')
         try:
-            if GradingLog.objects.filter(uuid=log_uuid).exists():
+            existing_log = GradingLog.objects.filter(uuid=log_uuid).first()
+            if existing_log:
+                new_bunch = request.data.get('bunch_count')
+                if new_bunch is not None:
+                    try:
+                        existing_log.bunch_count = max(1, int(new_bunch))
+                        existing_log.save(update_fields=['bunch_count'])
+                    except (ValueError, TypeError):
+                        pass
                 return Response(
-                    {'status': 'ignored', 'reason': 'Log already exists in PostgreSQL'},
+                    {'status': 'updated', 'reason': 'Log already exists in PostgreSQL; bunch_count synchronized.'},
                     status=status.HTTP_200_OK,
                 )
         except (ValidationError, ValueError):
@@ -314,23 +329,25 @@ def get_server_ip(request):
 def dashboard_stats_api(request):
     now = timezone.now()
     today = now.date()
-    total_scans = GradingLog.objects.count()
-    scans_today = GradingLog.objects.filter(created_at__date=today).count()
-    mature_count = GradingLog.objects.filter(final_maturity_stage__iexact='Mature').count()
-    premature_count = GradingLog.objects.filter(final_maturity_stage__iexact='Premature').count()
-    overmature_count = GradingLog.objects.filter(final_maturity_stage__iexact='Overmature').count()
+    total_bunches = GradingLog.objects.count()
+    total_scans = _sum_bunch(GradingLog.objects.all())
+    scans_today = _sum_bunch(GradingLog.objects.filter(created_at__date=today))
+    mature_count = _sum_bunch(GradingLog.objects.filter(final_maturity_stage__iexact='Mature'))
+    premature_count = _sum_bunch(GradingLog.objects.filter(final_maturity_stage__iexact='Premature'))
+    overmature_count = _sum_bunch(GradingLog.objects.filter(final_maturity_stage__iexact='Overmature'))
 
     daily_labels = []
     daily_counts = []
     for i in range(6, -1, -1):
         day_date = today - timedelta(days=i)
-        cnt = GradingLog.objects.filter(created_at__date=day_date).count()
+        cnt = _sum_bunch(GradingLog.objects.filter(created_at__date=day_date))
         daily_labels.append('Today' if i == 0 else day_date.strftime('%b %d'))
         daily_counts.append(cnt)
 
     return Response({
         "success": True,
         "total_scans": total_scans,
+        "total_bunches": total_bunches,
         "scans_today": scans_today,
         "mature_count": mature_count,
         "premature_count": premature_count,

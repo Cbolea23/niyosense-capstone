@@ -11,6 +11,7 @@ class GradingLog {
   final String createdAt;
   final String? batchId; // Optional link to a batch/delivery session
   final String? deviceId;
+  final int bunchCount; // Number of coconuts in this bungkos/bunch
 
   GradingLog({
     required this.uuid,
@@ -25,6 +26,7 @@ class GradingLog {
     required this.createdAt,
     this.batchId,
     this.deviceId,
+    this.bunchCount = 1,
   });
 
   Map<String, dynamic> toMap() {
@@ -41,6 +43,7 @@ class GradingLog {
       'created_at': createdAt,
       'batch_id': batchId,
       'device_id': deviceId,
+      'bunch_count': bunchCount,
     };
   }
 
@@ -58,6 +61,7 @@ class GradingLog {
       createdAt: map['created_at'],
       batchId: map['batch_id'] as String?,
       deviceId: map['device_id'] as String?,
+      bunchCount: (map['bunch_count'] as num?)?.toInt() ?? 1,
     );
   }
 }

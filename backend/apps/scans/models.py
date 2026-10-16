@@ -130,6 +130,10 @@ class GradingLog(models.Model):
   )
   confidence_score = models.FloatField()
   device_id = models.CharField(max_length=64, blank=True, default='', db_index=True)
+  bunch_count = models.PositiveIntegerField(
+      default=1,
+      help_text='Number of coconuts in this harvested bunch (bungkos)',
+  )
   is_synced = models.BooleanField(default=True)
   created_at = models.DateTimeField(db_index=True)
 
@@ -137,4 +141,4 @@ class GradingLog(models.Model):
     ordering = ['-created_at']
 
   def __str__(self):
-    return f'Scan {self.uuid} - {self.final_maturity_stage}'
+    return f'Scan {self.uuid} - {self.final_maturity_stage} ({self.bunch_count} pcs)'

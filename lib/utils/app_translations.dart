@@ -61,6 +61,10 @@ class AppTranslations {
       'cluster_notice_title': 'Cluster Maturity Baseline',
       'cluster_notice_body': 'The scanned coconut serves as the base maturity stage for the entire cluster (bungkos) it was harvested from. Please ensure this coconut is kept and matched with its original bunch.',
       'cluster_sampling_tip': 'Select 1 sample coconut per cluster (bungkos)',
+      'bunch_count_label': 'Coconuts in this Bungkos (Bunch)',
+      'bunch_count_sub': 'Enter how many coconuts belong to this harvested bunch so the dashboard records the full cluster volume:',
+      'bunch_count_unit': 'nuts in bunch',
+      'bunch_saved_toast': 'Bunch count updated to {count} coconuts!',
 
       // Visual Scan Screen
       'step_1_title': 'Step 1: Visual',
@@ -198,6 +202,10 @@ class AppTranslations {
       'cluster_notice_title': 'Batayan ng Buong Bungkos',
       'cluster_notice_body': 'Ang resulta ng bukong ito ay nagsisilbing batayan ng maturity para sa buong bungkos na pinag-anihan nito. Siguraduhing itabi o itugma ang bukong ito sa kanyang orihinal na bungkos.',
       'cluster_sampling_tip': 'Pumili ng 1 kinatawang buko mula sa bawat bungkos',
+      'bunch_count_label': 'Bilang ng Buko sa Bungkos na Ito',
+      'bunch_count_sub': 'Ilagay kung ilang pirasong buko ang nasa bungkos na ito upang maitala ang buong bilang sa dashboard:',
+      'bunch_count_unit': 'piraso sa bungkos',
+      'bunch_saved_toast': 'Naitala na: {count} buko sa bungkos!',
 
       // Visual Scan Screen
       'step_1_title': 'Hakbang 1: Biswal',
