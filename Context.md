@@ -1,78 +1,59 @@
-# Project Name: NiyoSense
-**Description**: Fully offline-first, multimodal coconut maturity grading system (Visual + Acoustic) for mobile devices, supported by a Django web dashboard for analytics and log synchronization.
+# Project Name: NiyoSense (v1.4.0 — Build 12)
+**Description**: Fully offline-first, multimodal coconut maturity profiling and grading system (Visual + Acoustic) for Android devices, supported by a Dockerized Django web dashboard for real-time cluster (*bungkos*) volume analytics, commercial valuation, and concurrent multi-device log synchronization.
+
+> 📄 **For Capstone Manuscript Revision:** See [`CAPSTONE_PAPER_REVISION_GUIDE.md`](CAPSTONE_PAPER_REVISION_GUIDE.md) for the complete chapter-by-chapter comparison between the original Capstone 1 Proposal Paper and the final `v1.4.0` implementation.
 
 ---
 
 ## 1. System Architecture & Tech Stack
-* **Mobile Frontend**: Flutter / Dart
-  * Operates **100% offline-first**.
-  * Local database: SQLite (`sqflite`).
-  * On-device Machine Learning: TensorFlow Lite (`tflite_flutter`).
-* **Backend Dashboard & Cloud API**: Django + Django REST Framework
-  * Database: PostgreSQL (Neon DB).
-  * Synchronization endpoint: Bulk log sync (`/api/v1/sync/bulk-logs/`).
+* **Mobile Frontend**: Flutter / Dart (`v1.4.0+12`)
+  * Operates **100% offline-first** in remote farm environments.
+  * Local database: SQLite (`sqflite`, schema v3 with `grading_logs` and `batch_sessions`).
+  * On-device Machine Learning: TensorFlow Lite (`tflite_flutter ^0.12.1`).
+  * On-device Acoustic DSP: Custom pure-Dart STFT & 128-band Slaney Mel-Spectrogram generator (`SpectrogramService.dart`).
+* **Backend Dashboard & Cloud API**: Django + Django REST Framework + Gunicorn + WhiteNoise
+  * Database: SQLite with **WAL (Write-Ahead Logging)** mode (`busy_timeout=30000ms` + 5-attempt atomic retry) and PostgreSQL (`DATABASE_URL`) support.
+  * Authentication: 30-day multi-device JWT (`SIMPLE_JWT` with `BLACKLIST_AFTER_ROTATION = False`).
+  * Synchronization endpoint: Concurrent bulk log & media sync (`/api/v1/sync/bulk-logs/`).
 * **Deployment & Containerization**:
-  * Dockerized Django setup (volume-mounted media persistence to prevent file loss on container restarts).
-  * Remote tunneling for multi-network sync via Cloudflare Tunnel (`cloudflared`).
+  * Dockerized Django setup (`backend/Dockerfile` & `backend/docker-compose.yml`) with volume-mounted media/static persistence.
+  * Remote HTTPS tunneling for multi-network cellular sync via Cloudflare Tunnel (`cloudflared`).
 
 ---
 
-## 2. Models & Preprocessing Pipeline
-The system relies on two TFLite models expecting `[1, 3, 224, 224]` Float32 input tensors:
-1. **Visual Model (`img_best.tflite`)**:
-   * Evaluates coconut husk visual features.
-   * Input: Camera frame normalized and resized to `[1, 3, 224, 224]` (NCHW format).
-2. **Acoustic Model (`spec_best.tflite`)**:
-   * Evaluates coconut acoustic resonance from a 4-second tapping audio file.
-   * Audio recording specifications: 4.0 seconds, 22050 Hz sample rate, mono PCM (`.wav`).
-   * On-device preprocessing (`SpectrogramService`):
-     * FFT size (`n_fft`): 2048
-     * Hop length: 512
-     * Mel bands (`n_mels`): 128
-     * Top-dB normalization range: -80 dB to 0 dB
-     * Colormap: Matplotlib `magma` colormap
-     * Resized to `[1, 3, 224, 224]` Float32 tensor.
-3. **Late-Fusion Decision Logic**:
-   * Weighted formula: `Final Probability = (0.60 * P_visual) + (0.40 * P_audio)`
-   * Resolves maturity classification: `Buko / Malauhog` (or `Mature / Premature`).
+## 2. Models, 3-Gate OOD Validation & 70/30 Late-Fusion Pipeline
+The system runs two retrained **YOLOv8-cls** TFLite models on-device expecting **`[1, 320, 320, 3]` NHWC RGB Float32** input tensors (`0.0–1.0` normalized) with 2 target young coconut classes (`0: buko` [Mature / Marketable meat], `1: malauhog` [Premature / Mucus-like meat]):
+
+1. **Visual Model (`assets/models/img_best_v2.tflite`)**:
+   * Evaluates coconut husk visual features resized to `[1, 320, 320, 3]` NHWC RGB Float32.
+2. **Acoustic Model (`assets/models/spec_best_v2.tflite`)**:
+   * Evaluates coconut acoustic resonance from a 4.0-second tapping `.wav` recording (`22,050 Hz`, mono PCM, recorded via `AndroidAudioSource.unprocessed`).
+   * On-device preprocessing (`SpectrogramService.dart`):
+     * First-order High-Pass Filter: `300 Hz` cutoff
+     * Peak-Window Auto-Centering: `1.5s` active window (`0.05s` step)
+     * Hann Window STFT: `n_fft = 2048`, `hop_length = 512`
+     * Mel Filterbank: `128` Slaney-normalized Mel bands (`0 Hz – 11,025 Hz`)
+     * Log-power normalization: `-80 dB` to `0 dB`
+     * Colormap: 256-color Matplotlib `magma` LUT resized to `[1, 320, 320, 3]` Float32.
+3. **3-Gate Out-of-Distribution (OOD) Validation Pipeline (`ModelService.dart`)**:
+   * **Gate 1 (Camera Pixel & Texture Gate on `64×64` RGB)**: Checks luminance exposure ($\mu \in [28, 242], \sigma \ge 8.0$), Center 60% ROI HSV green/olive/brown husk ratio ($\ge 40\%$), and Sobel gradient edge roughness ($\le 30.0$ to reject grass/foliage).
+   * **Gate 2 (Spectrogram Vertical Tap-Stripe Counter on `64×64` Grid)**: Inspects the upper 70% frequency rows for distinct vertical tap stripes (`colEnergy[x] > median + 35` and `> 85`, separated by $\ge 3$ columns), requiring strictly `2..5` knocks.
+   * **Gate 3 (Softmax Temperature Scaling & Cross-Model Check)**: Applies temperature scaling ($T = 1.6$), caps display confidence at `96.5%`, requires fused confidence $\ge 65.0\%$, and resolves cross-model disagreements when acoustic confidence is decisive ($\ge 75.0\%$).
+4. **Acoustic-Dominant 70/30 Late-Fusion Formula**:
+   * `P_fused(c) = (0.70 * P_audio(c)) + (0.30 * P_visual(c))`
+   * Reflects field testing showing that outer husks of *Buko* and *Malauhog* appear visually similar, whereas internal meat thickness and water cavity resonance differ distinctly under acoustic knocking.
 
 ---
 
-## 3. Current Implementation Status & Solved Hurdles
-* **Offline Audio Pipeline**:
-  * Successfully implemented real-time audio recording (`.wav`) via `record` package at 22050 Hz for exactly 4 seconds.
-  * Implemented pure-Dart FFT and Mel-spectrogram generation in `SpectrogramService.dart`.
-  * Resolved `.reshape()` compilation issues by importing `package:tflite_flutter/tflite_flutter.dart`.
-  * Verified end-to-end on-device execution: both `img_best.tflite` and `spec_best.tflite` run on the mobile device with genuine data, logging fused predictions to SQLite.
-* **Web Dashboard & Backend**:
-  * Removed "Offline-Ready" tags from `header.html` and `sidebar.html` (the web console is a reporting dashboard; offline capability is mobile-exclusive).
-  * Fixed Chart.js canvas resizing issues and infinite redraw loops on the Analytics tab by constraining container heights (`h-72`) and triggering `resize()` on tab switch.
-  * Resolved template tag errors by ensuring `{% load static %}` is placed in templates rendering assets.
-  * Configured multi-network sync via `cloudflared` tunnel, `ALLOWED_HOSTS = ['*']`, `SECURE_PROXY_SSL_HEADER`, and `CSRF_TRUSTED_ORIGINS`.
-* **Branding, UI & Cluster Sampling Notice**:
-  * Integrated custom logo (`assets/logo/logo.png`) in the Django dashboard sidebar, browser favicon, and the Flutter `ScanResultScreen` / `HomeScreen`.
-  * Implemented Cluster Maturity Baseline Notice Card (Option 1) in `ScanResultScreen` and cluster sampling badge in `VisualScanScreen`, guiding farmers/operators that 1 scanned nut serves as the base maturity stage for the entire cluster (bungkos).
-* **Cross-Platform Localization (English & Tagalog)**:
-  * Implemented reactive `AppTranslations` in Flutter across `HomeScreen`, `SettingsScreen`, `VisualScanScreen`, `AcousticScanScreen`, and `ScanResultScreen`.
-  * Added in-app interactive language switcher (EN / TL) in mobile `SettingsScreen` and completed `data-i18n` binding across all web dashboard tabs and modals.
-* **Production Docker Containerization & Media Persistence**:
-  * Configured `backend/Dockerfile` (Python 3.12-slim, `libpq-dev`, `build-essential`, `iproute2`, Gunicorn).
-  * Configured `backend/docker-compose.yml` with persistent volume mounts (`./media:/app/media` and `./static:/app/static`), automated migrations and `collectstatic`, and environment variable support for Neon PostgreSQL (`DATABASE_URL`).
-  * Integrated `whitenoise` for zero-overhead static asset serving and configured Django `urls.py` for persistent media serving under standalone container execution.
-  * Successfully verified remote multi-network mobile cellular data (4G/5G) sync through Cloudflare Quick Tunnel (`trycloudflare.com`) with automated image and 4-second `.wav` audio upload persistence.
-  * Added dedicated `Unrecognized` stage handling across Django models, serializers, and web dashboard table badges to record and flag non-coconut / low-confidence scans.
-  * Added "Install Mobile App (Android)" card in web dashboard Settings with direct APK download (`/media/downloads/niyosense.apk`) and dedicated scan-to-install QR code modal.
-  * Implemented multi-operator individual login system (`maria_santos`, `juan_delacruz`, `pedro_reyes`, `aggregator1`) with client-side credential persistence in Flutter settings, enabling concurrent multi-phone field grading with distinct audit trails.
+## 3. Key Implemented System Capabilities (`v1.4.0`)
+* **Bungkos (Cluster) Representative Sampling (`bunch_count`)**:
+  * Supports real-world post-harvest cluster grading where 1 scanned coconut profiles an entire harvested *bungkos* (default `10` nuts, quick chips `8, 10, 12, 15`, or custom count).
+  * Web Dashboard KPIs, Doughnut/Trend charts, and Valuation calculators aggregate total graded coconuts ($\sum \text{bunch\_count}$) alongside total sampled bunches.
 * **Farmer Delivery Batch & Payout Voucher System**:
-  * Added `BatchSession` and `BatchSummary` models with local SQLite schema migration in `DatabaseHelper` (`batch_sessions` table with auto-migration from version 1 to 2).
-  * Implemented active delivery session tracking (`batch_id`) in `GradingLog`, automatically associating individual scans to the active delivery.
-  * Added interactive `BatchSessionScreen` with configurable buying prices per piece (Mature/Niyog, Premature/Buko, Reject/Bungi).
-  * Added live calculation of total harvest scanned, counts/percentages per maturity grade, and total payout due in PHP.
-  * Implemented one-tap shareable delivery receipt/voucher generation with clipboard export to resolve farmer transaction disputes on-site.
-  * Added dynamic Delivery Session card on `HomeScreen` with active batch badge, scan counts, and payout indicators.
-
----
-
-## 4. Immediate Next Steps / Pending Tasks
-1. Conduct physical coconut grading field tests (comparing model classification accuracy on actual buko vs. malauhog nuts).
-2. Deploy Docker container to production VPS / Render / Railway with attached persistent volume.
+  * Mobile `BatchSessionScreen` tracks per-farmer deliveries, customizable unit buying prices (`₱/pc`), live grade tallies, and shareable text payout receipts.
+* **Web Dashboard Commercial Valuation & Settlement Reconciliation**:
+  * Real-time **Estimated Valuation Engine** and **Batch Settlement / Profit Reconciliation Calculator** to quantify commercial price variance and revenue leakage.
+* **Concurrent Multi-Device Sync & Live Dashboard Polling**:
+  * Simultaneous multi-phone syncing via SQLite WAL + 5x server atomic retry + 3x client retry, UUID-prefixed media uploads, URL sanitizer, and 3-second live table polling on the Grading Logs tab.
+* **Bilingual Localization (English & Tagalog)**:
+  * Full reactive `EN / TL` translation support across both the Flutter mobile app and Django web dashboard.
