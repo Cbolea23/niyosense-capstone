@@ -772,6 +772,47 @@
                             dailyChart.data.datasets[0].data = data.daily_counts;
                             dailyChart.update('none');
                         }
+
+                        if (Array.isArray(data.recent_logs)) {
+                            const logsBody = document.getElementById('logsTableBody');
+                            if (logsBody && data.recent_logs.length > 0) {
+                                logsBody.innerHTML = data.recent_logs.map(log => {
+                                    let badgeHtml = `<span class="bg-red-50 text-red-700 font-bold px-2.5 py-1 rounded-full text-[11px]">${log.final_maturity_stage}</span>`;
+                                    if (log.final_maturity_stage === 'Mature') {
+                                        badgeHtml = `<span class="bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-full text-[11px]">Mature</span>`;
+                                    } else if (log.final_maturity_stage === 'Premature') {
+                                        badgeHtml = `<span class="bg-amber-50 text-amber-700 font-bold px-2.5 py-1 rounded-full text-[11px]">Premature</span>`;
+                                    } else if (log.final_maturity_stage === 'Unrecognized') {
+                                        badgeHtml = `<span class="bg-rose-50 text-rose-700 font-bold px-2.5 py-1 rounded-full text-[11px]">Unrecognized</span>`;
+                                    }
+                                    const devHtml = log.device_id
+                                        ? `<span class="font-mono text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold">${log.device_id}</span>`
+                                        : `<span class="text-slate-400 font-mono text-[10px]">--</span>`;
+                                    const imgLink = log.image_url ? `<a href="${log.image_url}" target="_blank" class="text-emerald-600 font-semibold underline">Image</a>` : '';
+                                    const audLink = log.audio_url ? `<a href="${log.audio_url}" target="_blank" class="text-emerald-600 font-semibold underline">Audio</a>` : '';
+                                    return `
+                                        <tr class="hover:bg-slate-50/80 transition">
+                                            <td class="p-4">
+                                                <p class="font-mono font-medium text-slate-800 text-[11px]">${log.short_uuid}</p>
+                                                <p class="text-[10px] text-slate-400 mt-0.5">${log.created_at}</p>
+                                            </td>
+                                            <td class="p-4 font-medium text-slate-700">${log.username}</td>
+                                            <td class="p-4">${devHtml}</td>
+                                            <td class="p-4">
+                                                <span class="inline-flex items-center gap-1 text-[10.5px] font-semibold text-emerald-800 bg-emerald-50/90 border border-emerald-200/60 px-2 py-0.5 rounded-lg">
+                                                    <span>🌿</span> <span>${log.bunch_count || 1} pcs in Bungkos</span>
+                                                </span>
+                                            </td>
+                                            <td class="p-4 text-slate-600">${log.visual_prediction}</td>
+                                            <td class="p-4 text-slate-600">${log.audio_prediction}</td>
+                                            <td class="p-4">${badgeHtml}</td>
+                                            <td class="p-4 font-semibold text-slate-700">${log.confidence_display}</td>
+                                            <td class="p-4 flex gap-2">${imgLink} ${audLink}</td>
+                                        </tr>
+                                    `;
+                                }).join('');
+                            }
+                        }
                     }
                 }
             } catch (e) {

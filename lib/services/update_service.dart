@@ -30,11 +30,7 @@ class UpdateService {
   static Future<String> _resolveServerBaseUrl() async {
     final prefs = await SharedPreferences.getInstance();
     final savedUrl = prefs.getString('backend_base_url');
-    String activeUrl = (savedUrl != null && savedUrl.isNotEmpty) ? savedUrl : AppConfig.defaultServerUrl;
-    if (!activeUrl.startsWith("http://") && !activeUrl.startsWith("https://")) {
-      activeUrl = "http://$activeUrl";
-    }
-    return activeUrl;
+    return AppConfig.sanitizeServerUrl(savedUrl);
   }
 
   /// Checks server for newer version than current running AppConfig

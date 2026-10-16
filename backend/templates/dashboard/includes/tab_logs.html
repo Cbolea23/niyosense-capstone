@@ -15,7 +15,7 @@
                 <th class="p-4" data-i18n="table_media">Media</th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100 text-xs">
+        <tbody id="logsTableBody" class="divide-y divide-slate-100 text-xs">
             {% for log in logs %}
             <tr class="hover:bg-slate-50/80 transition">
                 <td class="p-4">
@@ -52,7 +52,7 @@
                         class="bg-red-50 text-red-700 font-bold px-2.5 py-1 rounded-full text-[11px]">{{ log.final_maturity_stage }}</span>
                     {% endif %}
                 </td>
-                <td class="p-4 font-semibold text-slate-700">{{ log.confidence_score }}</td>
+                <td class="p-4 font-semibold text-slate-700">{% if log.confidence_score <= 1.0 %}{% widthratio log.confidence_score 1 100 %}%{% else %}{{ log.confidence_score|floatformat:1 }}%{% endif %}</td>
                 <td class="p-4 flex gap-2">
                     {% if log.image %}
                     <a href="{{ log.image.url }}" target="_blank"
@@ -66,7 +66,7 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="8" class="p-8 text-center text-slate-400 text-xs" data-i18n="no_logs_synced">No scan logs synced yet. Perform a scan
+                <td colspan="9" class="p-8 text-center text-slate-400 text-xs" data-i18n="no_logs_synced">No scan logs synced yet. Perform a scan
                     on the mobile app and tap Sync.</td>
             </tr>
             {% endfor %}

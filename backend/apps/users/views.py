@@ -73,8 +73,15 @@ def aggregator_detail_api(request, user_id):
     except User.DoesNotExist:
         return Response({"success": False, "error": "Aggregator account not found."}, status=status.HTTP_404_NOT_FOUND)
 
+    from django.db.models import Sum
+    from django.db.models.functions import Coalesce
+
     if request.method == 'GET':
-        scans_count = user.scans.count() if hasattr(user, 'scans') else 0
+        scans_count = (
+            user.scans.aggregate(total=Coalesce(Sum('bunch_count'), 0))['total'] or 0
+            if hasattr(user, 'scans')
+            else 0
+        )
         user_data = UserSerializer(user).data
         user_data['total_scans'] = scans_count
         return Response({"success": True, "user": user_data})
@@ -101,7 +108,11 @@ def aggregator_detail_api(request, user_id):
 
         user.save()
         user_data = UserSerializer(user).data
-        user_data['total_scans'] = user.scans.count() if hasattr(user, 'scans') else 0
+        user_data['total_scans'] = (
+            user.scans.aggregate(total=Coalesce(Sum('bunch_count'), 0))['total'] or 0
+            if hasattr(user, 'scans')
+            else 0
+        )
         return Response({
             "success": True,
             "message": f"Account '{user.username}' updated successfully.",

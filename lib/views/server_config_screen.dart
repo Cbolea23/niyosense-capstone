@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import '../utils/app_config.dart';
 
 class ServerConfigScreen extends StatefulWidget {
   final VoidCallback onConfigComplete;
@@ -20,17 +21,14 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
     if (_isTesting) return;
     setState(() => _isTesting = true);
 
-    String cleanUrl = url.trim();
-    if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
-      cleanUrl = "http://$cleanUrl";
-    }
+    final String cleanUrl = AppConfig.sanitizeServerUrl(url);
 
     try {
       final response = await http
-          .get(Uri.parse('$cleanUrl/admin/login/'))
-          .timeout(const Duration(seconds: 4));
+          .get(Uri.parse('$cleanUrl/api/v1/system/app-version/'))
+          .timeout(const Duration(seconds: 6));
 
-      if (response.statusCode == 200 || response.statusCode == 302 || response.statusCode == 404) {
+      if (response.statusCode == 200) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('backend_base_url', cleanUrl);
 

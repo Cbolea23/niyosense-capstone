@@ -101,9 +101,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     final savedUrl = prefs.getString('backend_base_url');
     if (savedUrl != null && savedUrl.isNotEmpty) {
+      final clean = AppConfig.sanitizeServerUrl(savedUrl);
+      if (clean != savedUrl) {
+        await prefs.setString('backend_base_url', clean);
+      }
       if (mounted) {
         setState(() {
-          _ipController.text = savedUrl.replaceAll('http://', '').replaceAll('https://', '');
+          _ipController.text = clean.replaceAll('http://', '').replaceAll('https://', '');
         });
       }
     }
@@ -119,20 +123,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   String _getFormattedUrl() {
-    String raw = _ipController.text.trim();
-    if (raw.isEmpty) return "http://192.168.1.26:8000";
-    if (!raw.startsWith("http://") && !raw.startsWith("https://")) {
-      return "http://$raw";
-    }
-    return raw;
+    return AppConfig.sanitizeServerUrl(_ipController.text);
   }
 
   Future<bool> _pingServer(String baseUrl) async {
     try {
+      final cleanUrl = AppConfig.sanitizeServerUrl(baseUrl);
       final response = await http
-          .get(Uri.parse('$baseUrl/admin/login/'))
-          .timeout(const Duration(seconds: 4));
-      return response.statusCode == 200 || response.statusCode == 302 || response.statusCode == 404;
+          .get(Uri.parse('$cleanUrl/api/v1/system/app-version/'))
+          .timeout(const Duration(seconds: 5));
+      return response.statusCode == 200;
     } catch (_) {
       return false;
     }
@@ -152,6 +152,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _isConnecting = true);
 
     final formattedUrl = _getFormattedUrl();
+    _ipController.text = formattedUrl.replaceAll('http://', '').replaceAll('https://', '');
     bool isAlive = await _pingServer(formattedUrl);
 
     if (!isAlive) {
@@ -181,9 +182,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final String username = _usernameController.text.trim();
     final String password = _passwordController.text.trim();
-    final String? token = await authService.login(username, password);
-
+    String? token = await authService.login(username, password);
     if (token != null) {
+      await prefs.setString('access_token', token);
+    } else {
+      token = prefs.getString('access_token');
+    }
+
+    if (token != null && token.isNotEmpty) {
       await syncService.performSequentialSync(token);
       await _loadPendingLogs();
 
@@ -201,7 +207,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         setState(() => _isConnected = true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Server connected! (Note: Create superuser "aggregator1" for sync)'),
+            content: const Text('Server connected! Log in again to sync scans.'),
             backgroundColor: Colors.amber.shade800,
           ),
         );

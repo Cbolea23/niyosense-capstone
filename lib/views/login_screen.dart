@@ -33,11 +33,17 @@ class _LoginScreenState extends State<LoginScreen> {
     final savedUrl = prefs.getString('backend_base_url');
     final savedUser = prefs.getString('operator_username');
 
+    String cleanUrl = _serverBaseUrl;
+    if (savedUrl != null && savedUrl.isNotEmpty) {
+      cleanUrl = AppConfig.sanitizeServerUrl(savedUrl);
+      if (cleanUrl != savedUrl) {
+        await prefs.setString('backend_base_url', cleanUrl);
+      }
+    }
+
     if (mounted) {
       setState(() {
-        if (savedUrl != null && savedUrl.isNotEmpty) {
-          _serverBaseUrl = savedUrl;
-        }
+        _serverBaseUrl = cleanUrl;
         if (savedUser != null && savedUser.isNotEmpty) {
           _usernameController.text = savedUser;
         }

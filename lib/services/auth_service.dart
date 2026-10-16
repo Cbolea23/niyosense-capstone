@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../utils/app_config.dart';
 
 class AuthService {
   final String backendBaseUrl;
@@ -8,14 +9,15 @@ class AuthService {
 
   Future<String?> login(String username, String password) async {
     try {
+      final cleanBase = AppConfig.sanitizeServerUrl(backendBaseUrl);
       final response = await http.post(
-        Uri.parse('$backendBaseUrl/api/v1/auth/login/'),
+        Uri.parse('$cleanBase/api/v1/auth/login/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'username': username,
           'password': password,
         }),
-      ).timeout(const Duration(seconds: 8));
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

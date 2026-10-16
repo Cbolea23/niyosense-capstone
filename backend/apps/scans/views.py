@@ -145,8 +145,8 @@ def web_dashboard(request):
         'batch_summaries': batch_summaries,
         'total_farm_payout': total_farm_payout,
         'farm_profile': farm_profile,
-        'app_version': '1.3.5',
-        'model_pipeline': 'Multimodal Audio-Visual v2.4.2 (V2 Retrained)',
+        'app_version': '1.4.0',
+        'model_pipeline': 'Multimodal Audio-Visual v2.4.2 (70/30 Audio-Visual + 3-Gate OOD)',
         'inference_engine': 'TFLite (Dual-Modality Late Fusion)',
     }
     return render(request, 'dashboard/index.html', context)
@@ -193,27 +193,39 @@ def get_current_prices_api(request):
 @permission_classes([permissions.IsAuthenticated])
 def sync_batch_session_api(request):
     """Mobile app syncs completed farmer delivery sessions to the central server."""
+    import time
+    from django.db import OperationalError, IntegrityError
+
     batch_id = request.data.get('batch_id')
     farmer_name = request.data.get('farmer_name', 'Unknown')
     mature_price = request.data.get('mature_price', 12.0)
     premature_price = request.data.get('premature_price', 7.0)
     reject_price = request.data.get('reject_price', 0.0)
-    is_closed = request.data.get('is_closed', False)
+    is_closed = str(request.data.get('is_closed', False)).lower() in ('true', '1', 'yes')
     created_at = request.data.get('created_at') or timezone.now()
 
-    batch, created = DeliveryBatch.objects.update_or_create(
-        batch_id=batch_id,
-        defaults={
-            'farmer_name': farmer_name,
-            'operator': request.user,
-            'mature_price': Decimal(str(mature_price)),
-            'premature_price': Decimal(str(premature_price)),
-            'reject_price': Decimal(str(reject_price)),
-            'is_closed': is_closed,
-            'created_at': created_at,
-        }
-    )
-    return Response({'status': 'success', 'batch_id': batch.batch_id}, status=status.HTTP_200_OK)
+    last_err = None
+    for attempt in range(5):
+        try:
+            with transaction.atomic():
+                batch, _ = DeliveryBatch.objects.update_or_create(
+                    batch_id=batch_id,
+                    defaults={
+                        'farmer_name': farmer_name,
+                        'operator': request.user,
+                        'mature_price': Decimal(str(mature_price)),
+                        'premature_price': Decimal(str(premature_price)),
+                        'reject_price': Decimal(str(reject_price)),
+                        'is_closed': is_closed,
+                        'created_at': created_at,
+                    }
+                )
+            return Response({'status': 'success', 'batch_id': batch.batch_id}, status=status.HTTP_200_OK)
+        except (OperationalError, IntegrityError) as e:
+            last_err = e
+            time.sleep(0.15 * (attempt + 1))
+
+    return Response({'error': f'Database busy: {last_err}'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
 class BulkSyncView(APIView):
@@ -221,19 +233,26 @@ class BulkSyncView(APIView):
     parser_classes = [parsers.MultiPartParser, parsers.FormParser]
 
     def post(self, request, *args, **kwargs):
+        import time
+        from django.db import OperationalError, IntegrityError
+
         log_uuid = request.data.get('uuid')
         try:
             existing_log = GradingLog.objects.filter(uuid=log_uuid).first()
             if existing_log:
                 new_bunch = request.data.get('bunch_count')
                 if new_bunch is not None:
-                    try:
-                        existing_log.bunch_count = max(1, int(new_bunch))
-                        existing_log.save(update_fields=['bunch_count'])
-                    except (ValueError, TypeError):
-                        pass
+                    for attempt in range(5):
+                        try:
+                            existing_log.bunch_count = max(1, int(new_bunch))
+                            existing_log.save(update_fields=['bunch_count'])
+                            break
+                        except (ValueError, TypeError):
+                            break
+                        except OperationalError:
+                            time.sleep(0.15 * (attempt + 1))
                 return Response(
-                    {'status': 'updated', 'reason': 'Log already exists in PostgreSQL; bunch_count synchronized.'},
+                    {'status': 'updated', 'reason': 'Log already exists in database; bunch_count synchronized.'},
                     status=status.HTTP_200_OK,
                 )
         except (ValidationError, ValueError):
@@ -247,18 +266,51 @@ class BulkSyncView(APIView):
         if 'audio' in request.FILES and 'audio_file' not in sync_data:
             sync_data['audio_file'] = request.FILES['audio']
 
-        # Link batch if batch_id provided
-        batch_id = sync_data.get('batch_id')
-        delivery_batch = None
-        if batch_id:
-            delivery_batch = DeliveryBatch.objects.filter(batch_id=batch_id).first()
-
         serializer = BulkSyncGradingLogSerializer(data=sync_data)
         if serializer.is_valid():
-            with transaction.atomic():
-                serializer.save(user=request.user, batch=delivery_batch, is_synced=True)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-            
+            batch_id = str(sync_data.get('batch_id') or '').strip()
+            last_err = None
+            for attempt in range(5):
+                try:
+                    with transaction.atomic():
+                        delivery_batch = None
+                        if batch_id:
+                            rates = PriceSetting.get_current_rates()
+                            delivery_batch, _ = DeliveryBatch.objects.get_or_create(
+                                batch_id=batch_id,
+                                defaults={
+                                    'farmer_name': f'Batch {batch_id}',
+                                    'operator': request.user,
+                                    'mature_price': rates.mature_price,
+                                    'premature_price': rates.premature_price,
+                                    'reject_price': rates.reject_price,
+                                    'is_closed': False,
+                                    'created_at': timezone.now(),
+                                },
+                            )
+                        # Check again inside atomic block in case a duplicate request arrived concurrently
+                        existing = GradingLog.objects.filter(uuid=log_uuid).first()
+                        if existing:
+                            return Response(
+                                {'status': 'updated', 'reason': 'Concurrent duplicate handled gracefully.'},
+                                status=status.HTTP_200_OK,
+                            )
+                        serializer.save(user=request.user, batch=delivery_batch, is_synced=True)
+                    return Response(serializer.data, status=status.HTTP_201_CREATED)
+                except (OperationalError, IntegrityError) as e:
+                    last_err = e
+                    # Rewind uploaded file pointers before retry
+                    if 'image' in request.FILES:
+                        request.FILES['image'].seek(0)
+                    if 'audio_file' in request.FILES:
+                        request.FILES['audio_file'].seek(0)
+                    if 'audio' in request.FILES:
+                        request.FILES['audio'].seek(0)
+                    time.sleep(0.15 * (attempt + 1))
+
+            print("❌ BulkSync database lock after retries:", last_err)
+            return Response({'error': f'Database busy: {last_err}'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
         print("❌ BulkSync validation errors:", serializer.errors, "Payload:", sync_data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -344,6 +396,27 @@ def dashboard_stats_api(request):
         daily_labels.append('Today' if i == 0 else day_date.strftime('%b %d'))
         daily_counts.append(cnt)
 
+    recent_qs = GradingLog.objects.select_related('user').order_by('-created_at')[:50]
+    recent_logs_data = []
+    for log in recent_qs:
+        conf = float(log.confidence_score or 0.0)
+        conf_pct = conf * 100.0 if conf <= 1.0 else conf
+        local_dt = timezone.localtime(log.created_at) if timezone.is_aware(log.created_at) else log.created_at
+        recent_logs_data.append({
+            "uuid": str(log.uuid),
+            "short_uuid": str(log.uuid)[:15] + "...",
+            "created_at": local_dt.strftime("%b %d, %Y • %I:%M %p"),
+            "username": log.user.username if log.user else "Operator",
+            "device_id": log.device_id or "",
+            "bunch_count": log.bunch_count or 1,
+            "visual_prediction": log.visual_prediction,
+            "audio_prediction": log.audio_prediction,
+            "final_maturity_stage": log.final_maturity_stage,
+            "confidence_display": f"{conf_pct:.1f}%",
+            "image_url": log.image.url if log.image else "",
+            "audio_url": log.audio_file.url if log.audio_file else "",
+        })
+
     return Response({
         "success": True,
         "total_scans": total_scans,
@@ -354,6 +427,7 @@ def dashboard_stats_api(request):
         "overmature_count": overmature_count,
         "daily_labels": daily_labels,
         "daily_counts": daily_counts,
+        "recent_logs": recent_logs_data,
     })
 
 
@@ -372,15 +446,15 @@ def app_version_check_api(request):
 
     host = request.get_host()
     scheme = 'https' if request.is_secure() or request.headers.get('x-forwarded-proto') == 'https' else 'http'
-    download_url = f"{scheme}://{host}/media/downloads/niyosense.apk?v=1.3.9"
+    download_url = f"{scheme}://{host}/media/downloads/niyosense.apk?v=1.4.0"
     install_page_url = f"{scheme}://{host}/install/"
 
     return Response({
         "success": True,
-        "latest_version": "1.3.9",
-        "latest_build_number": 11,
-        "release_title": "NiyoSense Field v1.3.9",
-        "release_notes": "70% Audio / 30% Visual Late Fusion + 3-Gate Pre-Inference Validation (HSV/Grass Check, Spectrogram Stripe Counter, Acoustic-Dominant Gate 3) + Bungkos Coconut Counter.",
+        "latest_version": "1.4.0",
+        "latest_build_number": 12,
+        "release_title": "NiyoSense Field v1.4.0",
+        "release_notes": "Concurrent Multi-Device Sync (WAL + Retry Queue) + Automatic Server URL Sanitization + 70% Audio / 30% Visual Late Fusion + 3-Gate Pre-Inference Validation + Bungkos Coconut Counter.",
         "download_url": download_url,
         "install_page_url": install_page_url,
         "file_size_mb": file_size_mb,

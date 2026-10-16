@@ -127,10 +127,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final savedUser = prefs.getString('operator_username');
     final unsyncedLogs = await DatabaseHelper.instance.getUnsyncedLogs();
 
-    String activeUrl = (savedUrl != null && savedUrl.isNotEmpty) ? savedUrl : AppConfig.defaultServerUrl;
+    String activeUrl = (savedUrl != null && savedUrl.isNotEmpty)
+        ? AppConfig.sanitizeServerUrl(savedUrl)
+        : AppConfig.defaultServerUrl;
 
-    if (!activeUrl.startsWith("http://") && !activeUrl.startsWith("https://")) {
-      activeUrl = "http://$activeUrl";
+    if (savedUrl != null && savedUrl != activeUrl) {
+      await prefs.setString('backend_base_url', activeUrl);
     }
 
     bool online = await _pingServer(activeUrl);
@@ -154,10 +156,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<bool> _pingServer(String baseUrl) async {
     try {
+      final cleanUrl = AppConfig.sanitizeServerUrl(baseUrl);
       final response = await http
-          .get(Uri.parse('$baseUrl/admin/login/'))
-          .timeout(const Duration(seconds: 3));
-      return response.statusCode == 200 || response.statusCode == 302 || response.statusCode == 404;
+          .get(Uri.parse('$cleanUrl/api/v1/system/app-version/'))
+          .timeout(const Duration(seconds: 4));
+      return response.statusCode == 200;
     } catch (_) {
       return false;
     }

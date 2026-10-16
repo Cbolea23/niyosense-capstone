@@ -65,13 +65,13 @@ class _BatchSessionScreenState extends State<BatchSessionScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final savedUrl = prefs.getString('backend_base_url') ?? AppConfig.defaultServerUrl;
-      String activeUrl = savedUrl.startsWith('http') ? savedUrl : 'http://$savedUrl';
-      if (activeUrl.endsWith('/')) activeUrl = activeUrl.substring(0, activeUrl.length - 1);
+      final String activeUrl = AppConfig.sanitizeServerUrl(savedUrl);
 
-      final res = await http.get(Uri.parse('$activeUrl/api/v1/pricing/current/')).timeout(const Duration(seconds: 2));
+      final res = await http.get(Uri.parse('$activeUrl/api/v1/pricing/current/')).timeout(const Duration(seconds: 3));
       if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        if (data['mature_price'] != null) {
+        final raw = jsonDecode(res.body);
+        final data = (raw is Map && raw['data'] is Map) ? raw['data'] : raw;
+        if (data is Map && data['mature_price'] != null) {
           _maturePriceController.text = data['mature_price'].toString();
           _prematurePriceController.text = data['premature_price'].toString();
           _rejectPriceController.text = data['reject_price'].toString();
@@ -111,9 +111,11 @@ class _BatchSessionScreenState extends State<BatchSessionScreen> {
     final maturePrice = double.tryParse(_maturePriceController.text.trim()) ?? 12.0;
     final prematurePrice = double.tryParse(_prematurePriceController.text.trim()) ?? 7.0;
     final rejectPrice = double.tryParse(_rejectPriceController.text.trim()) ?? 0.0;
+    final devId = await AppConfig.getDeviceId();
+    final devShort = devId.length > 4 ? devId.substring(devId.length - 4) : devId;
 
     final newSession = BatchSession(
-      batchId: 'BATCH-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}',
+      batchId: 'BATCH-$devShort-${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}',
       farmerName: farmerName,
       maturePrice: maturePrice,
       prematurePrice: prematurePrice,

@@ -15,6 +15,10 @@ urlpatterns = [
     path('api/v1/', include('apps.scans.urls')),
     path('api/v1/system/host-ip/', get_server_ip, name='get_server_ip'),
     path('api/v1/analytics/dashboard-stats/', dashboard_stats_api, name='dashboard_stats_api'),
+    # Tolerant fallback routes in case a mobile device included /install/ in its Server URL
+    re_path(r'^(?:install|download-app)/+admin/', admin.site.urls),
+    re_path(r'^(?:install|download-app)/+api/v1/auth/', include('apps.users.urls')),
+    re_path(r'^(?:install|download-app)/+api/v1/', include('apps.scans.urls')),
 ]
 
 # Media serving for standalone Docker container & development
