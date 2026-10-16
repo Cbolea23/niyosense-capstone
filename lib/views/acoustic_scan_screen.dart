@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:record/record.dart';
@@ -27,8 +28,15 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
   Timer? _timer;
   String? _currentRecordingPath;
 
+  StreamSubscription<Amplitude>? _amplitudeSub;
+  double _currentAmplitudeLevel = 0.0;
+  int _knocksDetected = 0;
+  int _lastKnockTimestamp = 0;
+  final List<double> _waveformHeights = List.filled(28, 6.0);
+
   @override
   void dispose() {
+    _amplitudeSub?.cancel();
     _timer?.cancel();
     _audioRecorder.dispose();
     _tfliteService.dispose();
@@ -75,6 +83,32 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
         path: filePath,
       );
 
+      _knocksDetected = 0;
+      _currentAmplitudeLevel = 0.0;
+      _amplitudeSub = _audioRecorder
+          .onAmplitudeChanged(const Duration(milliseconds: 60))
+          .listen((amp) {
+        if (!_isRecording || !mounted) return;
+        // Convert dBFS (-50 dBFS to 0 dBFS) to 0.0 .. 1.0 range
+        final double normalized = ((amp.current + 50.0) / 50.0).clamp(0.0, 1.0);
+
+        // Detect sharp percussive knock spike: current > -18.5 dBFS with 260ms cooldown
+        final int now = DateTime.now().millisecondsSinceEpoch;
+        if (amp.current > -18.5 && (now - _lastKnockTimestamp) > 260) {
+          _lastKnockTimestamp = now;
+          _knocksDetected++;
+          HapticFeedback.lightImpact();
+        }
+
+        setState(() {
+          _currentAmplitudeLevel = normalized;
+          for (int i = 0; i < 27; i++) {
+            _waveformHeights[i] = _waveformHeights[i + 1];
+          }
+          _waveformHeights[27] = (8.0 + normalized * 74.0).clamp(8.0, 84.0);
+        });
+      });
+
       setState(() {
         _isRecording = true;
         _recordingSeconds = 0;
@@ -95,6 +129,7 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
 
   Future<void> _stopRecordingAndNavigate() async {
     _timer?.cancel();
+    _amplitudeSub?.cancel();
     setState(() => _isRecording = false);
 
     try {
@@ -369,6 +404,50 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                     ],
                   ),
                 ),
+                if (_isRecording) ...[
+                  const SizedBox(height: 10),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: (_knocksDetected >= 2 && _knocksDetected <= 5)
+                          ? const Color(0xFF0A2E23)
+                          : const Color(0xFF2E1F0A),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: (_knocksDetected >= 2 && _knocksDetected <= 5)
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFF59E0B),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          (_knocksDetected >= 2 && _knocksDetected <= 5)
+                              ? Icons.check_circle_rounded
+                              : Icons.touch_app_rounded,
+                          color: (_knocksDetected >= 2 && _knocksDetected <= 5)
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFFF59E0B),
+                          size: 15,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "${AppTranslations.text('knocks_detected')}: $_knocksDetected / 3–4",
+                          style: TextStyle(
+                            color: (_knocksDetected >= 2 && _knocksDetected <= 5)
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFFF59E0B),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 Container(
                   height: 120,
@@ -383,12 +462,14 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                       children: List.generate(
                         28,
                         (i) => AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
+                          duration: const Duration(milliseconds: 60),
                           width: 4,
-                          height: _isRecording ? (20.0 + (i % 5 * 12)) : 6.0,
+                          height: _isRecording ? _waveformHeights[i] : 6.0,
                           margin: const EdgeInsets.symmetric(horizontal: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF10B981),
+                            color: _waveformHeights[i] > 40.0
+                                ? const Color(0xFF34D399)
+                                : const Color(0xFF10B981),
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ),
@@ -414,8 +495,24 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
                           ),
                           Text(
-                            AppTranslations.text('ideal_range'),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF10B981)),
+                            _isRecording
+                                ? (_currentAmplitudeLevel > 0.88
+                                    ? "Too Loud!"
+                                    : (_currentAmplitudeLevel >= 0.32
+                                        ? "Good Volume ✓"
+                                        : "Tap Firmly"))
+                                : AppTranslations.text('ideal_range'),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: _isRecording
+                                  ? (_currentAmplitudeLevel > 0.88
+                                      ? Colors.red
+                                      : (_currentAmplitudeLevel >= 0.32
+                                          ? const Color(0xFF10B981)
+                                          : Colors.grey))
+                                  : const Color(0xFF10B981),
+                            ),
                           ),
                         ],
                       ),
@@ -423,10 +520,16 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: LinearProgressIndicator(
-                          value: _isRecording ? 0.65 : 0.0,
+                          value: _isRecording ? _currentAmplitudeLevel : 0.0,
                           minHeight: 10,
                           backgroundColor: Colors.grey.shade200,
-                          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            _currentAmplitudeLevel > 0.88
+                                ? const Color(0xFFEF4444)
+                                : (_currentAmplitudeLevel >= 0.32
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFF9CA3AF)),
+                          ),
                         ),
                       ),
                     ],
