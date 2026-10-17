@@ -63,6 +63,57 @@
 
     {% include 'dashboard/includes/qr_modal.html' %}
 
+    <!-- Modal: End-User License Agreement (EULA) & RA 10173 Data Privacy Policy -->
+    <div id="eulaModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4 transition-opacity">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 text-left relative flex flex-col max-h-[85vh]">
+            <div class="flex items-center space-x-3 pb-4 border-b border-slate-100">
+                <div class="w-11 h-11 bg-emerald-50 border border-emerald-200/60 rounded-2xl flex items-center justify-center text-emerald-600 text-xl shrink-0">
+                    🛡️
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800 text-sm sm:text-base" data-i18n="eula_modal_title">End-User License Agreement (EULA) & Data Privacy</h3>
+                    <p class="text-[11px] text-emerald-600 font-semibold">Republic Act No. 10173 (Philippine Data Privacy Act of 2012)</p>
+                </div>
+            </div>
+
+            <div class="overflow-y-auto py-4 pr-1 space-y-3.5 text-xs text-slate-600 leading-relaxed">
+                <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5">
+                    <h4 class="font-bold text-slate-800 mb-1">1. Purpose & Decision-Support Scope</h4>
+                    <p>NiyoSense is an AI-assisted coconut maturity profiling system developed as an academic capstone and agricultural decision-support tool for <em>Cocos nucifera</em> grading (<strong>Malauhog / Premature</strong>, <strong>Buko / Mature</strong>, and <strong>Overmature / Copra</strong>). It assists farmers, field operators, and plantation owners in harvest quality auditing and batch valuation.</p>
+                </div>
+
+                <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5">
+                    <h4 class="font-bold text-slate-800 mb-1">2. Data Privacy Compliance (RA 10173)</h4>
+                    <p>In compliance with the <strong>Philippine Data Privacy Act of 2012 (Republic Act No. 10173)</strong>, NiyoSense collects only the minimum operational telemetry required for farm grading audits:</p>
+                    <ul class="list-disc list-inside mt-1.5 space-y-1 text-slate-600">
+                        <li>Coconut visual sample images and 5-second acoustic tap recordings</li>
+                        <li>Assigned operator username, device identifier, and scan timestamps</li>
+                        <li>Bunch counts (<em>bungkos</em>) and maturity classification probabilities</li>
+                    </ul>
+                    <p class="mt-1.5">No unrelated personal files, contacts, personal photos, or background conversations are accessed or shared with third-party advertisers.</p>
+                </div>
+
+                <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5">
+                    <h4 class="font-bold text-slate-800 mb-1">3. Local Storage, Security & Retention</h4>
+                    <p>Field scans are stored locally on mobile SQLite and synchronized over encrypted HTTPS/JWT channels to the authorized farm server. Farm owners and operators retain full ownership of their plantation records and may export or delete records at any time.</p>
+                </div>
+
+                <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5">
+                    <h4 class="font-bold text-slate-800 mb-1">4. Limitation of Liability</h4>
+                    <p>AI predictions rely on lighting conditions, husk surface visibility, and acoustic tap clarity. NiyoSense provides automated grading estimates "AS IS" as a supplementary decision-support tool. Final commercial grading and settlement decisions remain the responsibility of the farm owner and aggregator.</p>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+                <span class="text-[11px] text-slate-400">By continuing, you acknowledge and agree to these terms.</span>
+                <button type="button" onclick="acceptEulaModal()"
+                    class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-5 rounded-xl text-xs transition shadow-sm shrink-0">
+                    I Agree & Continue
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let autoDetectedUrl = "http://127.0.0.1:8000";
         let userHasEditedIp = false;
@@ -903,7 +954,11 @@
                 download_apk_btn: "Download APK",
                 scan_apk_qr: "Scan QR",
                 apk_qr_modal_title: "Install Mobile App (APK)",
-                apk_qr_modal_desc: "Scan this QR code with your phone camera to download and install NiyoSense directly."
+                apk_qr_modal_desc: "Scan this QR code with your phone camera to download and install NiyoSense directly.",
+                nav_eula: "EULA & Data Privacy",
+                meta_privacy: "Data Privacy Compliance",
+                view_eula_btn: "View End-User License Agreement (EULA) & Data Privacy Policy",
+                eula_modal_title: "End-User License Agreement (EULA) & Data Privacy"
             },
             tl: {
                 nav_home: "Tahanan",
@@ -986,9 +1041,30 @@
                 download_apk_btn: "I-download ang APK",
                 scan_apk_qr: "QR Code",
                 apk_qr_modal_title: "I-install ang Mobile App (APK)",
-                apk_qr_modal_desc: "I-scan ang QR code na ito gamit ang camera ng phone para i-download at i-install ang NiyoSense."
+                apk_qr_modal_desc: "I-scan ang QR code na ito gamit ang camera ng phone para i-download at i-install ang NiyoSense.",
+                nav_eula: "EULA at Data Privacy",
+                meta_privacy: "Pagsunod sa Data Privacy",
+                view_eula_btn: "Tingnan ang Kasunduan sa Gumagamit (EULA) at Patakaran sa Privacy",
+                eula_modal_title: "Kasunduan sa Gumagamit (EULA) at Data Privacy"
             }
         };
+
+        function openEulaModal() {
+            const modal = document.getElementById('eulaModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        }
+
+        function acceptEulaModal() {
+            localStorage.setItem('niyosense_eula_v1', 'accepted');
+            const modal = document.getElementById('eulaModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
 
         function setDashboardLanguage(lang) {
             localStorage.setItem('niyosense_lang', lang);
@@ -1023,6 +1099,10 @@
         document.addEventListener('DOMContentLoaded', () => {
             const savedLang = localStorage.getItem('niyosense_lang') || 'en';
             setDashboardLanguage(savedLang);
+
+            if (localStorage.getItem('niyosense_eula_v1') !== 'accepted') {
+                openEulaModal();
+            }
 
             const inputEl = document.getElementById('serverIpInput');
             if (inputEl) {

@@ -9,8 +9,8 @@ import 'services/sync_service.dart';
 import 'services/update_service.dart';
 import 'utils/app_translations.dart';
 import 'utils/app_config.dart';
+import 'utils/eula_modal.dart';
 import 'views/visual_scan_screen.dart';
-import 'views/batch_session_screen.dart';
 import 'views/settings_screen.dart';
 import 'views/login_screen.dart';
 
@@ -119,6 +119,16 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadHomeScreenData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkEulaAcceptance();
+    });
+  }
+
+  Future<void> _checkEulaAcceptance() async {
+    final accepted = await EulaModal.isAccepted();
+    if (!accepted && mounted) {
+      await EulaModal.show(context, requireAcceptance: true);
+    }
   }
 
   // Reloads IP settings, checks pending SQLite logs, and pings server
@@ -548,31 +558,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             label: Text(
                               AppTranslations.text('start_scan'),
                               style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Farmer Delivery / Batch Session Trigger
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF6EE7B7),
-                              side: BorderSide(color: const Color(0xFF10B981).withValues(alpha: 0.5), width: 1.5),
-                              minimumSize: const Size(double.infinity, 48),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            ),
-                            onPressed: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const BatchSessionScreen(),
-                                ),
-                              );
-                              _loadHomeScreenData();
-                            },
-                            icon: const Icon(Icons.inventory_2_outlined, color: Color(0xFF10B981), size: 20),
-                            label: Text(
-                              AppTranslations.text('delivery_batch_title'),
-                              style: const TextStyle(color: Color(0xFF6EE7B7), fontSize: 14, fontWeight: FontWeight.w600),
                             ),
                           ),
                         ],

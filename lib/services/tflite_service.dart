@@ -98,6 +98,10 @@ class TfliteService {
     int validCoconutCenterPixels = 0;
     int totalCenterPixels = 0;
 
+    int coreGreenPixels = 0;
+    int coreGlareOrLabelPixels = 0;
+    const int totalCorePixels = 24 * 24; // [20..43] x [20..43] = 576 pixels
+
     int borderGreenPixels = 0;
     int totalBorderPixels = 0;
 
@@ -105,11 +109,22 @@ class TfliteService {
     const int roiStart = 13;
     const int roiEnd = 50;
 
+    // Inner Core 37.5% box on 64x64: [20 .. 43] inclusive (24x24 = 576 pixels)
+    const int coreStart = 20;
+    const int coreEnd = 43;
+
     // Outer 15% border ring on 64x64: x < 10 or x >= 54 or y < 10 or y >= 54
     const int borderWidth = 10;
 
     double sumCenterHue = 0.0;
     double sumCenterHueSq = 0.0;
+    double sumCenterSat = 0.0;
+    double sumCenterSatSq = 0.0;
+    double sumGreenLum = 0.0;
+    double sumGreenLumSq = 0.0;
+
+    final List<int> colGreenCounts = List<int>.filled(38, 0);
+    final List<int> rowGreenCounts = List<int>.filled(38, 0);
 
     for (int y = 0; y < 64; y++) {
       for (int x = 0; x < 64; x++) {
@@ -128,19 +143,39 @@ class TfliteService {
         final double sat = hsv[1];
         final double val = hsv[2];
 
-        // Green Coconut Husk HSV Check: Hue 32° to 158°, Saturation 0.14 to 0.92, Value 0.15 to 0.92
+        // Natural Green/Olive Coconut Husk HSV Criteria:
+        // Hue 34° to 156°, Saturation 0.15 to 0.88, Value 0.16 to 0.92
         final bool isGreenHuskPixel =
-            (hue >= 32.0 && hue <= 158.0) &&
-            (sat >= 0.14 && sat <= 0.92) &&
-            (val >= 0.15 && val <= 0.92);
+            (hue >= 34.0 && hue <= 156.0) &&
+            (sat >= 0.15 && sat <= 0.88) &&
+            (val >= 0.16 && val <= 0.92);
 
-        // Center 60% ROI check
+        // Center 60% ROI check [13..50]
         if (x >= roiStart && x <= roiEnd && y >= roiStart && y <= roiEnd) {
           totalCenterPixels++;
           if (isGreenHuskPixel) {
             validCoconutCenterPixels++;
             sumCenterHue += hue;
             sumCenterHueSq += hue * hue;
+            sumCenterSat += sat;
+            sumCenterSatSq += sat * sat;
+            sumGreenLum += lum;
+            sumGreenLumSq += lum * lum;
+            colGreenCounts[x - roiStart]++;
+            rowGreenCounts[y - roiStart]++;
+          }
+
+          // Inner Core 37.5% check [20..43]
+          if (x >= coreStart && x <= coreEnd && y >= coreStart && y <= coreEnd) {
+            if (isGreenHuskPixel) {
+              coreGreenPixels++;
+            }
+            // Detect bright specular plastic/glass glare or non-coconut bottle label colors
+            final bool isSpecularGlare = (val > 0.65 && sat < 0.20);
+            final bool isLabelColor = (sat > 0.50 && (hue < 25.0 || hue > 165.0));
+            if (isSpecularGlare || isLabelColor) {
+              coreGlareOrLabelPixels++;
+            }
           }
         }
 
@@ -166,24 +201,75 @@ class TfliteService {
       return "Camera obstructed or invalid lighting.";
     }
 
-    // 2. Green Coconut Husk HSV Check (Center 60% ROI)
-    final double centerGreenRatio = totalCenterPixels > 0 ? (validCoconutCenterPixels / totalCenterPixels) : 0.0;
-    if (centerGreenRatio < 0.40) {
+    // 2. Green Coconut Husk Fill Check (Center 60% ROI & Inner Core 37.5%)
+    final double centerGreenRatio =
+        totalCenterPixels > 0 ? (validCoconutCenterPixels / totalCenterPixels) : 0.0;
+    final double coreGreenRatio = coreGreenPixels / totalCorePixels;
+    final double coreGlareRatio = coreGlareOrLabelPixels / totalCorePixels;
+
+    if (centerGreenRatio < 0.42 || coreGreenRatio < 0.65) {
       debugPrint(
-        "⛔ [GATE 1 - HSV HUSK] Rejected: centerGreenRatio=${(centerGreenRatio * 100).toStringAsFixed(1)}% (< 40%)",
+        "⛔ [GATE 1 - HSV HUSK FILL] Rejected: centerGreen=${(centerGreenRatio * 100).toStringAsFixed(1)}%, "
+        "coreGreen=${(coreGreenRatio * 100).toStringAsFixed(1)}%",
       );
-      return "No coconut detected. Center a green coconut in the frame.";
+      return "No coconut centered in the frame. Fill the circular guide with a single green coconut.";
     }
 
-    // Hue standard deviation among green center pixels (detects flat artificial solid color)
-    double hueStdDev = 0.0;
-    if (validCoconutCenterPixels > 10) {
-      final double meanCenterHue = sumCenterHue / validCoconutCenterPixels;
-      final double hueVar = math.max(0.0, (sumCenterHueSq / validCoconutCenterPixels) - (meanCenterHue * meanCenterHue));
-      hueStdDev = math.sqrt(hueVar);
+    // 3. Inner Core Specular Glare / Bottle Label Check
+    if (coreGlareRatio > 0.06) {
+      debugPrint(
+        "⛔ [GATE 1 - GLARE/LABEL] Rejected: coreGlareRatio=${(coreGlareRatio * 100).toStringAsFixed(1)}% (> 6%)",
+      );
+      return "Plastic glare, bottle label, or non-coconut surface detected. Point camera at a natural coconut husk.";
     }
 
-    // 3. Grass, Foliage & Extreme Close-Up / Solid Green Overfill Check
+    // 4. Spherical Aspect Ratio & Span Check (Rejects cylindrical green bottles)
+    int wSpan = 0;
+    int hSpan = 0;
+    for (int i = 0; i < 38; i++) {
+      if (colGreenCounts[i] >= 10) wSpan++;
+      if (rowGreenCounts[i] >= 10) hSpan++;
+    }
+    final double aspect = wSpan / math.max(hSpan, 1);
+    if (wSpan < 22 || hSpan < 22 || aspect < 0.65 || aspect > 1.48) {
+      debugPrint(
+        "⛔ [GATE 1 - SHAPE/ASPECT] Rejected: wSpan=$wSpan, hSpan=$hSpan, aspect=${aspect.toStringAsFixed(2)}",
+      );
+      return "Object shape is too narrow or elongated (e.g. bottle/container). Center a round coconut in the guide.";
+    }
+
+    // 5. Color & 3D Organic Husk Shading Statistics
+    final double meanCenterHue = sumCenterHue / validCoconutCenterPixels;
+    final double hueVar = math.max(
+      0.0,
+      (sumCenterHueSq / validCoconutCenterPixels) - (meanCenterHue * meanCenterHue),
+    );
+    final double hueStdDev = math.sqrt(hueVar);
+
+    final double meanCenterSat = sumCenterSat / validCoconutCenterPixels;
+    final double satVar = math.max(
+      0.0,
+      (sumCenterSatSq / validCoconutCenterPixels) - (meanCenterSat * meanCenterSat),
+    );
+    final double satStdDev = math.sqrt(satVar);
+
+    final double meanGreenLum = sumGreenLum / validCoconutCenterPixels;
+    final double greenLumVar = math.max(
+      0.0,
+      (sumGreenLumSq / validCoconutCenterPixels) - (meanGreenLum * meanGreenLum),
+    );
+    final double greenLumStdDev = math.sqrt(greenLumVar);
+
+    // Reject artificial emerald/neon green dyes (Sprite/Mountain Dew bottles, green boxes, jerseys)
+    if (meanCenterHue > 108.0 && meanCenterSat > 0.42) {
+      debugPrint(
+        "⛔ [GATE 1 - ARTIFICIAL DYE] Rejected: meanHue=${meanCenterHue.toStringAsFixed(1)}°, "
+        "meanSat=${meanCenterSat.toStringAsFixed(2)}",
+      );
+      return "Artificial green plastic, bottle, or dyed object detected. Point camera at a natural coconut husk.";
+    }
+
+    // 6. Edge Roughness, Border Overfill & 3D Curvature Shading Check
     double sumEdgeDiff = 0.0;
     int edgeCount = 0;
     for (int y = roiStart; y < roiEnd; y++) {
@@ -195,47 +281,43 @@ class TfliteService {
       }
     }
     final double edgeRoughness = edgeCount > 0 ? (sumEdgeDiff / edgeCount) : 0.0;
-    final double borderGreenRatio = totalBorderPixels > 0 ? (borderGreenPixels / totalBorderPixels) : 0.0;
+    final double borderGreenRatio =
+        totalBorderPixels > 0 ? (borderGreenPixels / totalBorderPixels) : 0.0;
 
     debugPrint(
-      "📸 [GATE 1 PASS CHECK] meanLum=${meanLuminance.toStringAsFixed(1)}, stdDev=${stdDev.toStringAsFixed(1)}, "
-      "centerGreen=${(centerGreenRatio * 100).toStringAsFixed(1)}%, "
+      "📸 [GATE 1 PASS CHECK] centerGreen=${(centerGreenRatio * 100).toStringAsFixed(1)}%, "
+      "coreGreen=${(coreGreenRatio * 100).toStringAsFixed(1)}%, "
       "borderGreen=${(borderGreenRatio * 100).toStringAsFixed(1)}%, "
-      "edgeRoughness=${edgeRoughness.toStringAsFixed(1)}, "
-      "hueStdDev=${hueStdDev.toStringAsFixed(1)}°",
+      "greenLumStd=${greenLumStdDev.toStringAsFixed(1)}, "
+      "edgeRough=${edgeRoughness.toStringAsFixed(1)}, "
+      "hue=${meanCenterHue.toStringAsFixed(1)}°±${hueStdDev.toStringAsFixed(1)}°, "
+      "sat=${meanCenterSat.toStringAsFixed(2)}±${satStdDev.toStringAsFixed(3)}",
     );
 
-    // Check A: Extreme Close-Up or Solid Green Overfill (flooding outer border margins)
-    if (borderGreenRatio > 0.78) {
-      // If edgeRoughness is low or hue is unnaturally uniform, it's a solid green wall/paper or extreme close-up
-      if (edgeRoughness < 18.0 || hueStdDev < 3.2) {
-        debugPrint(
-          "⛔ [GATE 1 - CLOSE-UP/SOLID GREEN] Rejected: borderGreen=${(borderGreenRatio * 100).toStringAsFixed(1)}%, "
-          "edgeRoughness=${edgeRoughness.toStringAsFixed(1)}, hueStdDev=${hueStdDev.toStringAsFixed(1)}°",
-        );
-        return "Camera is too close or surface is a flat color. Step back so the whole coconut fits inside the circular guide.";
-      }
-      // If edgeRoughness is high, it's grass/foliage
-      if (edgeRoughness > 24.0) {
-        debugPrint(
-          "⛔ [GATE 1 - FOLIAGE/GRASS] Rejected: borderGreen=${(borderGreenRatio * 100).toStringAsFixed(1)}%, edgeRoughness=${edgeRoughness.toStringAsFixed(1)}",
-        );
-        return "Background foliage/grass detected. Hold camera closer to a single coconut husk.";
-      }
-    }
-
-    // Check B: Scattered grass or high-frequency weeds in background
-    if (edgeRoughness > 30.0) {
-      debugPrint("⛔ [GATE 1 - HIGH ROUGHNESS] Rejected: edgeRoughness=${edgeRoughness.toStringAsFixed(1)}");
-      return "Background foliage/grass detected. Hold camera closer to a single coconut husk.";
-    }
-
-    // Check C: Flat synthetic solid surface even if centered (e.g. green paper/plastic)
-    if (edgeRoughness < 5.0 && hueStdDev < 2.5) {
+    if (borderGreenRatio > 0.58) {
       debugPrint(
-        "⛔ [GATE 1 - SYNTHETIC SOLID COLOR] Rejected: edgeRoughness=${edgeRoughness.toStringAsFixed(1)}, hueStdDev=${hueStdDev.toStringAsFixed(1)}°",
+        "⛔ [GATE 1 - BORDER OVERFILL] Rejected: borderGreen=${(borderGreenRatio * 100).toStringAsFixed(1)}% (> 58%)",
       );
-      return "Flat solid color detected. Please point camera at a real coconut.";
+      return "Camera is too close, or background has too much green foliage/clutter. Frame a single coconut inside the circle.";
+    }
+
+    if (edgeRoughness > 19.5) {
+      debugPrint(
+        "⛔ [GATE 1 - HIGH ROUGHNESS] Rejected: edgeRoughness=${edgeRoughness.toStringAsFixed(1)} (> 19.5)",
+      );
+      return "Background foliage, grass, or sharp text/labels detected. Center a single coconut husk.";
+    }
+
+    // Real 3D curved coconuts have natural spherical luminance shading (greenLumStdDev >= 16.5)
+    // and organic husk color variation (hueStdDev >= 5.5°, satStdDev >= 0.035, edgeRoughness >= 5.5).
+    // Synthetic green bottles, plastic containers, folders, walls, and shirts have greenLumStdDev < 14.
+    if (greenLumStdDev < 16.5 || edgeRoughness < 5.5 || hueStdDev < 5.5 || satStdDev < 0.035) {
+      debugPrint(
+        "⛔ [GATE 1 - SYNTHETIC/FLAT OBJECT] Rejected: greenLumStd=${greenLumStdDev.toStringAsFixed(1)}, "
+        "edgeRough=${edgeRoughness.toStringAsFixed(1)}, hueStd=${hueStdDev.toStringAsFixed(1)}°, "
+        "satStd=${satStdDev.toStringAsFixed(3)}",
+      );
+      return "Non-coconut green object detected (bottle, plastic, or flat surface). Please scan a real coconut.";
     }
 
     return null; // Passed all Gate 1 checks!

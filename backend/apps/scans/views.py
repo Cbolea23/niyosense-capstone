@@ -145,8 +145,8 @@ def web_dashboard(request):
         'batch_summaries': batch_summaries,
         'total_farm_payout': total_farm_payout,
         'farm_profile': farm_profile,
-        'app_version': '1.4.0',
-        'model_pipeline': 'Multimodal Audio-Visual v2.4.2 (70/30 Audio-Visual + 3-Gate OOD)',
+        'app_version': '1.4.5',
+        'model_pipeline': 'Multimodal Audio-Visual v2.5.3 (70/30 Audio-Visual + 3-Gate OOD)',
         'inference_engine': 'TFLite (Dual-Modality Late Fusion)',
     }
     return render(request, 'dashboard/index.html', context)
@@ -446,15 +446,15 @@ def app_version_check_api(request):
 
     host = request.get_host()
     scheme = 'https' if request.is_secure() or request.headers.get('x-forwarded-proto') == 'https' else 'http'
-    download_url = f"{scheme}://{host}/media/downloads/niyosense.apk?v=1.4.4"
+    download_url = f"{scheme}://{host}/media/downloads/niyosense.apk?v=1.4.5"
     install_page_url = f"{scheme}://{host}/install/"
 
     return Response({
         "success": True,
-        "latest_version": "1.4.4",
-        "latest_build_number": 16,
-        "release_title": "NiyoSense Field v1.4.4",
-        "release_notes": "Permanent Domain (https://niyosense.me) + Calibrated Gate 2 Acoustic Spectrogram Validation + Farmer Delivery Batch Session on Home Screen + 70/30 Audio-Visual Fusion.",
+        "latest_version": "1.4.5",
+        "latest_build_number": 17,
+        "release_title": "NiyoSense Field v1.4.5",
+        "release_notes": "Samsung S25+ Unprocessed Mic Audio Fix + Gate 1 Green Bottle/Synthetic Object Rejection + EULA & RA 10173 Data Privacy Compliance + Permanent Domain (https://niyosense.me).",
         "download_url": download_url,
         "install_page_url": install_page_url,
         "file_size_mb": file_size_mb,

@@ -132,6 +132,10 @@ class _VisualScanScreenState extends State<VisualScanScreen>
 
     double sumCenterHue = 0.0;
     double sumCenterHueSq = 0.0;
+    double sumCenterSat = 0.0;
+    double sumGreenLum = 0.0;
+    double sumGreenLumSq = 0.0;
+    int centerGlareCount = 0;
 
     // Quadrant counters inside the center circle to check if coconut is centered
     int qTopLeft = 0;
@@ -176,9 +180,9 @@ class _VisualScanScreenState extends State<VisualScanScreen>
 
         // Exact Gate 1 Green/Olive Coconut Husk HSV Criteria
         final bool isGreenHusk =
-            (hue >= 32.0 && hue <= 158.0) &&
-            (sat >= 0.14 && sat <= 0.92) &&
-            (val >= 0.15 && val <= 0.92);
+            (hue >= 34.0 && hue <= 156.0) &&
+            (sat >= 0.15 && sat <= 0.88) &&
+            (val >= 0.16 && val <= 0.92);
 
         final bool isCenter = (gx >= 2 && gx <= 7 && gy >= 2 && gy <= 7);
         if (isCenter) {
@@ -187,10 +191,18 @@ class _VisualScanScreenState extends State<VisualScanScreen>
             centerGreenCount++;
             sumCenterHue += hue;
             sumCenterHueSq += hue * hue;
+            sumCenterSat += sat;
+            sumGreenLum += yVal;
+            sumGreenLumSq += yVal * yVal;
             if (gx <= 4 && gy <= 4) qTopLeft++;
             if (gx >= 5 && gy <= 4) qTopRight++;
             if (gx <= 4 && gy >= 5) qBottomLeft++;
             if (gx >= 5 && gy >= 5) qBottomRight++;
+          }
+          if (gx >= 3 && gx <= 6 && gy >= 3 && gy <= 6) {
+            if ((val > 0.65 && sat < 0.20) || (sat > 0.50 && (hue < 25.0 || hue > 165.0))) {
+              centerGlareCount++;
+            }
           }
         } else {
           totalBorder++;
@@ -207,15 +219,26 @@ class _VisualScanScreenState extends State<VisualScanScreen>
     final double borderRatio =
         totalBorder > 0 ? (borderGreenCount / totalBorder) : 0.0;
 
-    // Hue standard deviation across green center pixels
+    // Hue & Luminance standard deviation across green center pixels
+    double meanHue = 0.0;
+    double meanSat = 0.0;
     double hueStdDev = 0.0;
+    double greenLumStdDev = 0.0;
     if (centerGreenCount > 4) {
-      final double meanHue = sumCenterHue / centerGreenCount;
+      meanHue = sumCenterHue / centerGreenCount;
+      meanSat = sumCenterSat / centerGreenCount;
       final double hueVar = math.max(
         0.0,
         (sumCenterHueSq / centerGreenCount) - (meanHue * meanHue),
       );
       hueStdDev = math.sqrt(hueVar);
+
+      final double meanGreenLum = sumGreenLum / centerGreenCount;
+      final double lumVar = math.max(
+        0.0,
+        (sumGreenLumSq / centerGreenCount) - (meanGreenLum * meanGreenLum),
+      );
+      greenLumStdDev = math.sqrt(lumVar);
     }
 
     // Center gradient roughness (scaled to match 64x64 Gate 1 roughness)
@@ -248,45 +271,45 @@ class _VisualScanScreenState extends State<VisualScanScreen>
       newTier = 0;
       newScore = 0.08;
       newStatusKey = 'too_dark_hint';
-    } else if (centerRatio < 0.25) {
+    } else if (centerRatio < 0.28) {
       // No coconut in center circle
       newTier = 0;
       newScore = (centerRatio / 0.45).clamp(0.05, 0.30);
       newStatusKey = 'not_aligned_hint';
-    } else if (borderRatio >= 0.78 && (edgeRoughness < 18.0 || hueStdDev < 3.2)) {
-      // Extreme close-up or wall-to-wall solid green surface!
+    } else if (meanHue > 108.0 && meanSat > 0.42) {
+      // Artificial emerald green bottle, plastic, or dyed box!
       newTier = 0;
-      newScore = 0.20;
+      newScore = 0.15;
+      newStatusKey = 'flat_color_hint';
+    } else if (centerGlareCount >= 3) {
+      // Bottle label or glossy plastic glare inside the core
+      newTier = 0;
+      newScore = 0.18;
+      newStatusKey = 'flat_color_hint';
+    } else if (centerRatio >= 0.40 && (greenLumStdDev < 14.5 || hueStdDev < 4.5 || edgeRoughness < 4.5)) {
+      // Synthetic green object lacking 3D coconut husk shading
+      newTier = 0;
+      newScore = 0.18;
+      newStatusKey = 'flat_color_hint';
+    } else if (borderRatio >= 0.58) {
+      // Camera too close or background filled with green clutter
+      newTier = 0;
+      newScore = 0.25;
       newStatusKey = 'too_close_hint';
-    } else if (edgeRoughness > 30.0 || (borderRatio > 0.82 && edgeRoughness > 22.0)) {
+    } else if (edgeRoughness > 20.0) {
       // Grass or foliage background
       newTier = 0;
       newScore = 0.25;
       newStatusKey = 'foliage_hint';
-    } else if (centerRatio >= 0.40 && edgeRoughness < 3.5 && hueStdDev < 2.4) {
-      // Flat artificial green color (wall, folder, plastic)
-      newTier = 0;
-      newScore = 0.15;
-      newStatusKey = 'flat_color_hint';
-    } else if (borderRatio >= 0.68) {
-      // Almost aligned, but camera is slightly too close to the coconut
+    } else if (centerRatio < 0.44 || activeQuadrants < 3) {
+      // Coconut detected, but slightly off-center or too small
       newTier = 1;
       newScore = 0.62;
-      newStatusKey = 'too_close_hint';
-    } else if (centerRatio < 0.42) {
-      // Coconut detected, but too far / too small in the circle
-      newTier = 1;
-      newScore = 0.55;
-      newStatusKey = 'almost_aligned_closer';
-    } else if (activeQuadrants < 3) {
-      // Coconut is only in half of the circle (off-center)
-      newTier = 1;
-      newScore = 0.68;
-      newStatusKey = 'almost_aligned_center';
+      newStatusKey = centerRatio < 0.44 ? 'almost_aligned_closer' : 'almost_aligned_center';
     } else {
-      // Locked On! Coconut fills the circle with a clean background perimeter
+      // Locked On! Real 3D coconut fills the circle with natural shading
       newTier = 2;
-      final double fillBonus = ((centerRatio - 0.42) / 0.45).clamp(0.0, 0.22);
+      final double fillBonus = ((centerRatio - 0.44) / 0.45).clamp(0.0, 0.22);
       final double borderPenalty = (borderRatio * 0.15).clamp(0.0, 0.10);
       newScore = (0.82 + fillBonus - borderPenalty).clamp(0.80, 0.98);
       newStatusKey = 'coconut_aligned';

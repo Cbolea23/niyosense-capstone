@@ -8,6 +8,7 @@ import '../services/sync_service.dart';
 import '../services/update_service.dart';
 import '../utils/app_translations.dart';
 import '../utils/app_config.dart';
+import '../utils/eula_modal.dart';
 import 'server_config_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -698,6 +699,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ? AppTranslations.text('checking_update')
                                 : AppTranslations.text('check_update_btn'),
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                          ),
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12.0, 8.0, 12.0, 12.0),
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.blueGrey.shade800,
+                            side: BorderSide(color: Colors.grey.shade300),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            minimumSize: const Size.fromHeight(40),
+                          ),
+                          onPressed: () => EulaModal.show(context, requireAcceptance: false),
+                          icon: const Icon(Icons.verified_user_outlined, size: 17, color: Color(0xFF059669)),
+                          label: Text(
+                            lang == 'tl'
+                                ? "Tingnan ang EULA at Data Privacy (RA 10173)"
+                                : "View EULA & Data Privacy Policy (RA 10173)",
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                           ),
                         ),
                       ),

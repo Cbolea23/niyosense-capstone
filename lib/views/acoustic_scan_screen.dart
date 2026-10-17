@@ -67,32 +67,63 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
       final filePath = path.join(dir.path, 'tap_${DateTime.now().millisecondsSinceEpoch}.wav');
       _currentRecordingPath = filePath;
 
-      // Try recording with standard mic config; fallback to basic WAV config if hardware throws
+      // Prioritize UNPROCESSED hardware audio source to bypass Samsung Galaxy S25+ / Qualcomm Fluence
+      // HAL AI noise cancellation that suppresses percussive coconut knocks on AudioSource.MIC.
+      // Also set manageBluetooth: false to prevent Bluetooth SCO routing delays or mic hijacking.
       try {
-        await _audioRecorder.start(
-          const RecordConfig(
-            encoder: AudioEncoder.wav,
-            sampleRate: 44100, // Standard native sample rate across all Android devices
-            numChannels: 1, // Mono audio
-            autoGain: false, // Disable automatic gain distortion
-            echoCancel: false, // Disable echo cancellation
-            noiseSuppress: false, // Disable noise suppression that silences taps
-            androidConfig: AndroidRecordConfig(
-              audioSource: AndroidAudioSource.mic,
-            ),
-          ),
-          path: filePath,
-        );
-      } catch (err) {
-        debugPrint("⚠️ Specific mic source unsupported, falling back to default RecordConfig: $err");
         await _audioRecorder.start(
           const RecordConfig(
             encoder: AudioEncoder.wav,
             sampleRate: 44100,
             numChannels: 1,
+            autoGain: false,
+            echoCancel: false,
+            noiseSuppress: false,
+            androidConfig: AndroidRecordConfig(
+              audioSource: AndroidAudioSource.unprocessed,
+              manageBluetooth: false,
+            ),
           ),
           path: filePath,
         );
+        debugPrint("🎤 Started recording with AndroidAudioSource.unprocessed");
+      } catch (unprocessedErr) {
+        debugPrint("⚠️ unprocessed source unsupported ($unprocessedErr), trying voiceRecognition...");
+        try {
+          await _audioRecorder.start(
+            const RecordConfig(
+              encoder: AudioEncoder.wav,
+              sampleRate: 44100,
+              numChannels: 1,
+              autoGain: false,
+              echoCancel: false,
+              noiseSuppress: false,
+              androidConfig: AndroidRecordConfig(
+                audioSource: AndroidAudioSource.voiceRecognition,
+                manageBluetooth: false,
+              ),
+            ),
+            path: filePath,
+          );
+          debugPrint("🎤 Started recording with AndroidAudioSource.voiceRecognition");
+        } catch (vrErr) {
+          debugPrint("⚠️ voiceRecognition unsupported ($vrErr), falling back to default mic: $vrErr");
+          await _audioRecorder.start(
+            const RecordConfig(
+              encoder: AudioEncoder.wav,
+              sampleRate: 44100,
+              numChannels: 1,
+              autoGain: false,
+              echoCancel: false,
+              noiseSuppress: false,
+              androidConfig: AndroidRecordConfig(
+                audioSource: AndroidAudioSource.mic,
+                manageBluetooth: false,
+              ),
+            ),
+            path: filePath,
+          );
+        }
       }
 
       _knocksDetected = 0;
@@ -106,15 +137,15 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
 
         double db = amp.current;
         if (db.isNaN || !db.isFinite) {
-          db = -50.0;
+          db = -55.0;
         }
 
-        // Convert dBFS (-50 dBFS to 0 dBFS) to 0.0 .. 1.0 range
-        final double normalized = ((db + 50.0) / 50.0).clamp(0.0, 1.0);
+        // Convert dBFS (-55 dBFS to 0 dBFS) to 0.0 .. 1.0 range (accommodates raw unprocessed ADC levels)
+        final double normalized = ((db + 55.0) / 55.0).clamp(0.0, 1.0);
 
-        // Detect sharp percussive knock spike: current > -30.0 dBFS with 200ms cooldown
+        // Detect sharp percussive knock spike: current > -36.0 dBFS with 200ms cooldown
         final int now = DateTime.now().millisecondsSinceEpoch;
-        if (db > -30.0 && (now - _lastKnockTimestamp) > 200) {
+        if (db > -36.0 && (now - _lastKnockTimestamp) > 200) {
           _lastKnockTimestamp = now;
           _knocksDetected++;
           HapticFeedback.lightImpact();

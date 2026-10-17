@@ -298,16 +298,37 @@ class SpectrogramService {
   static Object generateSpectrogramTensor(File wavFile) {
     final samples = _readAndFixWavAudio(wavFile);
 
+    // Remove DC offset so mic hardware bias does not skew low-frequency bins or peak detection
+    double sumSample = 0.0;
+    for (int i = 0; i < samples.length; i++) {
+      sumSample += samples[i];
+    }
+    final double dcOffset = sumSample / samples.length;
+
     // Raw silence floor check (prevents amplifying pure digital zeros into white noise)
     double peakAmp = 0.0;
     for (int i = 0; i < samples.length; i++) {
-      final double val = samples[i].abs();
+      final double centered = samples[i] - dcOffset;
+      samples[i] = centered;
+      final double val = centered.abs();
       if (val > peakAmp) peakAmp = val;
     }
     if (peakAmp < 0.005) {
       throw SpectrogramValidationException(
         "No acoustic tap detected in spectrogram. Knock the coconut shoulder 3 times.",
         stripeCount: 0,
+      );
+    }
+
+    // Normalize peak amplitude to 0.95 full scale (bounded at 25x max boost) so phones with raw
+    // UNPROCESSED ADC levels (e.g. Samsung S25+ with peak ~0.12) never clip against the 1e-10 STFT floor.
+    final double normGain = (0.95 / peakAmp).clamp(1.0, 25.0);
+    if (normGain > 1.01) {
+      for (int i = 0; i < samples.length; i++) {
+        samples[i] = (samples[i] * normGain).clamp(-1.0, 1.0);
+      }
+      debugPrint(
+        "🎵 [AUDIO SPEC] Peak=${peakAmp.toStringAsFixed(4)}, applied ${normGain.toStringAsFixed(2)}x gain normalization",
       );
     }
 

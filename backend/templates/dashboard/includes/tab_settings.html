@@ -110,6 +110,17 @@
             <span data-i18n="meta_engine">Inference Engine</span>
             <span class="font-mono text-slate-800 font-semibold">{{ inference_engine }}</span>
         </div>
+        <div class="flex justify-between text-slate-500 pt-1 border-t border-slate-100">
+            <span data-i18n="meta_privacy">Data Privacy Compliance</span>
+            <span class="font-semibold text-emerald-600">RA 10173 (DPA of 2012)</span>
+        </div>
+        <div class="pt-2">
+            <button type="button" onclick="openEulaModal()"
+                class="w-full bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-slate-700 hover:text-emerald-700 font-semibold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2">
+                <span>🛡️</span>
+                <span data-i18n="view_eula_btn">View End-User License Agreement (EULA) & Data Privacy Policy</span>
+            </button>
+        </div>
     </div>
 </div>
 

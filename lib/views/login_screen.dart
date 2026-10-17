@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../utils/app_translations.dart';
 import '../utils/app_config.dart';
+import '../utils/eula_modal.dart';
 import 'server_config_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _eulaAccepted = false;
   String? _errorMessage;
   String _serverBaseUrl = AppConfig.defaultServerUrl;
 
@@ -32,6 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final prefs = await SharedPreferences.getInstance();
     final savedUrl = prefs.getString('backend_base_url');
     final savedUser = prefs.getString('operator_username');
+    final eulaAccepted = prefs.getBool(EulaModal.prefsKey) ?? false;
 
     String cleanUrl = _serverBaseUrl;
     if (savedUrl != null && savedUrl.isNotEmpty) {
@@ -44,6 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (mounted) {
       setState(() {
         _serverBaseUrl = cleanUrl;
+        _eulaAccepted = eulaAccepted;
         if (savedUser != null && savedUser.isNotEmpty) {
           _usernameController.text = savedUser;
         }
@@ -54,6 +58,15 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleLogin() async {
     final username = _usernameController.text.trim();
     final password = _passwordController.text.trim();
+
+    if (!_eulaAccepted) {
+      setState(() {
+        _errorMessage = AppTranslations.currentLang.value == 'tl'
+            ? "Pakibasa at tanggapin muna ang EULA at Patakaran sa Privacy ng Datos (RA 10173)."
+            : "Please read and accept the EULA & Data Privacy Policy (RA 10173) before signing in.";
+      });
+      return;
+    }
 
     if (username.isEmpty || password.isEmpty) {
       setState(() {
@@ -72,6 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final token = await authService.login(username, password);
 
       if (token != null) {
+        await EulaModal.setAccepted(true);
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('operator_username', username);
         await prefs.setString('operator_password', password);
@@ -341,6 +355,77 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                             onSubmitted: (_) => _handleLogin(),
+                          ),
+                          const SizedBox(height: 14),
+                          // EULA & Data Privacy Checkbox
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF081C15),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _eulaAccepted
+                                    ? const Color(0xFF10B981).withValues(alpha: 0.45)
+                                    : Colors.white.withValues(alpha: 0.12),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: Checkbox(
+                                    value: _eulaAccepted,
+                                    activeColor: const Color(0xFF10B981),
+                                    side: const BorderSide(color: Colors.white54, width: 1.5),
+                                    onChanged: (val) async {
+                                      final accepted = val ?? false;
+                                      setState(() {
+                                        _eulaAccepted = accepted;
+                                        if (accepted) _errorMessage = null;
+                                      });
+                                      await EulaModal.setAccepted(accepted);
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () async {
+                                      await EulaModal.show(context, requireAcceptance: false);
+                                      setState(() {
+                                        _eulaAccepted = true;
+                                        _errorMessage = null;
+                                      });
+                                      await EulaModal.setAccepted(true);
+                                    },
+                                    child: RichText(
+                                      text: TextSpan(
+                                        style: const TextStyle(color: Colors.white70, fontSize: 11.2, height: 1.35),
+                                        children: [
+                                          TextSpan(
+                                            text: lang == 'tl'
+                                                ? "Sumasang-ayon ako sa "
+                                                : "I have read and agree to the ",
+                                          ),
+                                          TextSpan(
+                                            text: lang == 'tl'
+                                                ? "EULA at Patakaran sa Privacy ng Datos (RA 10173)"
+                                                : "EULA & Data Privacy Policy (RA 10173)",
+                                            style: const TextStyle(
+                                              color: Color(0xFF34D399),
+                                              fontWeight: FontWeight.bold,
+                                              decoration: TextDecoration.underline,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
