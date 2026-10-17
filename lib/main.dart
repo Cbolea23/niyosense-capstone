@@ -10,6 +10,7 @@ import 'services/update_service.dart';
 import 'utils/app_translations.dart';
 import 'utils/app_config.dart';
 import 'views/visual_scan_screen.dart';
+import 'views/batch_session_screen.dart';
 import 'views/settings_screen.dart';
 import 'views/login_screen.dart';
 
@@ -425,7 +426,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ],
                               ),
                               Text(
-                                _serverBaseUrl.replaceAll('http://', ''),
+                                _serverBaseUrl.replaceAll('https://', '').replaceAll('http://', ''),
                                 style: const TextStyle(color: Colors.white38, fontSize: 11, fontFamily: 'monospace'),
                               ),
                             ],
@@ -547,6 +548,31 @@ class _HomeScreenState extends State<HomeScreen> {
                             label: Text(
                               AppTranslations.text('start_scan'),
                               style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Farmer Delivery / Batch Session Trigger
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF6EE7B7),
+                              side: BorderSide(color: const Color(0xFF10B981).withValues(alpha: 0.5), width: 1.5),
+                              minimumSize: const Size(double.infinity, 48),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            ),
+                            onPressed: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const BatchSessionScreen(),
+                                ),
+                              );
+                              _loadHomeScreenData();
+                            },
+                            icon: const Icon(Icons.inventory_2_outlined, color: Color(0xFF10B981), size: 20),
+                            label: Text(
+                              AppTranslations.text('delivery_batch_title'),
+                              style: const TextStyle(color: Color(0xFF6EE7B7), fontSize: 14, fontWeight: FontWeight.w600),
                             ),
                           ),
                         ],

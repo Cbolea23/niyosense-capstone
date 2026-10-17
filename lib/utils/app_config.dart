@@ -1,11 +1,11 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppConfig {
-  static const String appVersion = "1.4.0";
-  static const int buildNumber = 12;
+  static const String appVersion = "1.4.4";
+  static const int buildNumber = 16;
   static const String fullVersionString = "NiyoSense Field v$appVersion";
   static const String modelEngine = "Vision v2.5.2 (70/30 Audio-Dominant 3-Gate)";
-  static const String defaultServerUrl = "http://192.168.1.26:8000";
+  static const String defaultServerUrl = "https://niyosense.me";
 
   /// Sanitizes user-entered or QR-scanned server URLs by stripping accidental
   /// paths (/install, /download-app, /admin, /api/...) and trailing slashes.
@@ -13,8 +13,14 @@ class AppConfig {
     String clean = (rawUrl ?? '').trim();
     if (clean.isEmpty) return defaultServerUrl;
 
+    // Automatically upgrade legacy ephemeral Cloudflare quick tunnels or old hardcoded LAN IP to permanent domain
+    if (clean.contains('.trycloudflare.com') || clean.contains('192.168.1.26')) {
+      return defaultServerUrl;
+    }
+
     if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
-      final isSecureTunnel = clean.contains('.trycloudflare.com') ||
+      final isSecureTunnel = clean.contains('niyosense.me') ||
+          clean.contains('.trycloudflare.com') ||
           clean.contains('.ngrok') ||
           clean.contains('.loca.lt');
       clean = '${isSecureTunnel ? 'https' : 'http'}://$clean';

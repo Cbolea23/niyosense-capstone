@@ -75,5 +75,6 @@ backend/static_test/
 backend/.env
 backend/venv/
 backend/.venv/
+backend/.cloudflared/
 new model/
 

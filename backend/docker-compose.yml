@@ -14,7 +14,7 @@ services:
       - SECRET_KEY=${SECRET_KEY:-niyosense_super_secret_production_key_2026}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
       - DATABASE_URL=${DATABASE_URL:-}
-      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-https://*.trycloudflare.com,https://*.ngrok-free.app,http://localhost:8000,http://127.0.0.1:8000}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-https://niyosense.me,https://www.niyosense.me,https://*.niyosense.me,https://*.trycloudflare.com,https://*.ngrok-free.app,http://localhost:8000,http://127.0.0.1:8000}
     volumes:
       # Persistent media storage: uploaded coconut husk images and 4s .wav audio files
       - ./media:/app/media
@@ -26,3 +26,12 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared_niyosense
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./.cloudflared:/home/nonroot/.cloudflared:ro
+    command: tunnel --no-autoupdate --config /home/nonroot/.cloudflared/config.yml run niyosense

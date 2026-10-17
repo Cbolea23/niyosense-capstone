@@ -30,6 +30,9 @@ else:
 
 # Whitelist tunnel domains & local network subnets for CSRF validation
 default_csrf_origins = [
+    'https://niyosense.me',
+    'https://www.niyosense.me',
+    'https://*.niyosense.me',
     'https://*.trycloudflare.com',
     'https://*.ngrok-free.app',
     'https://*.loca.lt',

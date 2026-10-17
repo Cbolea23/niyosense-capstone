@@ -446,15 +446,15 @@ def app_version_check_api(request):
 
     host = request.get_host()
     scheme = 'https' if request.is_secure() or request.headers.get('x-forwarded-proto') == 'https' else 'http'
-    download_url = f"{scheme}://{host}/media/downloads/niyosense.apk?v=1.4.0"
+    download_url = f"{scheme}://{host}/media/downloads/niyosense.apk?v=1.4.4"
     install_page_url = f"{scheme}://{host}/install/"
 
     return Response({
         "success": True,
-        "latest_version": "1.4.0",
-        "latest_build_number": 12,
-        "release_title": "NiyoSense Field v1.4.0",
-        "release_notes": "Concurrent Multi-Device Sync (WAL + Retry Queue) + Automatic Server URL Sanitization + 70% Audio / 30% Visual Late Fusion + 3-Gate Pre-Inference Validation + Bungkos Coconut Counter.",
+        "latest_version": "1.4.4",
+        "latest_build_number": 16,
+        "release_title": "NiyoSense Field v1.4.4",
+        "release_notes": "Permanent Domain (https://niyosense.me) + Calibrated Gate 2 Acoustic Spectrogram Validation + Farmer Delivery Batch Session on Home Screen + 70/30 Audio-Visual Fusion.",
         "download_url": download_url,
         "install_page_url": install_page_url,
         "file_size_mb": file_size_mb,
