@@ -33,6 +33,8 @@ default_csrf_origins = [
     'https://niyosense.me',
     'https://www.niyosense.me',
     'https://*.niyosense.me',
+    'https://niyosense.onrender.com',
+    'https://*.onrender.com',
     'https://*.trycloudflare.com',
     'https://*.ngrok-free.app',
     'https://*.loca.lt',
