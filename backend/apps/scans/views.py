@@ -461,6 +461,7 @@ def app_version_check_api(request):
     scheme = 'https' if request.is_secure() or request.headers.get('x-forwarded-proto') == 'https' else 'http'
     download_url = apk_release_url
     install_page_url = f"{scheme}://{host}/install/"
+    google_drive_url = "https://drive.google.com/drive/folders/1Qdwk0EUzt_6HvrNiXJDNyHfPxRPo46-k?usp=sharing"
 
     return Response({
         "success": True,
@@ -470,6 +471,7 @@ def app_version_check_api(request):
         "release_notes": "Samsung S25+ Unprocessed Mic Audio Fix + Gate 1 Green Bottle/Synthetic Object Rejection + EULA & RA 10173 Data Privacy Compliance + Permanent Domain (https://niyosense.me).",
         "download_url": download_url,
         "install_page_url": install_page_url,
+        "google_drive_url": google_drive_url,
         "file_size_mb": file_size_mb,
         "available": True,
     })

@@ -13,6 +13,8 @@ class UpdateInfo {
   final String releaseTitle;
   final String releaseNotes;
   final String downloadUrl;
+  final String installPageUrl;
+  final String googleDriveUrl;
   final double fileSizeMb;
 
   UpdateInfo({
@@ -22,6 +24,8 @@ class UpdateInfo {
     required this.releaseTitle,
     required this.releaseNotes,
     required this.downloadUrl,
+    this.installPageUrl = 'https://niyosense.me/install/',
+    this.googleDriveUrl = 'https://drive.google.com/drive/folders/1Qdwk0EUzt_6HvrNiXJDNyHfPxRPo46-k?usp=sharing',
     required this.fileSizeMb,
   });
 }
@@ -70,6 +74,9 @@ class UpdateService {
           isNewer = _isVersionStringNewer(serverVersion, AppConfig.appVersion);
         }
 
+        final String installPage = payload['install_page_url'] ?? 'https://niyosense.me/install/';
+        final String gdriveUrl = payload['google_drive_url'] ?? 'https://drive.google.com/drive/folders/1Qdwk0EUzt_6HvrNiXJDNyHfPxRPo46-k?usp=sharing';
+
         return UpdateInfo(
           hasUpdate: isNewer,
           latestVersion: serverVersion,
@@ -77,6 +84,8 @@ class UpdateService {
           releaseTitle: releaseTitle,
           releaseNotes: releaseNotes,
           downloadUrl: downloadUrl,
+          installPageUrl: installPage,
+          googleDriveUrl: gdriveUrl,
           fileSizeMb: fileSize,
         );
       }
@@ -203,22 +212,31 @@ class UpdateService {
               style: const TextStyle(color: Colors.white54),
             ),
           ),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF6EE7B7),
+              side: const BorderSide(color: Color(0xFF059669)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await launchUpdateUrl(updateInfo.googleDriveUrl);
+            },
+            icon: const Icon(Icons.cloud_download_outlined, size: 16),
+            label: const Text("GDrive", style: TextStyle(fontSize: 12)),
+          ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF10B981),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             ),
             onPressed: () async {
               Navigator.pop(ctx);
               final ok = await launchUpdateUrl(updateInfo.downloadUrl);
               if (!ok && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text("Opening install page: ${updateInfo.downloadUrl}"),
-                    backgroundColor: Colors.amber.shade800,
-                  ),
-                );
+                await launchUpdateUrl(updateInfo.installPageUrl);
               }
             },
             icon: const Icon(Icons.download, color: Colors.white, size: 18),
