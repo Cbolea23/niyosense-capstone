@@ -1,12 +1,13 @@
 # 🥥 NiyoSense: Guide on Bungkos (Cluster) Sampling for Leader & Panel Review
 
-**Branch:** `feature/web-bungkos-sampling`  
-**Live Test Link (No Setup Needed):** [https://alan-bobby-internship-components.trycloudflare.com/](https://alan-bobby-internship-components.trycloudflare.com/)  
-*(Or locally if on the same machine: [http://localhost:8080/](http://localhost:8080/))*
+**Status:** Merged to `main` (Live in `v1.4.5+17`)  
+**Production Live URL:** [https://niyosense.me](https://niyosense.me)  
+**Install / Onboarding Portal:** [https://niyosense.me/install/](https://niyosense.me/install/)  
+*(Or local container if testing offline: `http://localhost:8080/`)*
 
 ---
 
-## 📌 Part 1: How to Explain It (The "Why & How" Pitch)
+## 📌 Part 1: How to Explain It (The "Why & How" Pitch for Defense)
 
 When explaining this to your leader or thesis panel, use this narrative:
 
@@ -18,29 +19,29 @@ When explaining this to your leader or thesis panel, use this narrative:
 
 ---
 
-## 📱 Part 2: Mobile App Update (Field Worker Side)
+## 📱 Part 2: Mobile App Implementation (Field Worker Side)
 
 On the **Scan Results Screen** (`lib/views/scan_result_screen.dart`), inside the **Cluster Maturity Baseline** card:
 1. **Interactive Bungkos Coconut Counter:**
    - Includes **`-` / `+` stepper buttons** and a **direct numeric input box** (defaults to `10` coconuts per bunch).
    - Includes **1-tap preset chips**: `1 (Single)`, `8 pcs`, `10 pcs`, `12 pcs`, `15 pcs`.
 2. **Real-Time SQLite & Sync Integration:**
-   - Saves `bunch_count` to local SQLite (`grading_logs` table v4) and automatically links to any active Farmer Delivery Session.
-   - Syncs `bunch_count` to the Django/PostgreSQL backend via `/api/v1/sync/bulk-logs/`.
+   - Saves `bunch_count` to local SQLite (`grading_logs` table) and automatically links to any active Farmer Delivery Session.
+   - Syncs `bunch_count` to the central cloud backend via `/api/v1/sync/bulk-logs/`.
 
 ---
 
-## 🧪 Part 3: Step-by-Step Web Dashboard Testing Guide for Your Leader
+## 🧪 Part 3: Step-by-Step Live Dashboard Verification Walkthrough
 
-Here is the exact 3-step walkthrough for your leader to verify the feature on the live dashboard:
+Here is the exact 3-step walkthrough for your leader or panel to verify the feature on the live cloud dashboard:
 
 ### Step 1: Check the Home Overview (True Coconut Volume vs. Bunches Sampled)
-1. Open [https://alan-bobby-internship-components.trycloudflare.com/](https://alan-bobby-internship-components.trycloudflare.com/).
+1. Open **[https://niyosense.me](https://niyosense.me)**.
 2. Look at the top of the **Home** tab.
 3. **What to look for:**
-   - The green **Cluster (Bungkos) Sampling Protocol Active** banner shows the total number of bunches sampled (`📦 21 Bunches Sampled`).
-   - The **Total Coconuts Graded (from Bunches)** card (`156`) sums the actual `bunch_count` across all bunches rather than just counting 1 per scan!
-   - The **Daily Maturity Report** and **Maturity Distribution** charts also plot true coconut counts.
+   - The green **Cluster (Bungkos) Sampling Protocol Active** banner shows the total number of bunches sampled.
+   - The **Total Coconuts Graded (from Bunches)** card sums the actual `bunch_count` across all bunches rather than just counting 1 per scan.
+   - The **Daily Maturity Report** and **Maturity Distribution** charts plot true coconut counts.
 
 ---
 
@@ -56,13 +57,5 @@ Here is the exact 3-step walkthrough for your leader to verify the feature on th
 1. Click on the **Analytics** tab.
 2. Look at the **Monthly Maturity Ratio** and **Estimated Valuation Engine**.
 3. **What to look for:**
-   - All counts (`150 Malauhog` etc.) now already reflect the summed coconuts from the bunches.
+   - All counts now reflect the summed coconuts from the bunches.
    - The **Estimated Gross Batch Value** and **Batch Settlement & Profit Reconciliation** (including harvester labor cost per nut) automatically use the real coconut volume from the bunches.
-
----
-
-## 🎯 Part 4: Decision for the Leader
-
-Ask your leader:
-1. **Does the mobile input + dashboard bunch summation match the team's workflow?**
-2. **Approval to merge:** Once approved, we can merge `feature/web-bungkos-sampling` into `main` and build the updated APK!

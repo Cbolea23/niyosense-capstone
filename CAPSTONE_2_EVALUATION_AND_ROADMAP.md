@@ -1,10 +1,14 @@
-# NiyoSense: Capstone 2 Project Inspection & Owner-Centric Evaluation
+# NiyoSense: Capstone 2 Project Inspection & Evaluation Report
 
+**Evaluation Status:** ✅ **100% OF ROADMAP MILESTONES IMPLEMENTED IN v1.4.5+17**  
 **Date:** October 2026  
 **Project:** NiyoSense: Web and Mobile Coconut Maturity Profiling and Grading System using Multimodal Audio-Visual Machine Learning for Small-Scale Coconut Aggregators  
+**Live Production URL:** [https://niyosense.me](https://niyosense.me) | **Release:** [v1.4.5](https://github.com/Cbolea23/niyosense-capstone/releases/tag/v1.4.5)  
 **Researchers:** Christian Louis Bolea, Wayne Yzon Nagares, Seann Yves Saracho  
 **Institution:** College of Computing and Multimedia Studies, Manuel S. Enverga University Foundation, Lucena City  
-**Target Beneficiaries:** Small-Scale Coconut Aggregators (*Komprador*), Harvesters (*Mambubuko*), and Farm Managers in Quezon Province  
+**Target Beneficiaries:** Coconut Plantation Owners, Farm Managers, and Field Sorters (*Mambubuko*) in Quezon Province  
+
+> **Implementation Note:** All recommendations outlined below (Delivery Batch sessions, payout pricing calculators, shareable vouchers, cluster bungkos sampling, ambient noise calibration, and cloud hosting alignment) were systematically implemented and released in build `v1.4.5+17`.
 
 ---
 

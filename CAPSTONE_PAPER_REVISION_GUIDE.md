@@ -1,9 +1,10 @@
-# NiyoSense Capstone Paper Revision & Alignment Guide (v1.4.0)
+# NiyoSense Capstone Paper Revision & Alignment Guide (v1.4.5)
 **Prepared for:** Seann Yves Saracho (Manuscript & Documentation Lead)  
 **Authors:** Christian Louis Bolea, Wayne Yzon Nagares, Seann Yves Saracho  
 **Adviser:** Engr. Roselyn A. Maaño | **Technical Mentor / Panelist:** Prof. Eleazar Salanda  
 **Primary Stakeholder / Beneficiary:** Dr. Nona D. Nagares (Coconut Plantation Owner, Quezon Province)  
-**System Version:** `v1.4.0` (Build 12 — Final Production Build)
+**System Version:** `v1.4.5` (Build 17 — Production Cloud Release)
+**Live Cloud URL:** [https://niyosense.me](https://niyosense.me) | **APK CDN:** [GitHub Release v1.4.5](https://github.com/Cbolea23/niyosense-capstone/releases/tag/v1.4.5)
 
 ---
 
@@ -39,7 +40,7 @@ Before editing the manuscript, note these **two major panel-mandated shifts** fr
 | **Audio Recording Format & Preprocessing** | Recorded in `.M4A` format indoors | Recorded in **uncompressed 16-bit PCM `.WAV` (`22,050 Hz`, mono, 4.0 seconds)** using `AndroidAudioSource.unprocessed` (hardware AGC/Noise-Suppression disabled), followed by a **300 Hz High-Pass Filter**, **1.5s Peak-Window Auto-Centering**, **Hann STFT (`n_fft=2048, hop=512`)**, **128 Slaney Mel bands**, **$-80\text{ dB}$ to $0\text{ dB}$ normalization**, and **Matplotlib `magma` colormap**. |
 | **Post-Harvest Sampling Unit** | Individual coconut per scan (`1 scan = 1 nut`) | **Bungkos (Cluster) Representative Sampling (`bunch_count`)**: In real Quezon Province plantation harvests, coconuts are cut and graded by cluster (*bungkos*, typically 8–15 nuts per bunch). Scanning 1 representative nut profiles the entire *bungkos*, and the field operator inputs the exact **Bungkos Coconut Count (`bunch_count`)** so all dashboard volume KPIs, charts, and financial valuations track both **Total Coconuts** and **Sampled Bunches**. |
 | **Plantation Management & Financial Features** | Only mentioned basic aggregator inventory & grading logs | **Plantation Harvest Batch Session & Tally Voucher System** (mobile) + **Estimated Harvest Valuation Engine & Commercial Settlement / Profit Reconciliation (Price Variance / Leakage Detection)** (web dashboard for Plantation Owners & Farm Managers). |
-| **Multi-Device & Multi-Operator Architecture** | Mentioned single user / Vercel + Neon serverless | **Dockerized Django + Gunicorn + WhiteNoise + Cloudflare Tunnel (`trycloudflare.com`)** with **30-Day Multi-Device JWT Authentication**, **SQLite WAL Mode + 5-Attempt Atomic Locking Retry** for simultaneous multi-phone synchronization, **Unique Hardware Device ID (`device_id`)**, and **Role-Based Field Operator Accounts**. |
+| **Multi-Device & Multi-Operator Architecture** | Mentioned single user / Vercel + Neon serverless | **Render Web Services + Cloudflare Edge (`https://niyosense.me`) + GitHub Releases CDN** with **30-Day Multi-Device JWT Authentication**, **SQLite Fixture Ingestion (`initial_data.json`) + 5-Attempt Atomic Locking Retry** for simultaneous multi-phone synchronization, **Unique Hardware Device ID (`device_id`)**, and **Role-Based Field Operator Accounts**. |
 
 ---
 
@@ -93,7 +94,7 @@ Replace the old beneficiary list with:
    - Replace `Multimodal Fusion` $\rightarrow$ **`Dual-Model Audio-Visual Classification (70% Acoustic / 30% Visual)`**.
    - Replace `Python Librosa (Backend)` $\rightarrow$ **`On-Device Dart STFT & Slaney Mel-Spectrogram Engine (SpectrogramService)`**.
    - Replace `Small-Scale Aggregator` $\rightarrow$ **`Plantation Owner / Farm Manager (Web) & Field Operator (Mobile)`**.
-   - Replace `Vercel` $\rightarrow$ **`Dockerized Django Server + Gunicorn + Cloudflare Tunnel`**.
+   - Replace `Vercel` $\rightarrow$ **`Render Web Services + Cloudflare Edge (https://niyosense.me) + GitHub Releases CDN`**.
 2. **Section 3.5 (Definition of Terms — Lines 259–271):**
    - **Remove/Replace** *"Multimodal Fusion"* with:
      - **Dual-Model Architecture:** An AI system design utilizing two separate, specialized deep learning models—one trained on visual coconut husk images and one trained on acoustic Mel-spectrogram images—whose probability outputs are combined using a weighted decision rule.
@@ -108,10 +109,10 @@ Replace the old beneficiary list with:
 
 ### 2.4 Chapter 4: Operational Framework — Software & Data Tables (Lines 288–371 of Old Paper)
 **Update Table 2 (Software Requirements):**
-- **Machine Learning:** `Ultralytics YOLOv8-cls` & `TensorFlow Lite (tflite_flutter ^0.12.1)` — Used to train and execute two independent on-device `320×320` classification models (`img_best_v2.tflite` and `spec_best_v2.tflite`).
+- **Machine Learning:** `Ultralytics YOLOv8-cls` & `TensorFlow Lite (tflite_flutter ^0.10.4)` — Used to train and execute two independent on-device `320×320` classification models (`img_best_v2.tflite` and `spec_best_v2.tflite`).
 - **Audio Signal Processing:** `Python Librosa` (for offline training dataset preparation) & **Custom Pure-Dart DSP (`SpectrogramService.dart`)** — Performs on-device 300 Hz high-pass filtering, 1.5s peak-window centering, Hann STFT (`n_fft=2048, hop=512`), and 128 Slaney Mel filterbanks.
-- **Web/Backend Hosting & Deployment:** `Docker Compose + Gunicorn + WhiteNoise + Cloudflare Tunnel (cloudflared)` — Replaces Vercel; provides containerized backend deployment with persistent media storage (`/app/media`) and HTTPS tunneling for concurrent multi-device synchronization.
-- **Database:** `SQLite (sqflite)` on mobile for offline storage; `SQLite WAL (Write-Ahead Logging) / PostgreSQL` on the backend with 30-second busy timeout and 5-attempt atomic transaction retry.
+- **Web/Backend Hosting & Deployment:** `Render Web Services + Cloudflare Edge (https://niyosense.me) + GitHub Releases CDN` — Replaces Vercel; provides 24/7 containerized backend deployment with persistent fixture loading (`initial_data.json`), SSL encryption, and high-speed global APK delivery.
+- **Database:** `SQLite (sqflite)` on mobile for offline storage; `SQLite with Auto-Seeding / PostgreSQL` on the backend with 30-second busy timeout and 5-attempt atomic transaction retry.
 
 ---
 
@@ -205,4 +206,4 @@ where $\Omega_s$ is the set of scanned clusters classified under maturity stage 
 - [ ] **70/30 Dual-Model Equation:** Include $P_{\text{final}}(c) = 0.70 \cdot \hat{P}_{\text{audio}}(c) + 0.30 \cdot \hat{P}_{\text{visual}}(c)$ and its field justification (outer green husks of *Buko* and *Malauhog* look almost identical, whereas internal meat thickness alters acoustic resonance).
 - [ ] **3-Gate OOD Validation Pipeline:** Document Gate 1 (`64×64` HSV Husk + Luminance + Sobel Texture), Gate 2 (`64×64` Spectrogram Vertical Tap-Stripe Counter requiring `2–5` knocks), and Gate 3 (Softmax Temperature Scaling $T=1.6$ + `96.5%` cap).
 - [ ] **Bungkos (Cluster) Sampling & Plantation Valuation:** Add the `bunch_count` cluster volume equation and the Commercial Settlement Reconciliation ($\Delta V = V_{\text{est}} - V_{\text{actual}}$) equation.
-- [ ] **Deployment & Screenshots:** Update Fig. 21 (Deployment Diagram) from Vercel to **Docker + Gunicorn + Cloudflare Tunnel**, and replace old Figma screenshots (Figs. 7–19) with live `v1.4.0` screenshots.
+- [ ] **Deployment & Screenshots:** Update Fig. 21 (Deployment Diagram) from Vercel to **Render Web Services + Cloudflare Edge (https://niyosense.me) + GitHub Releases CDN**, and replace old Figma screenshots (Figs. 7–19) with live `v1.4.5` production screenshots.
