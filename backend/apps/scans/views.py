@@ -461,7 +461,7 @@ def app_version_check_api(request):
     scheme = 'https' if request.is_secure() or request.headers.get('x-forwarded-proto') == 'https' else 'http'
     download_url = apk_release_url
     install_page_url = f"{scheme}://{host}/install/"
-    google_drive_url = "https://drive.google.com/drive/folders/1Qdwk0EUzt_6HvrNiXJDNyHfPxRPo46-k?usp=sharing"
+    google_drive_url = "https://drive.google.com/file/d/1TJ4B7a2FFxo9BVJYtXf4TLzdhVutWmih/view?usp=sharing"
 
     return Response({
         "success": True,

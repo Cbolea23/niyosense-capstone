@@ -25,7 +25,7 @@ class UpdateInfo {
     required this.releaseNotes,
     required this.downloadUrl,
     this.installPageUrl = 'https://niyosense.me/install/',
-    this.googleDriveUrl = 'https://drive.google.com/drive/folders/1Qdwk0EUzt_6HvrNiXJDNyHfPxRPo46-k?usp=sharing',
+    this.googleDriveUrl = 'https://drive.google.com/file/d/1TJ4B7a2FFxo9BVJYtXf4TLzdhVutWmih/view?usp=sharing',
     required this.fileSizeMb,
   });
 }
@@ -75,7 +75,7 @@ class UpdateService {
         }
 
         final String installPage = payload['install_page_url'] ?? 'https://niyosense.me/install/';
-        final String gdriveUrl = payload['google_drive_url'] ?? 'https://drive.google.com/drive/folders/1Qdwk0EUzt_6HvrNiXJDNyHfPxRPo46-k?usp=sharing';
+        final String gdriveUrl = payload['google_drive_url'] ?? 'https://drive.google.com/file/d/1TJ4B7a2FFxo9BVJYtXf4TLzdhVutWmih/view?usp=sharing';
 
         return UpdateInfo(
           hasUpdate: isNewer,
