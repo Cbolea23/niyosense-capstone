@@ -450,15 +450,16 @@ def download_apk_page(request):
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
 def app_version_check_api(request):
+    apk_release_url = "https://github.com/Cbolea23/niyosense-capstone/releases/download/v1.4.5/niyosense.apk"
     apk_rel_path = 'media/downloads/niyosense.apk'
     apk_abs_path = os.path.join(settings.BASE_DIR, apk_rel_path)
     file_exists = os.path.exists(apk_abs_path)
-    file_size_bytes = os.path.getsize(apk_abs_path) if file_exists else 0
+    file_size_bytes = os.path.getsize(apk_abs_path) if file_exists else 105118720
     file_size_mb = round(file_size_bytes / (1024 * 1024), 1)
 
     host = request.get_host()
     scheme = 'https' if request.is_secure() or request.headers.get('x-forwarded-proto') == 'https' else 'http'
-    download_url = f"{scheme}://{host}/media/downloads/niyosense.apk?v=1.4.5"
+    download_url = apk_release_url
     install_page_url = f"{scheme}://{host}/install/"
 
     return Response({
@@ -470,5 +471,5 @@ def app_version_check_api(request):
         "download_url": download_url,
         "install_page_url": install_page_url,
         "file_size_mb": file_size_mb,
-        "available": file_exists,
+        "available": True,
     })

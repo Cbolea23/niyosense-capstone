@@ -4,6 +4,11 @@ set -e
 echo "==> Running database migrations..."
 python manage.py migrate --noinput
 
+if [ -f "initial_data.json" ]; then
+    echo "==> Loading initial fixture data..."
+    python manage.py loaddata initial_data.json || true
+fi
+
 echo "==> Collecting static assets..."
 python manage.py collectstatic --noinput
 
