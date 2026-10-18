@@ -1,8 +1,8 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppConfig {
-  static const String appVersion = "1.4.5";
-  static const int buildNumber = 17;
+  static const String appVersion = "1.4.6";
+  static const int buildNumber = 18;
   static const String fullVersionString = "NiyoSense Field v$appVersion";
   static const String modelEngine = "Vision v2.5.3 (70/30 Audio-Dominant 3-Gate)";
   static const String defaultServerUrl = "https://niyosense.me";

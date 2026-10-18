@@ -37,10 +37,22 @@ class TfliteService {
 
   Future<void> loadModels() async {
     try {
-      _imgInterpreter = await Interpreter.fromAsset('assets/models/img_best_v2.tflite');
-      _specInterpreter = await Interpreter.fromAsset('assets/models/spec_best_v2.tflite');
+      final options = InterpreterOptions()..threads = 2;
+      try {
+        _imgInterpreter = await Interpreter.fromAsset(
+          'assets/models/img_best_v2.tflite',
+          options: options,
+        );
+        _specInterpreter = await Interpreter.fromAsset(
+          'assets/models/spec_best_v2.tflite',
+          options: options,
+        );
+      } catch (_) {
+        _imgInterpreter = await Interpreter.fromAsset('assets/models/img_best_v2.tflite');
+        _specInterpreter = await Interpreter.fromAsset('assets/models/spec_best_v2.tflite');
+      }
 
-      debugPrint("✅ TFLite V2 models loaded successfully.");
+      debugPrint("✅ TFLite V2 models loaded successfully (2-thread CPU optimized).");
       debugPrint("📸 Visual Model Input: ${_imgInterpreter!.getInputTensor(0).shape}");
       debugPrint("🎵 Spectrogram Model Input: ${_specInterpreter!.getInputTensor(0).shape}");
     } catch (e) {
@@ -85,6 +97,11 @@ class TfliteService {
       debugPrint("⚠️ Gate 1 error reading image: $e");
       return "Camera obstructed or invalid lighting.";
     }
+  }
+
+  /// Background isolate wrapper for Gate 1 validation so JPEG decoding never blocks the camera UI thread on budget phones
+  static String? validateCameraImagePathIsolate(String imagePath) {
+    return validateCameraImageFile(File(imagePath));
   }
 
   static String? validateDecodedCameraImage(img.Image decoded) {
@@ -143,12 +160,12 @@ class TfliteService {
         final double sat = hsv[1];
         final double val = hsv[2];
 
-        // Natural Green/Olive Coconut Husk HSV Criteria:
-        // Hue 34° to 156°, Saturation 0.15 to 0.88, Value 0.16 to 0.92
+        // Natural Green/Olive Coconut Husk HSV Criteria (calibrated for both flagship & budget camera ISPs):
+        // Hue 34° to 156°, Saturation 0.12 to 0.88, Value 0.14 to 0.94
         final bool isGreenHuskPixel =
             (hue >= 34.0 && hue <= 156.0) &&
-            (sat >= 0.15 && sat <= 0.88) &&
-            (val >= 0.16 && val <= 0.92);
+            (sat >= 0.12 && sat <= 0.88) &&
+            (val >= 0.14 && val <= 0.94);
 
         // Center 60% ROI check [13..50]
         if (x >= roiStart && x <= roiEnd && y >= roiStart && y <= roiEnd) {
@@ -308,10 +325,10 @@ class TfliteService {
       return "Background foliage, grass, or sharp text/labels detected. Center a single coconut husk.";
     }
 
-    // Real 3D curved coconuts have natural spherical luminance shading (greenLumStdDev >= 16.5)
-    // and organic husk color variation (hueStdDev >= 5.5°, satStdDev >= 0.035, edgeRoughness >= 5.5).
-    // Synthetic green bottles, plastic containers, folders, walls, and shirts have greenLumStdDev < 14.
-    if (greenLumStdDev < 16.5 || edgeRoughness < 5.5 || hueStdDev < 5.5 || satStdDev < 0.035) {
+    // Real 3D curved coconuts have natural spherical luminance shading (greenLumStdDev >= 12.0, calibrated for budget ISP smoothing)
+    // and organic husk color variation (hueStdDev >= 3.8°, satStdDev >= 0.025, edgeRoughness >= 3.8).
+    // Synthetic green bottles, plastic containers, folders, walls, and shirts have flat shading below these bounds.
+    if (greenLumStdDev < 12.0 || edgeRoughness < 3.8 || hueStdDev < 3.8 || satStdDev < 0.025) {
       debugPrint(
         "⛔ [GATE 1 - SYNTHETIC/FLAT OBJECT] Rejected: greenLumStd=${greenLumStdDev.toStringAsFixed(1)}, "
         "edgeRough=${edgeRoughness.toStringAsFixed(1)}, hueStd=${hueStdDev.toStringAsFixed(1)}°, "
@@ -323,47 +340,59 @@ class TfliteService {
     return null; // Passed all Gate 1 checks!
   }
 
-  /// Preprocesses a camera photo into an NCHW [1, 3, 224, 224] Float32List tensor
-  Object? _preprocessImageForInterpreter(img.Image decoded, Interpreter interpreter) {
-    try {
-      final shape = interpreter.getInputTensor(0).shape;
-      final bool isNCHW = shape.length == 4 && shape[1] == 3;
-      final int targetHeight = isNCHW ? shape[2] : shape[1];
-      final int targetWidth = isNCHW ? shape[3] : shape[2];
+  /// Static isolate entry point for decoding, Gate 1 validation, and tensor creation off the UI thread.
+  static Map<String, dynamic> _decodeAndPreprocessInIsolate(Map<String, dynamic> params) {
+    final String path = params['path'] as String;
+    final List<int> shape = List<int>.from(params['shape'] as List);
 
-      final resized = img.copyResize(decoded, width: targetWidth, height: targetHeight);
-      final int totalPixels = targetHeight * targetWidth;
-      final buffer = Float32List(1 * 3 * totalPixels);
+    final file = File(path);
+    if (!file.existsSync()) {
+      return {'error': 'Camera obstructed or invalid lighting.'};
+    }
+    final bytes = file.readAsBytesSync();
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) {
+      return {'error': 'Camera obstructed or invalid lighting.'};
+    }
 
-      if (isNCHW) {
-        int rIdx = 0;
-        int gIdx = totalPixels;
-        int bIdx = 2 * totalPixels;
-        for (var y = 0; y < targetHeight; y++) {
-          for (var x = 0; x < targetWidth; x++) {
-            final pixel = resized.getPixel(x, y);
-            buffer[rIdx++] = pixel.r / 255.0;
-            buffer[gIdx++] = pixel.g / 255.0;
-            buffer[bIdx++] = pixel.b / 255.0;
-          }
-        }
-      } else {
-        int idx = 0;
-        for (var y = 0; y < targetHeight; y++) {
-          for (var x = 0; x < targetWidth; x++) {
-            final pixel = resized.getPixel(x, y);
-            buffer[idx++] = pixel.r / 255.0;
-            buffer[idx++] = pixel.g / 255.0;
-            buffer[idx++] = pixel.b / 255.0;
-          }
+    final String? gate1Error = validateDecodedCameraImage(decoded);
+    if (gate1Error != null) {
+      return {'error': gate1Error};
+    }
+
+    final bool isNCHW = shape.length == 4 && shape[1] == 3;
+    final int targetHeight = isNCHW ? shape[2] : shape[1];
+    final int targetWidth = isNCHW ? shape[3] : shape[2];
+
+    final resized = img.copyResize(decoded, width: targetWidth, height: targetHeight);
+    final int totalPixels = targetHeight * targetWidth;
+    final buffer = Float32List(1 * 3 * totalPixels);
+
+    if (isNCHW) {
+      int rIdx = 0;
+      int gIdx = totalPixels;
+      int bIdx = 2 * totalPixels;
+      for (var y = 0; y < targetHeight; y++) {
+        for (var x = 0; x < targetWidth; x++) {
+          final pixel = resized.getPixel(x, y);
+          buffer[rIdx++] = pixel.r / 255.0;
+          buffer[gIdx++] = pixel.g / 255.0;
+          buffer[bIdx++] = pixel.b / 255.0;
         }
       }
-
-      return buffer.reshape(shape);
-    } catch (e) {
-      debugPrint("⚠️ Could not process image: $e");
-      return null;
+    } else {
+      int idx = 0;
+      for (var y = 0; y < targetHeight; y++) {
+        for (var x = 0; x < targetWidth; x++) {
+          final pixel = resized.getPixel(x, y);
+          buffer[idx++] = pixel.r / 255.0;
+          buffer[idx++] = pixel.g / 255.0;
+          buffer[idx++] = pixel.b / 255.0;
+        }
+      }
     }
+
+    return {'buffer': buffer};
   }
 
   /// Temperature-scaled normalization (T = 1.1) so logits are smoothly calibrated
@@ -404,10 +433,17 @@ class TfliteService {
   }) async {
     if (!isLoaded) await loadModels();
 
-    // --- GATE 1: CAMERA IMAGE PIXEL GATE ---
-    final bytes = imageFile.readAsBytesSync();
-    final decoded = img.decodeImage(bytes);
-    if (decoded == null) {
+    // --- GATE 1: CAMERA IMAGE PIXEL GATE & PREPROCESSING (OFFLOADED TO ISOLATE) ---
+    final inputShape = _imgInterpreter!.getInputTensor(0).shape;
+    final imgPrepResult = await compute(
+      _decodeAndPreprocessInIsolate,
+      <String, dynamic>{
+        'path': imageFile.path,
+        'shape': inputShape,
+      },
+    );
+
+    if (imgPrepResult.containsKey('error')) {
       return PredictionResult(
         label: "Invalid Object",
         confidence: 0.0,
@@ -417,39 +453,12 @@ class TfliteService {
         audioLabel: "N/A",
         audioConfidence: 0.0,
         isValidObject: false,
-        rejectionReason: "Camera obstructed or invalid lighting.",
+        rejectionReason: imgPrepResult['error'] as String,
       );
     }
 
-    final String? gate1Error = validateDecodedCameraImage(decoded);
-    if (gate1Error != null) {
-      return PredictionResult(
-        label: "Invalid Object",
-        confidence: 0.0,
-        classProbabilities: {"buko": 0.0, "malauhog": 0.0},
-        visualLabel: "UNRECOGNIZED",
-        visualConfidence: 0.0,
-        audioLabel: "N/A",
-        audioConfidence: 0.0,
-        isValidObject: false,
-        rejectionReason: gate1Error,
-      );
-    }
-
-    final imgInput = _preprocessImageForInterpreter(decoded, _imgInterpreter!);
-    if (imgInput == null) {
-      return PredictionResult(
-        label: "Invalid Object",
-        confidence: 0.0,
-        classProbabilities: {"buko": 0.0, "malauhog": 0.0},
-        visualLabel: "UNRECOGNIZED",
-        visualConfidence: 0.0,
-        audioLabel: "N/A",
-        audioConfidence: 0.0,
-        isValidObject: false,
-        rejectionReason: "Camera obstructed or invalid lighting.",
-      );
-    }
+    final Float32List imgBuffer = imgPrepResult['buffer'] as Float32List;
+    final imgInput = imgBuffer.reshape(inputShape);
 
     final imgOutputShape = _imgInterpreter!.getOutputTensor(0).shape;
     final int numImgOutputs = imgOutputShape.reduce((a, b) => a * b);
@@ -462,15 +471,35 @@ class TfliteService {
     String visualLabel = imgProbs[0] >= imgProbs[1] ? "buko" : "malauhog";
     double visualConf = math.max(imgProbs[0], imgProbs[1]);
 
-    // --- GATE 2: MEL-SPECTROGRAM STRIPE COUNTER & AUDIO INFERENCE ---
+    // --- GATE 2: MEL-SPECTROGRAM STRIPE COUNTER & AUDIO INFERENCE (OFFLOADED TO ISOLATE) ---
     List<double> specProbs;
     String audioLabel = "N/A";
     double audioConf = 0.0;
 
     if (audioFile != null && await audioFile.exists()) {
       try {
-        debugPrint("🎵 Generating Dart Mel-Spectrogram & running Gate 2 for: ${audioFile.path}");
-        final specInput = SpectrogramService.generateSpectrogramTensor(audioFile);
+        debugPrint("🎵 Generating Dart Mel-Spectrogram & running Gate 2 in background isolate for: ${audioFile.path}");
+        final Map<String, dynamic> specIsoResult = await compute(
+          SpectrogramService.generateSpectrogramInIsolate,
+          audioFile.path,
+        );
+        if (specIsoResult['ok'] != true) {
+          final String errMsg = (specIsoResult['message'] as String?) ??
+              "No acoustic tap detected in spectrogram. Knock the coconut shoulder 3 times.";
+          debugPrint("⛔ [GATE 2 REJECTED] $errMsg");
+          return PredictionResult(
+            label: "Invalid Object",
+            confidence: 0.0,
+            classProbabilities: {"buko": 0.0, "malauhog": 0.0},
+            visualLabel: visualLabel,
+            visualConfidence: visualConf,
+            audioLabel: "INVALID TAP",
+            audioConfidence: 0.0,
+            isValidObject: false,
+            rejectionReason: errMsg,
+          );
+        }
+        final Object specInput = specIsoResult['tensor'] as Object;
 
         final specOutputShape = _specInterpreter!.getOutputTensor(0).shape;
         final int numSpecOutputs = specOutputShape.reduce((a, b) => a * b);
@@ -498,6 +527,9 @@ class TfliteService {
         );
       } catch (e) {
         debugPrint("⛔ [GATE 2 ERROR] $e");
+        final String cleanReason = e.toString().contains("SpectrogramValidationException:")
+            ? e.toString().split("SpectrogramValidationException:").last.trim()
+            : "Audio analysis failed: ${e.toString().replaceAll('Exception:', '').trim()}";
         return PredictionResult(
           label: "Invalid Object",
           confidence: 0.0,
@@ -507,7 +539,7 @@ class TfliteService {
           audioLabel: "INVALID TAP",
           audioConfidence: 0.0,
           isValidObject: false,
-          rejectionReason: "Audio analysis failed: ${e.toString().replaceAll('Exception:', '').trim()}",
+          rejectionReason: cleanReason,
         );
       }
     } else {

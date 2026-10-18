@@ -256,6 +256,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                                         File(widget.imagePath!),
                                         height: 140,
                                         width: double.infinity,
+                                        cacheWidth: 400,
                                         fit: BoxFit.cover,
                                       ),
                                     ),
@@ -284,6 +285,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                                                   File(specPath),
                                                   height: 140,
                                                   width: double.infinity,
+                                                  cacheWidth: 400,
                                                   fit: BoxFit.cover,
                                                 )
                                               : Container(

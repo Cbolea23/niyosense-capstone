@@ -461,4 +461,25 @@ class SpectrogramService {
 
     return tensorBuffer.reshape([1, 3, targetHeight, targetWidth]);
   }
+
+  /// Background isolate wrapper so STFT, Mel-filterbank, and PNG encoding never block the UI thread on budget phones
+  static Map<String, dynamic> generateSpectrogramInIsolate(String wavPath) {
+    try {
+      final tensor = generateSpectrogramTensor(File(wavPath));
+      return {'ok': true, 'tensor': tensor};
+    } on SpectrogramValidationException catch (e) {
+      return {
+        'ok': false,
+        'isValidation': true,
+        'message': e.message,
+        'stripeCount': e.stripeCount,
+      };
+    } catch (e) {
+      return {
+        'ok': false,
+        'isValidation': false,
+        'message': e.toString(),
+      };
+    }
+  }
 }

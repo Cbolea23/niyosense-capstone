@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
@@ -25,6 +25,7 @@ class _VisualScanScreenState extends State<VisualScanScreen>
   bool _isFlashOn = false;
   bool _isStreaming = false;
   bool _isAnalyzingFrame = false;
+  bool _isCapturing = false;
 
   // 0 = Red (Not Aligned / Invalid), 1 = Amber (Almost Aligned), 2 = Green (Locked & Aligned)
   int _alignmentTier = 0;
@@ -38,17 +39,36 @@ class _VisualScanScreenState extends State<VisualScanScreen>
       vsync: this,
       duration: const Duration(milliseconds: 420),
     );
+    _initializeControllerFuture = _initCameraWithFallback();
+  }
+
+  /// Initializes camera at 720p (ResolutionPreset.medium) to prevent OOM and slow JPEG decoding
+  /// on 2GB/3GB RAM budget phones, with automatic fallback to ResolutionPreset.low for older HALs.
+  Future<void> _initCameraWithFallback() async {
     _controller = CameraController(
       widget.camera,
-      ResolutionPreset.high,
+      ResolutionPreset.medium,
       enableAudio: false,
+      imageFormatGroup: ImageFormatGroup.yuv420,
     );
-    _initializeControllerFuture = _controller.initialize().then((_) {
-      if (mounted) {
-        _controller.setFlashMode(FlashMode.off);
-        _startLiveAlignmentStream();
-      }
-    });
+    try {
+      await _controller.initialize();
+    } catch (e) {
+      debugPrint("⚠️ Medium camera preset failed ($e), falling back to low preset for older device...");
+      _controller = CameraController(
+        widget.camera,
+        ResolutionPreset.low,
+        enableAudio: false,
+      );
+      await _controller.initialize();
+    }
+    if (mounted) {
+      try {
+        await _controller.setFlashMode(FlashMode.off);
+      } catch (_) {}
+      _startLiveAlignmentStream();
+      setState(() {});
+    }
   }
 
   void _startLiveAlignmentStream() {
@@ -104,17 +124,20 @@ class _VisualScanScreenState extends State<VisualScanScreen>
     final int w = image.width;
     final int h = image.height;
     final yPlane = image.planes[0];
-    final uPlane = image.planes.length > 1 ? image.planes[1] : null;
-    final vPlane = image.planes.length > 2 ? image.planes[2] : null;
+    final bool hasThreePlanes = image.planes.length >= 3;
+    final bool hasTwoPlanes = image.planes.length == 2;
 
-    if (uPlane == null || vPlane == null) return;
+    if (!hasThreePlanes && !hasTwoPlanes) return;
+
+    final uPlane = image.planes[1];
+    final vPlane = hasThreePlanes ? image.planes[2] : image.planes[1];
 
     final int yRowStride = yPlane.bytesPerRow;
     final int yPixelStride = yPlane.bytesPerPixel ?? 1;
     final int uRowStride = uPlane.bytesPerRow;
-    final int uPixelStride = uPlane.bytesPerPixel ?? 1;
+    final int uPixelStride = uPlane.bytesPerPixel ?? (hasTwoPlanes ? 2 : 1);
     final int vRowStride = vPlane.bytesPerRow;
-    final int vPixelStride = vPlane.bytesPerPixel ?? 1;
+    final int vPixelStride = vPlane.bytesPerPixel ?? (hasTwoPlanes ? 2 : 1);
 
     // Sample a 10x10 grid across the camera frame (100 points total)
     // Center ROI: grid indices [2..7] x [2..7] (36 points inside circular frame)
@@ -151,8 +174,18 @@ class _VisualScanScreenState extends State<VisualScanScreen>
         final int uvCol = px ~/ 2;
 
         final int yIdx = py * yRowStride + px * yPixelStride;
-        final int uIdx = uvRow * uRowStride + uvCol * uPixelStride;
-        final int vIdx = uvRow * vRowStride + uvCol * vPixelStride;
+        int uIdx;
+        int vIdx;
+        if (hasThreePlanes) {
+          uIdx = uvRow * uRowStride + uvCol * uPixelStride;
+          vIdx = uvRow * vRowStride + uvCol * vPixelStride;
+        } else {
+          // 2-plane NV21/NV12 (common on budget MediaTek/Unisoc/older Snapdragon HALs):
+          // plane[1] has interleaved V/U bytes (2 bytes per 2x2 block)
+          final int baseUvIdx = uvRow * uRowStride + (uvCol * 2);
+          vIdx = baseUvIdx;
+          uIdx = baseUvIdx + 1;
+        }
 
         if (yIdx >= yPlane.bytes.length ||
             uIdx >= uPlane.bytes.length ||
@@ -178,11 +211,11 @@ class _VisualScanScreenState extends State<VisualScanScreen>
         final double sat = hsv[1];
         final double val = hsv[2];
 
-        // Exact Gate 1 Green/Olive Coconut Husk HSV Criteria
+        // Exact Gate 1 Green/Olive Coconut Husk HSV Criteria (calibrated for flagship & budget cameras)
         final bool isGreenHusk =
             (hue >= 34.0 && hue <= 156.0) &&
-            (sat >= 0.15 && sat <= 0.88) &&
-            (val >= 0.16 && val <= 0.92);
+            (sat >= 0.12 && sat <= 0.88) &&
+            (val >= 0.14 && val <= 0.94);
 
         final bool isCenter = (gx >= 2 && gx <= 7 && gy >= 2 && gy <= 7);
         if (isCenter) {
@@ -286,7 +319,7 @@ class _VisualScanScreenState extends State<VisualScanScreen>
       newTier = 0;
       newScore = 0.18;
       newStatusKey = 'flat_color_hint';
-    } else if (centerRatio >= 0.40 && (greenLumStdDev < 14.5 || hueStdDev < 4.5 || edgeRoughness < 4.5)) {
+    } else if (centerRatio >= 0.40 && (greenLumStdDev < 11.0 || hueStdDev < 3.5 || edgeRoughness < 3.5)) {
       // Synthetic green object lacking 3D coconut husk shading
       newTier = 0;
       newScore = 0.18;
@@ -426,6 +459,9 @@ class _VisualScanScreenState extends State<VisualScanScreen>
   }
 
   Future<void> _takePicture() async {
+    if (_isCapturing) return;
+    _isCapturing = true;
+
     // If live reticle is RED (Tier 0), give immediate tactile shake warning before checking
     if (_alignmentTier == 0) {
       HapticFeedback.heavyImpact();
@@ -437,7 +473,7 @@ class _VisualScanScreenState extends State<VisualScanScreen>
     try {
       await _initializeControllerFuture;
 
-      // Safely stop stream before taking high-res picture
+      // Safely stop stream before taking picture
       if (_isStreaming) {
         _isStreaming = false;
         try {
@@ -454,24 +490,31 @@ class _VisualScanScreenState extends State<VisualScanScreen>
 
       final image = await _controller.takePicture();
 
-      if (!mounted) return;
+      if (!mounted) {
+        _isCapturing = false;
+        return;
+      }
 
-      // Run Gate 1: High-Res Camera Image Pixel Gate BEFORE advancing
-      final String? gate1Rejection = TfliteService.validateCameraImageFile(
-        File(image.path),
+      // Run Gate 1: Camera Image Pixel Gate in background isolate so UI never freezes on budget CPUs
+      final String? gate1Rejection = await compute(
+        TfliteService.validateCameraImagePathIsolate,
+        image.path,
       );
       if (gate1Rejection != null) {
+        _isCapturing = false;
         if (mounted) {
           setState(() {
             _alignmentTier = 0;
             _alignmentScore = 0.15;
             _alignmentStatusKey = 'not_aligned_hint';
           });
+          _showGateRejectionDialog(gate1Rejection);
         }
-        _showGateRejectionDialog(gate1Rejection);
         return;
       }
 
+      _isCapturing = false;
+      if (!mounted) return;
       await Navigator.push(
         context,
         MaterialPageRoute(
@@ -484,6 +527,7 @@ class _VisualScanScreenState extends State<VisualScanScreen>
         _startLiveAlignmentStream();
       }
     } catch (e) {
+      _isCapturing = false;
       if (mounted) {
         _startLiveAlignmentStream();
         ScaffoldMessenger.of(context).showSnackBar(

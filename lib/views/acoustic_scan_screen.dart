@@ -108,27 +108,40 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
           debugPrint("🎤 Started recording with AndroidAudioSource.voiceRecognition");
         } catch (vrErr) {
           debugPrint("⚠️ voiceRecognition unsupported ($vrErr), falling back to default mic: $vrErr");
-          await _audioRecorder.start(
-            const RecordConfig(
-              encoder: AudioEncoder.wav,
-              sampleRate: 44100,
-              numChannels: 1,
-              autoGain: false,
-              echoCancel: false,
-              noiseSuppress: false,
-              androidConfig: AndroidRecordConfig(
-                audioSource: AndroidAudioSource.mic,
-                manageBluetooth: false,
+          try {
+            await _audioRecorder.start(
+              const RecordConfig(
+                encoder: AudioEncoder.wav,
+                sampleRate: 44100,
+                numChannels: 1,
+                autoGain: false,
+                echoCancel: false,
+                noiseSuppress: false,
+                androidConfig: AndroidRecordConfig(
+                  audioSource: AndroidAudioSource.mic,
+                  manageBluetooth: false,
+                ),
               ),
-            ),
-            path: filePath,
-          );
+              path: filePath,
+            );
+          } catch (micErr) {
+            debugPrint("⚠️ 44.1kHz mic config failed ($micErr), falling back to legacy 22050Hz WAV...");
+            await _audioRecorder.start(
+              const RecordConfig(
+                encoder: AudioEncoder.wav,
+                sampleRate: 22050,
+                numChannels: 1,
+              ),
+              path: filePath,
+            );
+          }
         }
       }
 
       _knocksDetected = 0;
       _currentAmplitudeLevel = 0.0;
       _lastKnockTimestamp = 0;
+      double rollingFloorDb = -48.0;
 
       _amplitudeSub = _audioRecorder
           .onAmplitudeChanged(const Duration(milliseconds: 60))
@@ -140,15 +153,18 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
           db = -55.0;
         }
 
-        // Convert dBFS (-55 dBFS to 0 dBFS) to 0.0 .. 1.0 range (accommodates raw unprocessed ADC levels)
+        // Convert dBFS (-55 dBFS to 0 dBFS) to 0.0 .. 1.0 range (accommodates raw unprocessed & budget ADC levels)
         final double normalized = ((db + 55.0) / 55.0).clamp(0.0, 1.0);
 
-        // Detect sharp percussive knock spike: current > -36.0 dBFS with 200ms cooldown
+        // Adaptive knock spike detection: supports both flagship raw mics and quieter budget mic pre-amps
         final int now = DateTime.now().millisecondsSinceEpoch;
-        if (db > -36.0 && (now - _lastKnockTimestamp) > 200) {
+        final bool isKnockSpike = (db > -39.0) || (db > -45.0 && (db - rollingFloorDb) >= 8.5);
+        if (isKnockSpike && (now - _lastKnockTimestamp) > 200) {
           _lastKnockTimestamp = now;
           _knocksDetected++;
           HapticFeedback.lightImpact();
+        } else {
+          rollingFloorDb = (0.85 * rollingFloorDb) + (0.15 * db);
         }
 
         setState(() {
@@ -445,228 +461,259 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                 ),
             ],
           ),
-          body: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200),
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(20.0),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: (constraints.maxHeight - 40.0).clamp(0.0, double.infinity),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          CircleAvatar(radius: 5, backgroundColor: _isRecording ? Colors.red : Colors.grey),
-                          const SizedBox(width: 8),
-                          Text(
-                            _isRecording ? AppTranslations.text('recording_tap_signal') : AppTranslations.text('ready_to_record'),
-                            style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.w500),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(radius: 5, backgroundColor: _isRecording ? Colors.red : Colors.grey),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        _isRecording ? AppTranslations.text('recording_tap_signal') : AppTranslations.text('ready_to_record'),
+                                        style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.w500),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text("00:0$_recordingSeconds", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'monospace')),
+                            ],
+                          ),
+                        ),
+                        if (_isRecording) ...[
+                          const SizedBox(height: 10),
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: (_knocksDetected >= 2 && _knocksDetected <= 5)
+                                  ? const Color(0xFF0A2E23)
+                                  : const Color(0xFF2E1F0A),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: (_knocksDetected >= 2 && _knocksDetected <= 5)
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFFF59E0B),
+                                width: 1.2,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  (_knocksDetected >= 2 && _knocksDetected <= 5)
+                                      ? Icons.check_circle_rounded
+                                      : Icons.touch_app_rounded,
+                                  color: (_knocksDetected >= 2 && _knocksDetected <= 5)
+                                      ? const Color(0xFF10B981)
+                                      : const Color(0xFFF59E0B),
+                                  size: 15,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  "${AppTranslations.text('knocks_detected')}: $_knocksDetected / 3–4",
+                                  style: TextStyle(
+                                    color: (_knocksDetected >= 2 && _knocksDetected <= 5)
+                                        ? const Color(0xFF10B981)
+                                        : const Color(0xFFF59E0B),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
-                      ),
-                      Text("00:0$_recordingSeconds", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'monospace')),
-                    ],
-                  ),
-                ),
-                if (_isRecording) ...[
-                  const SizedBox(height: 10),
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: (_knocksDetected >= 2 && _knocksDetected <= 5)
-                          ? const Color(0xFF0A2E23)
-                          : const Color(0xFF2E1F0A),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: (_knocksDetected >= 2 && _knocksDetected <= 5)
-                            ? const Color(0xFF10B981)
-                            : const Color(0xFFF59E0B),
-                        width: 1.2,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          (_knocksDetected >= 2 && _knocksDetected <= 5)
-                              ? Icons.check_circle_rounded
-                              : Icons.touch_app_rounded,
-                          color: (_knocksDetected >= 2 && _knocksDetected <= 5)
-                              ? const Color(0xFF10B981)
-                              : const Color(0xFFF59E0B),
-                          size: 15,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          "${AppTranslations.text('knocks_detected')}: $_knocksDetected / 3–4",
-                          style: TextStyle(
-                            color: (_knocksDetected >= 2 && _knocksDetected <= 5)
-                                ? const Color(0xFF10B981)
-                                : const Color(0xFFF59E0B),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                        const SizedBox(height: 14),
+                        Container(
+                          height: 112,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0B132B),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Center(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(
+                                28,
+                                (i) => AnimatedContainer(
+                                  duration: const Duration(milliseconds: 60),
+                                  width: 4,
+                                  height: _isRecording ? _waveformHeights[i] : 6.0,
+                                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                                  decoration: BoxDecoration(
+                                    color: _waveformHeights[i] > 40.0
+                                        ? const Color(0xFF34D399)
+                                        : const Color(0xFF10B981),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      AppTranslations.text('tapping_intensity'),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Text(
+                                    _isRecording
+                                        ? (_currentAmplitudeLevel > 0.88
+                                            ? "Too Loud!"
+                                            : (_currentAmplitudeLevel >= 0.30
+                                                ? "Good Volume ✓"
+                                                : "Tap Firmly"))
+                                        : AppTranslations.text('ideal_range'),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      color: _isRecording
+                                          ? (_currentAmplitudeLevel > 0.88
+                                              ? Colors.red
+                                              : (_currentAmplitudeLevel >= 0.30
+                                                  ? const Color(0xFF10B981)
+                                                  : Colors.grey))
+                                          : const Color(0xFF10B981),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: LinearProgressIndicator(
+                                  value: _isRecording ? _currentAmplitudeLevel : 0.0,
+                                  minHeight: 10,
+                                  backgroundColor: Colors.grey.shade200,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    _currentAmplitudeLevel > 0.88
+                                        ? const Color(0xFFEF4444)
+                                        : (_currentAmplitudeLevel >= 0.30
+                                            ? const Color(0xFF10B981)
+                                            : const Color(0xFF9CA3AF)),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFECFDF5),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFA7F3D0)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.adjust, color: Color(0xFF10B981), size: 34),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      AppTranslations.text('tap_equator_title'),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF065F46)),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      AppTranslations.text('tap_equator_desc'),
+                                      style: const TextStyle(fontSize: 11, color: Color(0xFF047857)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        const SizedBox(height: 16),
+                        GestureDetector(
+                          onTap: _toggleRecording,
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF10B981),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                                      blurRadius: 16,
+                                      spreadRadius: 4,
+                                    ),
+                                  ],
+                                ),
+                                child: _isValidating
+                                    ? const Padding(
+                                        padding: EdgeInsets.all(22.0),
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 3,
+                                        ),
+                                      )
+                                    : Icon(_isRecording ? Icons.stop : Icons.mic, color: Colors.white, size: 36),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _isValidating
+                                    ? "Analyzing scan..."
+                                    : (_isRecording ? AppTranslations.text('tap_to_stop') : AppTranslations.text('start_recording')),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                       ],
                     ),
                   ),
-                ],
-                const SizedBox(height: 16),
-                Container(
-                  height: 120,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0B132B),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(
-                        28,
-                        (i) => AnimatedContainer(
-                          duration: const Duration(milliseconds: 60),
-                          width: 4,
-                          height: _isRecording ? _waveformHeights[i] : 6.0,
-                          margin: const EdgeInsets.symmetric(horizontal: 2),
-                          decoration: BoxDecoration(
-                            color: _waveformHeights[i] > 40.0
-                                ? const Color(0xFF34D399)
-                                : const Color(0xFF10B981),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
                 ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            AppTranslations.text('tapping_intensity'),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
-                          ),
-                          Text(
-                            _isRecording
-                                ? (_currentAmplitudeLevel > 0.88
-                                    ? "Too Loud!"
-                                    : (_currentAmplitudeLevel >= 0.32
-                                        ? "Good Volume ✓"
-                                        : "Tap Firmly"))
-                                : AppTranslations.text('ideal_range'),
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                              color: _isRecording
-                                  ? (_currentAmplitudeLevel > 0.88
-                                      ? Colors.red
-                                      : (_currentAmplitudeLevel >= 0.32
-                                          ? const Color(0xFF10B981)
-                                          : Colors.grey))
-                                  : const Color(0xFF10B981),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: _isRecording ? _currentAmplitudeLevel : 0.0,
-                          minHeight: 10,
-                          backgroundColor: Colors.grey.shade200,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            _currentAmplitudeLevel > 0.88
-                                ? const Color(0xFFEF4444)
-                                : (_currentAmplitudeLevel >= 0.32
-                                    ? const Color(0xFF10B981)
-                                    : const Color(0xFF9CA3AF)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFECFDF5),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFA7F3D0)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.adjust, color: Color(0xFF10B981), size: 36),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              AppTranslations.text('tap_equator_title'),
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF065F46)),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              AppTranslations.text('tap_equator_desc'),
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF047857)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: _toggleRecording,
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.3),
-                              blurRadius: 16,
-                              spreadRadius: 4,
-                            ),
-                          ],
-                        ),
-                        child: Icon(_isRecording ? Icons.stop : Icons.mic, color: Colors.white, size: 36),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _isRecording ? AppTranslations.text('tap_to_stop') : AppTranslations.text('start_recording'),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
-            ),
+              );
+            },
           ),
         );
       },
