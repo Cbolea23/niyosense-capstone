@@ -318,6 +318,14 @@ class BulkSyncView(APIView):
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
 def get_server_ip(request):
+    host = request.get_host()
+    if 'niyosense.me' in host:
+        return Response({
+            "success": True,
+            "ip_address": "niyosense.me",
+            "server_url": "https://niyosense.me"
+        })
+
     ip_address = None
     system = platform.system()
 
@@ -346,7 +354,7 @@ def get_server_ip(request):
             output = subprocess.check_output("ip addr show", shell=True, stderr=subprocess.DEVNULL).decode('utf-8', errors='ignore')
             matches = re.findall(r'inet\s+([0-9\.]+).*?\s+(eth\d|enp\d|wlan\d)', output)
             for ip, iface in matches:
-                if not ip.startswith(("127.", "169.254.")):
+                if not ip.startswith(("127.", "169.254.", "172.")):
                     ip_address = ip
                     break
     except Exception:
@@ -358,13 +366,17 @@ def get_server_ip(request):
             s.connect(("8.8.8.8", 80))
             detected = s.getsockname()[0]
             s.close()
-            if detected and not detected.startswith(("127.", "169.254.")):
+            if detected and not detected.startswith(("127.", "169.254.", "172.")):
                 ip_address = detected
         except Exception:
             pass
 
     if not ip_address:
-        ip_address = "127.0.0.1"
+        return Response({
+            "success": True,
+            "ip_address": "niyosense.me",
+            "server_url": "https://niyosense.me"
+        })
     
     port = request.get_port() or '8000'
     server_url = f"http://{ip_address}:{port}"
