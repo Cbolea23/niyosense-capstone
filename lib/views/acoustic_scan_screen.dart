@@ -32,6 +32,7 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
   double _currentAmplitudeLevel = 0.0;
   int _knocksDetected = 0;
   int _lastKnockTimestamp = 0;
+  bool _isSustainedVoiceWarning = false;
   final List<double> _waveformHeights = List.filled(28, 6.0);
 
   @override
@@ -141,7 +142,14 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
       _knocksDetected = 0;
       _currentAmplitudeLevel = 0.0;
       _lastKnockTimestamp = 0;
+      _isSustainedVoiceWarning = false;
+
       double rollingFloorDb = -48.0;
+      double prevDb = -52.0;
+      bool inSoundEvent = false;
+      int eventLoudFrames = 0;
+      double eventPeakDb = -55.0;
+      double eventOnsetJump = 0.0;
 
       _amplitudeSub = _audioRecorder
           .onAmplitudeChanged(const Duration(milliseconds: 60))
@@ -153,19 +161,56 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
           db = -55.0;
         }
 
-        // Convert dBFS (-55 dBFS to 0 dBFS) to 0.0 .. 1.0 range (accommodates raw unprocessed & budget ADC levels)
+        // Convert dBFS (-55 dBFS to 0 dBFS) to 0.0 .. 1.0 range
         final double normalized = ((db + 55.0) / 55.0).clamp(0.0, 1.0);
-
-        // Adaptive knock spike detection: supports both flagship raw mics and quieter budget mic pre-amps
         final int now = DateTime.now().millisecondsSinceEpoch;
-        final bool isKnockSpike = (db > -39.0) || (db > -45.0 && (db - rollingFloorDb) >= 8.5);
-        if (isKnockSpike && (now - _lastKnockTimestamp) > 200) {
-          _lastKnockTimestamp = now;
-          _knocksDetected++;
-          HapticFeedback.lightImpact();
+
+        // 2-Frame Percussive Impulse State Machine:
+        // A real coconut knock has:
+        //   (1) A sharp single-tick onset jump (db - prevDb >= 7.5 dB) above noise floor
+        //   (2) A rapid decay within 1 to 2 ticks (60ms - 120ms) where db drops >= 4.5 dB below peak
+        // Human voice, syllables ("hello", "one two three"), humming, or background noise stay loud
+        // for >= 3 ticks (>= 180ms) or have a gradual onset (< 7.5 dB/tick) and are REJECTED.
+        final bool isAboveThreshold = (db > -38.0) && ((db - rollingFloorDb) >= 8.5);
+
+        if (!inSoundEvent) {
+          if (isAboveThreshold) {
+            inSoundEvent = true;
+            eventLoudFrames = 1;
+            eventPeakDb = db;
+            eventOnsetJump = db - prevDb;
+            // If onset is gradual (< 7.0 dB jump), it's a voice fade-in rather than a sharp knock
+            if (eventOnsetJump < 7.0) {
+              _isSustainedVoiceWarning = true;
+            }
+          } else {
+            rollingFloorDb = (0.85 * rollingFloorDb) + (0.15 * db);
+          }
         } else {
-          rollingFloorDb = (0.85 * rollingFloorDb) + (0.15 * db);
+          // Check if the sound has decayed by >= 4.5 dB from its peak or dropped below threshold
+          final bool hasDecayed = (db <= eventPeakDb - 4.5) || !isAboveThreshold;
+          if (!hasDecayed) {
+            eventLoudFrames++;
+            if (db > eventPeakDb) eventPeakDb = db;
+            // Sustained for >= 3 frames (>= 180ms) -> Human speech/syllable or continuous noise!
+            if (eventLoudFrames >= 3) {
+              _isSustainedVoiceWarning = true;
+            }
+          } else {
+            // Sound event just ended! Verify if it was a true narrow percussive impulse (1..2 frames = 60..120ms)
+            if (eventLoudFrames <= 2 &&
+                eventOnsetJump >= 7.0 &&
+                (now - _lastKnockTimestamp) > 250) {
+              _lastKnockTimestamp = now;
+              _knocksDetected++;
+              _isSustainedVoiceWarning = false;
+              HapticFeedback.lightImpact();
+            }
+            inSoundEvent = false;
+            eventLoudFrames = 0;
+          }
         }
+        prevDb = db;
 
         setState(() {
           _currentAmplitudeLevel = normalized;
@@ -508,14 +553,18 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                             duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                             decoration: BoxDecoration(
-                              color: (_knocksDetected >= 2 && _knocksDetected <= 5)
-                                  ? const Color(0xFF0A2E23)
-                                  : const Color(0xFF2E1F0A),
+                              color: _isSustainedVoiceWarning
+                                  ? const Color(0xFF3B1212)
+                                  : ((_knocksDetected >= 2 && _knocksDetected <= 5)
+                                      ? const Color(0xFF0A2E23)
+                                      : const Color(0xFF2E1F0A)),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: (_knocksDetected >= 2 && _knocksDetected <= 5)
-                                    ? const Color(0xFF10B981)
-                                    : const Color(0xFFF59E0B),
+                                color: _isSustainedVoiceWarning
+                                    ? const Color(0xFFEF4444)
+                                    : ((_knocksDetected >= 2 && _knocksDetected <= 5)
+                                        ? const Color(0xFF10B981)
+                                        : const Color(0xFFF59E0B)),
                                 width: 1.2,
                               ),
                             ),
@@ -523,23 +572,34 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  (_knocksDetected >= 2 && _knocksDetected <= 5)
-                                      ? Icons.check_circle_rounded
-                                      : Icons.touch_app_rounded,
-                                  color: (_knocksDetected >= 2 && _knocksDetected <= 5)
-                                      ? const Color(0xFF10B981)
-                                      : const Color(0xFFF59E0B),
+                                  _isSustainedVoiceWarning
+                                      ? Icons.mic_off_rounded
+                                      : ((_knocksDetected >= 2 && _knocksDetected <= 5)
+                                          ? Icons.check_circle_rounded
+                                          : Icons.touch_app_rounded),
+                                  color: _isSustainedVoiceWarning
+                                      ? const Color(0xFFF87171)
+                                      : ((_knocksDetected >= 2 && _knocksDetected <= 5)
+                                          ? const Color(0xFF10B981)
+                                          : const Color(0xFFF59E0B)),
                                   size: 15,
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  "${AppTranslations.text('knocks_detected')}: $_knocksDetected / 3–4",
-                                  style: TextStyle(
-                                    color: (_knocksDetected >= 2 && _knocksDetected <= 5)
-                                        ? const Color(0xFF10B981)
-                                        : const Color(0xFFF59E0B),
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
+                                Flexible(
+                                  child: Text(
+                                    _isSustainedVoiceWarning
+                                        ? "Voice/Noise Ignored (${AppTranslations.text('knocks_detected')}: $_knocksDetected/3)"
+                                        : "${AppTranslations.text('knocks_detected')}: $_knocksDetected / 3–4",
+                                    style: TextStyle(
+                                      color: _isSustainedVoiceWarning
+                                          ? const Color(0xFFF87171)
+                                          : ((_knocksDetected >= 2 && _knocksDetected <= 5)
+                                              ? const Color(0xFF10B981)
+                                              : const Color(0xFFF59E0B)),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
@@ -565,9 +625,11 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                                   height: _isRecording ? _waveformHeights[i] : 6.0,
                                   margin: const EdgeInsets.symmetric(horizontal: 2),
                                   decoration: BoxDecoration(
-                                    color: _waveformHeights[i] > 40.0
-                                        ? const Color(0xFF34D399)
-                                        : const Color(0xFF10B981),
+                                    color: _isSustainedVoiceWarning
+                                        ? const Color(0xFFF59E0B)
+                                        : (_waveformHeights[i] > 40.0
+                                            ? const Color(0xFF34D399)
+                                            : const Color(0xFF10B981)),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                 ),
@@ -597,21 +659,25 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                                   ),
                                   Text(
                                     _isRecording
-                                        ? (_currentAmplitudeLevel > 0.88
-                                            ? "Too Loud!"
-                                            : (_currentAmplitudeLevel >= 0.30
-                                                ? "Good Volume ✓"
-                                                : "Tap Firmly"))
+                                        ? (_isSustainedVoiceWarning
+                                            ? "Voice/Noise (Knock Only!)"
+                                            : (_currentAmplitudeLevel > 0.88
+                                                ? "Too Loud!"
+                                                : (_currentAmplitudeLevel >= 0.30
+                                                    ? "Good Volume ✓"
+                                                    : "Tap Firmly")))
                                         : AppTranslations.text('ideal_range'),
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
                                       color: _isRecording
-                                          ? (_currentAmplitudeLevel > 0.88
-                                              ? Colors.red
-                                              : (_currentAmplitudeLevel >= 0.30
-                                                  ? const Color(0xFF10B981)
-                                                  : Colors.grey))
+                                          ? (_isSustainedVoiceWarning
+                                              ? const Color(0xFFEF4444)
+                                              : (_currentAmplitudeLevel > 0.88
+                                                  ? Colors.red
+                                                  : (_currentAmplitudeLevel >= 0.30
+                                                      ? const Color(0xFF10B981)
+                                                      : Colors.grey)))
                                           : const Color(0xFF10B981),
                                     ),
                                   ),
@@ -625,11 +691,13 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                                   minHeight: 10,
                                   backgroundColor: Colors.grey.shade200,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    _currentAmplitudeLevel > 0.88
-                                        ? const Color(0xFFEF4444)
-                                        : (_currentAmplitudeLevel >= 0.30
-                                            ? const Color(0xFF10B981)
-                                            : const Color(0xFF9CA3AF)),
+                                    _isSustainedVoiceWarning
+                                        ? const Color(0xFFF59E0B)
+                                        : (_currentAmplitudeLevel > 0.88
+                                            ? const Color(0xFFEF4444)
+                                            : (_currentAmplitudeLevel >= 0.30
+                                                ? const Color(0xFF10B981)
+                                                : const Color(0xFF9CA3AF))),
                                   ),
                                 ),
                               ),
