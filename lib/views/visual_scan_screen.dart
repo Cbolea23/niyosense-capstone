@@ -154,7 +154,6 @@ class _VisualScanScreenState extends State<VisualScanScreen>
     int totalBorder = 0;
 
     double sumCenterHue = 0.0;
-    double sumCenterHueSq = 0.0;
     double sumCenterSat = 0.0;
     double sumGreenLum = 0.0;
     double sumGreenLumSq = 0.0;
@@ -211,11 +210,12 @@ class _VisualScanScreenState extends State<VisualScanScreen>
         final double sat = hsv[1];
         final double val = hsv[2];
 
-        // Exact Gate 1 Green/Olive Coconut Husk HSV Criteria (calibrated for flagship & budget cameras)
+        // Natural Coconut Husk HSV Criteria (supports green, olive, golden-yellow, brown-scarred husks,
+        // well-lit daylight, and warm LED camera flash highlights):
         final bool isGreenHusk =
-            (hue >= 34.0 && hue <= 156.0) &&
-            (sat >= 0.12 && sat <= 0.88) &&
-            (val >= 0.14 && val <= 0.94);
+            (hue >= 14.0 && hue <= 162.0) &&
+            (sat >= 0.06 && sat <= 0.95) &&
+            (val >= 0.12 && val <= 0.98);
 
         final bool isCenter = (gx >= 2 && gx <= 7 && gy >= 2 && gy <= 7);
         if (isCenter) {
@@ -223,7 +223,6 @@ class _VisualScanScreenState extends State<VisualScanScreen>
           if (isGreenHusk) {
             centerGreenCount++;
             sumCenterHue += hue;
-            sumCenterHueSq += hue * hue;
             sumCenterSat += sat;
             sumGreenLum += yVal;
             sumGreenLumSq += yVal * yVal;
@@ -233,7 +232,8 @@ class _VisualScanScreenState extends State<VisualScanScreen>
             if (gx >= 5 && gy >= 5) qBottomRight++;
           }
           if (gx >= 3 && gx <= 6 && gy >= 3 && gy <= 6) {
-            if ((val > 0.65 && sat < 0.20) || (sat > 0.50 && (hue < 25.0 || hue > 165.0))) {
+            // Only flag unnatural non-coconut colors (blue, cyan, purple, magenta)
+            if (sat > 0.48 && (hue >= 180.0 && hue <= 338.0)) {
               centerGlareCount++;
             }
           }
@@ -255,16 +255,10 @@ class _VisualScanScreenState extends State<VisualScanScreen>
     // Hue & Luminance standard deviation across green center pixels
     double meanHue = 0.0;
     double meanSat = 0.0;
-    double hueStdDev = 0.0;
     double greenLumStdDev = 0.0;
     if (centerGreenCount > 4) {
       meanHue = sumCenterHue / centerGreenCount;
       meanSat = sumCenterSat / centerGreenCount;
-      final double hueVar = math.max(
-        0.0,
-        (sumCenterHueSq / centerGreenCount) - (meanHue * meanHue),
-      );
-      hueStdDev = math.sqrt(hueVar);
 
       final double meanGreenLum = sumGreenLum / centerGreenCount;
       final double lumVar = math.max(
@@ -299,52 +293,51 @@ class _VisualScanScreenState extends State<VisualScanScreen>
     double newScore = 0.0;
     String newStatusKey = 'not_aligned_hint';
 
-    if (meanLum < 28.0) {
+    if (meanLum < 22.0) {
       // Camera lens covered or pitch dark
       newTier = 0;
       newScore = 0.08;
       newStatusKey = 'too_dark_hint';
-    } else if (centerRatio < 0.28) {
+    } else if (centerRatio < 0.25) {
       // No coconut in center circle
       newTier = 0;
-      newScore = (centerRatio / 0.45).clamp(0.05, 0.30);
+      newScore = (centerRatio / 0.40).clamp(0.05, 0.30);
       newStatusKey = 'not_aligned_hint';
-    } else if (meanHue > 108.0 && meanSat > 0.42) {
-      // Artificial emerald green bottle, plastic, or dyed box!
+    } else if (meanHue > 148.0 && meanSat > 0.78) {
+      // Extreme neon/cyan dye
       newTier = 0;
       newScore = 0.15;
       newStatusKey = 'flat_color_hint';
-    } else if (centerGlareCount >= 3) {
-      // Bottle label or glossy plastic glare inside the core
+    } else if (centerGlareCount >= 5) {
+      // Blue/purple/magenta non-coconut label inside the core
       newTier = 0;
       newScore = 0.18;
       newStatusKey = 'flat_color_hint';
-    } else if (centerRatio >= 0.40 && (greenLumStdDev < 11.0 || hueStdDev < 3.5 || edgeRoughness < 3.5)) {
-      // Synthetic green object lacking 3D coconut husk shading
+    } else if (centerRatio >= 0.40 && (greenLumStdDev < 4.5 && edgeRoughness < 1.8)) {
+      // Completely flat painted wall or solid digital screen lacking 3D shading
       newTier = 0;
       newScore = 0.18;
       newStatusKey = 'flat_color_hint';
-    } else if (borderRatio >= 0.58) {
+    } else if (borderRatio >= 0.85) {
       // Camera too close or background filled with green clutter
       newTier = 0;
       newScore = 0.25;
       newStatusKey = 'too_close_hint';
-    } else if (edgeRoughness > 20.0) {
-      // Grass or foliage background
+    } else if (edgeRoughness > 42.0) {
+      // Extreme high-frequency grass or clutter
       newTier = 0;
       newScore = 0.25;
       newStatusKey = 'foliage_hint';
-    } else if (centerRatio < 0.44 || activeQuadrants < 3) {
+    } else if (centerRatio < 0.38 || activeQuadrants < 3) {
       // Coconut detected, but slightly off-center or too small
       newTier = 1;
-      newScore = 0.62;
-      newStatusKey = centerRatio < 0.44 ? 'almost_aligned_closer' : 'almost_aligned_center';
+      newScore = 0.65;
+      newStatusKey = centerRatio < 0.38 ? 'almost_aligned_closer' : 'almost_aligned_center';
     } else {
-      // Locked On! Real 3D coconut fills the circle with natural shading
+      // Locked On! Real 3D coconut fills the circle (works in dim, well-lit, and flash-on conditions)
       newTier = 2;
-      final double fillBonus = ((centerRatio - 0.44) / 0.45).clamp(0.0, 0.22);
-      final double borderPenalty = (borderRatio * 0.15).clamp(0.0, 0.10);
-      newScore = (0.82 + fillBonus - borderPenalty).clamp(0.80, 0.98);
+      final double fillBonus = ((centerRatio - 0.38) / 0.45).clamp(0.0, 0.20);
+      newScore = (0.82 + fillBonus).clamp(0.82, 0.98);
       newStatusKey = 'coconut_aligned';
     }
 

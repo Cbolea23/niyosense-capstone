@@ -160,12 +160,13 @@ class TfliteService {
         final double sat = hsv[1];
         final double val = hsv[2];
 
-        // Natural Green/Olive Coconut Husk HSV Criteria (calibrated for both flagship & budget camera ISPs):
-        // Hue 34° to 156°, Saturation 0.12 to 0.88, Value 0.14 to 0.94
+        // Natural Coconut Husk HSV Criteria (supports green, olive, golden-yellow, brown-scarred husks,
+        // well-lit daylight, and warm LED camera flash highlights):
+        // Hue 14° to 162°, Saturation 0.06 to 0.95, Value 0.12 to 0.98
         final bool isGreenHuskPixel =
-            (hue >= 34.0 && hue <= 156.0) &&
-            (sat >= 0.12 && sat <= 0.88) &&
-            (val >= 0.14 && val <= 0.94);
+            (hue >= 14.0 && hue <= 162.0) &&
+            (sat >= 0.06 && sat <= 0.95) &&
+            (val >= 0.12 && val <= 0.98);
 
         // Center 60% ROI check [13..50]
         if (x >= roiStart && x <= roiEnd && y >= roiStart && y <= roiEnd) {
@@ -187,10 +188,11 @@ class TfliteService {
             if (isGreenHuskPixel) {
               coreGreenPixels++;
             }
-            // Detect bright specular plastic/glass glare or non-coconut bottle label colors
-            final bool isSpecularGlare = (val > 0.65 && sat < 0.20);
-            final bool isLabelColor = (sat > 0.50 && (hue < 25.0 || hue > 165.0));
-            if (isSpecularGlare || isLabelColor) {
+            // Detect unnatural non-coconut colors (blue, cyan, purple, magenta, neon pink)
+            // Does NOT penalize camera flash highlights or natural brown coconut scars (Hue 10°..34°)
+            final bool isLabelColor =
+                (sat > 0.48 && (hue >= 180.0 && hue <= 338.0));
+            if (isLabelColor) {
               coreGlareOrLabelPixels++;
             }
           }
@@ -211,44 +213,44 @@ class TfliteService {
     final double variance = math.max(0.0, (sumLumSq / totalPixels) - (meanLuminance * meanLuminance));
     final double stdDev = math.sqrt(variance);
 
-    if (meanLuminance < 28.0 || meanLuminance > 242.0 || stdDev < 8.0) {
+    if (meanLuminance < 22.0 || meanLuminance > 248.0 || stdDev < 5.5) {
       debugPrint(
         "⛔ [GATE 1 - LUMINANCE] Rejected: meanLum=${meanLuminance.toStringAsFixed(1)}, stdDev=${stdDev.toStringAsFixed(1)}",
       );
       return "Camera obstructed or invalid lighting.";
     }
 
-    // 2. Green Coconut Husk Fill Check (Center 60% ROI & Inner Core 37.5%)
+    // 2. Coconut Husk Fill Check (Center 60% ROI & Inner Core 37.5%)
     final double centerGreenRatio =
         totalCenterPixels > 0 ? (validCoconutCenterPixels / totalCenterPixels) : 0.0;
     final double coreGreenRatio = coreGreenPixels / totalCorePixels;
     final double coreGlareRatio = coreGlareOrLabelPixels / totalCorePixels;
 
-    if (centerGreenRatio < 0.42 || coreGreenRatio < 0.65) {
+    if (centerGreenRatio < 0.34 || coreGreenRatio < 0.48) {
       debugPrint(
         "⛔ [GATE 1 - HSV HUSK FILL] Rejected: centerGreen=${(centerGreenRatio * 100).toStringAsFixed(1)}%, "
         "coreGreen=${(coreGreenRatio * 100).toStringAsFixed(1)}%",
       );
-      return "No coconut centered in the frame. Fill the circular guide with a single green coconut.";
+      return "No coconut centered in the frame. Fill the circular guide with a single coconut.";
     }
 
-    // 3. Inner Core Specular Glare / Bottle Label Check
-    if (coreGlareRatio > 0.06) {
+    // 3. Inner Core Unnatural Color Check (Blue/Purple/Magenta Labels)
+    if (coreGlareRatio > 0.22) {
       debugPrint(
-        "⛔ [GATE 1 - GLARE/LABEL] Rejected: coreGlareRatio=${(coreGlareRatio * 100).toStringAsFixed(1)}% (> 6%)",
+        "⛔ [GATE 1 - GLARE/LABEL] Rejected: coreGlareRatio=${(coreGlareRatio * 100).toStringAsFixed(1)}% (> 22%)",
       );
-      return "Plastic glare, bottle label, or non-coconut surface detected. Point camera at a natural coconut husk.";
+      return "Non-coconut label or object detected. Point camera at a natural coconut husk.";
     }
 
-    // 4. Spherical Aspect Ratio & Span Check (Rejects cylindrical green bottles)
+    // 4. Spherical Aspect Ratio & Span Check (Rejects narrow cylindrical bottles)
     int wSpan = 0;
     int hSpan = 0;
     for (int i = 0; i < 38; i++) {
-      if (colGreenCounts[i] >= 10) wSpan++;
-      if (rowGreenCounts[i] >= 10) hSpan++;
+      if (colGreenCounts[i] >= 8) wSpan++;
+      if (rowGreenCounts[i] >= 8) hSpan++;
     }
     final double aspect = wSpan / math.max(hSpan, 1);
-    if (wSpan < 22 || hSpan < 22 || aspect < 0.65 || aspect > 1.48) {
+    if (wSpan < 16 || hSpan < 16 || aspect < 0.50 || aspect > 1.85) {
       debugPrint(
         "⛔ [GATE 1 - SHAPE/ASPECT] Rejected: wSpan=$wSpan, hSpan=$hSpan, aspect=${aspect.toStringAsFixed(2)}",
       );
@@ -277,8 +279,8 @@ class TfliteService {
     );
     final double greenLumStdDev = math.sqrt(greenLumVar);
 
-    // Reject artificial emerald/neon green dyes (Sprite/Mountain Dew bottles, green boxes, jerseys)
-    if (meanCenterHue > 108.0 && meanCenterSat > 0.42) {
+    // Reject only extreme neon/cyan artificial dyes (while allowing vibrant well-lit green coconuts)
+    if (meanCenterHue > 148.0 && meanCenterSat > 0.78) {
       debugPrint(
         "⛔ [GATE 1 - ARTIFICIAL DYE] Rejected: meanHue=${meanCenterHue.toStringAsFixed(1)}°, "
         "meanSat=${meanCenterSat.toStringAsFixed(2)}",
@@ -286,7 +288,7 @@ class TfliteService {
       return "Artificial green plastic, bottle, or dyed object detected. Point camera at a natural coconut husk.";
     }
 
-    // 6. Edge Roughness, Border Overfill & 3D Curvature Shading Check
+    // 6. Edge Roughness, Border Overfill & Flat Solid Wall Check
     double sumEdgeDiff = 0.0;
     int edgeCount = 0;
     for (int y = roiStart; y < roiEnd; y++) {
@@ -311,30 +313,27 @@ class TfliteService {
       "sat=${meanCenterSat.toStringAsFixed(2)}±${satStdDev.toStringAsFixed(3)}",
     );
 
-    if (borderGreenRatio > 0.58) {
+    if (borderGreenRatio > 0.85) {
       debugPrint(
-        "⛔ [GATE 1 - BORDER OVERFILL] Rejected: borderGreen=${(borderGreenRatio * 100).toStringAsFixed(1)}% (> 58%)",
+        "⛔ [GATE 1 - BORDER OVERFILL] Rejected: borderGreen=${(borderGreenRatio * 100).toStringAsFixed(1)}% (> 85%)",
       );
       return "Camera is too close, or background has too much green foliage/clutter. Frame a single coconut inside the circle.";
     }
 
-    if (edgeRoughness > 19.5) {
+    if (edgeRoughness > 42.0) {
       debugPrint(
-        "⛔ [GATE 1 - HIGH ROUGHNESS] Rejected: edgeRoughness=${edgeRoughness.toStringAsFixed(1)} (> 19.5)",
+        "⛔ [GATE 1 - HIGH ROUGHNESS] Rejected: edgeRoughness=${edgeRoughness.toStringAsFixed(1)} (> 42.0)",
       );
       return "Background foliage, grass, or sharp text/labels detected. Center a single coconut husk.";
     }
 
-    // Real 3D curved coconuts have natural spherical luminance shading (greenLumStdDev >= 12.0, calibrated for budget ISP smoothing)
-    // and organic husk color variation (hueStdDev >= 3.8°, satStdDev >= 0.025, edgeRoughness >= 3.8).
-    // Synthetic green bottles, plastic containers, folders, walls, and shirts have flat shading below these bounds.
-    if (greenLumStdDev < 12.0 || edgeRoughness < 3.8 || hueStdDev < 3.8 || satStdDev < 0.025) {
+    // Reject only completely uniform digital screens or flat painted walls lacking any 3D shading
+    if (greenLumStdDev < 5.0 && edgeRoughness < 1.8) {
       debugPrint(
         "⛔ [GATE 1 - SYNTHETIC/FLAT OBJECT] Rejected: greenLumStd=${greenLumStdDev.toStringAsFixed(1)}, "
-        "edgeRough=${edgeRoughness.toStringAsFixed(1)}, hueStd=${hueStdDev.toStringAsFixed(1)}°, "
-        "satStd=${satStdDev.toStringAsFixed(3)}",
+        "edgeRough=${edgeRoughness.toStringAsFixed(1)}",
       );
-      return "Non-coconut green object detected (bottle, plastic, or flat surface). Please scan a real coconut.";
+      return "Flat painted surface or solid color detected. Please scan a real 3D coconut.";
     }
 
     return null; // Passed all Gate 1 checks!
