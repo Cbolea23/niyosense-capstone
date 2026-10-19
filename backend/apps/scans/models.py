@@ -6,7 +6,7 @@ from django.db import models
 class FarmProfile(models.Model):
   """Farm and owner profile information."""
   owner_name = models.CharField(max_length=150, default='Maria Santos')
-  farm_name = models.CharField(max_length=200, default='Santos Coconut Farm')
+  farm_name = models.CharField(max_length=200, default='Plantation Owner Portal')
   location = models.CharField(max_length=200, default='Quezon Province')
   email = models.EmailField(blank=True, default='m.santos@niyosense.ph')
   updated_at = models.DateTimeField(auto_now=True)

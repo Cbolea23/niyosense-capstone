@@ -35,6 +35,9 @@ def _sum_bunch(queryset):
 
 def web_dashboard(request):
     farm_profile = FarmProfile.get_profile()
+    if farm_profile.farm_name in ('haha', 'Local Farm', ''):
+        farm_profile.farm_name = 'Plantation Owner Portal'
+        farm_profile.save(update_fields=['farm_name'])
 
     if request.method == 'POST' and 'update_farm_profile' in request.POST:
         farm_profile.owner_name = request.POST.get('owner_name', farm_profile.owner_name).strip()
@@ -99,6 +102,9 @@ def web_dashboard(request):
 
     from django.contrib.auth import get_user_model
     User = get_user_model()
+    User.objects.filter(first_name='Plantation', last_name='Operator').update(
+        first_name='On-Site Farm', last_name='Manager'
+    )
     aggregators = User.objects.filter(role=getattr(User.Roles, 'AGGREGATOR', 'AGGREGATOR')).order_by('-date_joined')
 
     # Deliveries and Payouts Data for Owner
