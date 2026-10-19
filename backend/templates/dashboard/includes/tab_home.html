@@ -1,8 +1,9 @@
+{% load static %}
 <!-- Farm Owner Welcome / Greeting Banner -->
 <div class="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div class="flex items-center space-x-4">
-        <div class="w-14 h-14 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center justify-center text-3xl shadow-sm">
-            🥥
+        <div class="w-14 h-14 bg-emerald-50 border border-emerald-100 rounded-2xl p-2 flex items-center justify-center shadow-sm shrink-0">
+            <img src="{% static 'logo/logo.png' %}" alt="NiyoSense Logo" class="w-full h-full object-contain rounded-xl" />
         </div>
         <div>
             <div class="flex items-center gap-2">
@@ -20,35 +21,30 @@
     </div>
     <div class="flex items-center gap-2 shrink-0">
         <button onclick="switchTab('analytics')"
-            class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold px-3.5 py-2.5 rounded-xl transition flex items-center gap-1.5">
-            <span>📊</span> <span>View Valuation</span>
+            class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold px-3.5 py-2.5 rounded-xl transition flex items-center justify-center">
+            <span>View Valuation</span>
         </button>
         <button onclick="switchTab('settings')"
-            class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3 py-2.5 rounded-xl transition flex items-center gap-1">
-            <span>⚙️</span> <span>Farm Settings</span>
+            class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3 py-2.5 rounded-xl transition flex items-center justify-center">
+            <span>Farm Settings</span>
         </button>
     </div>
 </div>
 
 <!-- Bungkos / Cluster Sampling Protocol Info Banner -->
 <div class="bg-gradient-to-r from-emerald-50 via-teal-50/60 to-white border border-emerald-200/90 rounded-2xl p-4 mb-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-    <div class="flex items-center space-x-3.5">
-        <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg shadow-sm shrink-0">
-            🌿
+    <div>
+        <div class="flex items-center gap-2">
+            <h4 class="font-bold text-slate-800 text-xs tracking-tight">Cluster (Bungkos) Sampling Protocol Active</h4>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">SOP Standard</span>
         </div>
-        <div>
-            <div class="flex items-center gap-2">
-                <h4 class="font-bold text-slate-800 text-xs tracking-tight">Cluster (Bungkos) Sampling Protocol Active</h4>
-                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">SOP Standard</span>
-            </div>
-            <p class="text-[11px] text-slate-500 mt-0.5">
-                Workers input the exact coconut count per harvested bunch (bungkos) on the mobile app. All dashboard tallies reflect actual coconut volume.
-            </p>
-        </div>
+        <p class="text-[11px] text-slate-500 mt-0.5">
+            Workers input the exact coconut count per harvested bunch (bungkos) on the mobile app. All dashboard tallies reflect actual coconut volume.
+        </p>
     </div>
     <div class="flex items-center gap-2 self-start sm:self-auto shrink-0">
-        <span class="text-xs bg-white border border-emerald-200 text-emerald-800 font-bold px-3 py-1.5 rounded-xl shadow-2xs flex items-center gap-1.5">
-            <span>📦</span> <span id="stat-total-bunches">{{ total_bunches|default:0 }} Bunches Sampled</span>
+        <span class="text-xs bg-white border border-emerald-200 text-emerald-800 font-bold px-3 py-1.5 rounded-xl shadow-2xs flex items-center">
+            <span id="stat-total-bunches">{{ total_bunches|default:0 }} Bunches Sampled</span>
         </span>
     </div>
 </div>
@@ -57,8 +53,7 @@
     <!-- Real-Time Total Scans Card -->
     <div class="bg-emerald-600 text-white p-6 rounded-2xl shadow-sm relative overflow-hidden">
         <div class="flex justify-between items-start mb-4">
-            <div class="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-lg">🌴
-            </div>
+            <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-100">Harvest Volume</span>
             <span id="stat-scans-today"
                 class="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold">+{{ scans_today }}
                 nuts today</span>

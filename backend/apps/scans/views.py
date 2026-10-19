@@ -145,7 +145,7 @@ def web_dashboard(request):
         'batch_summaries': batch_summaries,
         'total_farm_payout': total_farm_payout,
         'farm_profile': farm_profile,
-        'app_version': '1.4.5',
+        'app_version': '1.4.7',
         'model_pipeline': 'Multimodal Audio-Visual v2.5.3 (70/30 Audio-Visual + 3-Gate OOD)',
         'inference_engine': 'TFLite (Dual-Modality Late Fusion)',
     }

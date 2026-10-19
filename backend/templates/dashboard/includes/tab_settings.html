@@ -1,15 +1,12 @@
+{% load static %}
 <p class="text-xs text-slate-400 mb-6" data-i18n="preferences_sub">Preferences for your local farm dashboard</p>
 
 <div class="max-w-xl space-y-4">
     <!-- Language Selection Card -->
     <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm flex justify-between items-center">
-        <div class="flex items-center space-x-4">
-            <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 text-lg">🌐
-            </div>
-            <div>
-                <h4 class="font-bold text-slate-800 text-sm" data-i18n="lang_title">Language / Wika</h4>
-                <p class="text-xs text-slate-400" data-i18n="lang_desc">English / Filipino (Tagalog)</p>
-            </div>
+        <div>
+            <h4 class="font-bold text-slate-800 text-sm" data-i18n="lang_title">Language / Wika</h4>
+            <p class="text-xs text-slate-400" data-i18n="lang_desc">English / Filipino (Tagalog)</p>
         </div>
         <div class="bg-slate-100 p-1 rounded-xl flex gap-1 font-semibold text-xs">
             <button id="btn-lang-en" onclick="setDashboardLanguage('en')"
@@ -38,7 +35,7 @@
         </div>
         <button type="button" onclick="openFarmProfileModal()"
             class="text-xs bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 font-semibold px-3 py-2 rounded-xl transition flex items-center gap-1.5 border border-slate-200/60">
-            <span>✏️</span> <span>Edit Profile</span>
+            <span>Edit Profile</span>
         </button>
     </div>
 
@@ -61,7 +58,7 @@
 
             <button onclick="showQrModal()" type="button"
                 class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl text-xs font-semibold shrink-0 flex items-center gap-2 transition shadow-sm">
-                <span>📷</span> <span data-i18n="scan_qr_code">Scan QR Code</span>
+                <span data-i18n="scan_qr_code">Scan QR Code</span>
             </button>
         </div>
         <p class="text-[11px] text-slate-400" data-i18n="server_ip_hint">Connected via permanent Cloudflare tunnel (<code class="text-emerald-600 font-mono">https://niyosense.me</code>). Click Scan QR Code to pair mobile devices.</p>
@@ -70,8 +67,8 @@
     <!-- Mobile App Installation Card -->
     <div class="bg-gradient-to-br from-emerald-500 to-teal-700 rounded-2xl p-5 shadow-sm text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div class="flex items-center space-x-4">
-            <div class="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-2xl shrink-0">
-                📲
+            <div class="w-12 h-12 bg-white rounded-2xl p-1.5 flex items-center justify-center shadow-sm shrink-0">
+                <img src="{% static 'logo/logo.png' %}" alt="NiyoSense Logo" class="w-full h-full object-contain rounded-xl" />
             </div>
             <div>
                 <h4 class="font-bold text-sm" data-i18n="install_app_title">NiyoSense Field App (Android)</h4>
@@ -85,12 +82,12 @@
 
         <div class="flex items-center gap-2 shrink-0">
             <a href="/media/downloads/niyosense.apk" download="niyosense.apk"
-                class="bg-white text-emerald-700 hover:bg-emerald-50 px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
-                <span>⬇️</span> <span data-i18n="download_apk_btn">Download APK</span>
+                class="bg-white text-emerald-700 hover:bg-emerald-50 px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center shadow-sm">
+                <span data-i18n="download_apk_btn">Download APK</span>
             </a>
             <button onclick="showApkQrModal()" type="button"
-                class="bg-white/20 hover:bg-white/30 text-white px-3.5 py-2.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
-                <span>📷</span> <span data-i18n="scan_apk_qr">QR</span>
+                class="bg-white/20 hover:bg-white/30 text-white px-3.5 py-2.5 rounded-xl text-xs font-semibold transition flex items-center justify-center">
+                <span data-i18n="scan_apk_qr">Scan QR</span>
             </button>
         </div>
     </div>
@@ -115,8 +112,7 @@
         </div>
         <div class="pt-2">
             <button type="button" onclick="openEulaModal()"
-                class="w-full bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-slate-700 hover:text-emerald-700 font-semibold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2">
-                <span>🛡️</span>
+                class="w-full bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-slate-700 hover:text-emerald-700 font-semibold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center">
                 <span data-i18n="view_eula_btn">View End-User License Agreement (EULA) & Data Privacy Policy</span>
             </button>
         </div>
@@ -131,14 +127,9 @@
             &times;
         </button>
 
-        <div class="flex items-center space-x-3 mb-5 pb-3 border-b border-slate-100">
-            <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 text-lg">
-                👨‍🌾
-            </div>
-            <div>
-                <h3 class="font-bold text-slate-800 text-sm">Edit Farm & Owner Profile</h3>
-                <p class="text-[11px] text-slate-400">Update plantation owner name and location</p>
-            </div>
+        <div class="mb-5 pb-3 border-b border-slate-100">
+            <h3 class="font-bold text-slate-800 text-sm">Edit Farm & Owner Profile</h3>
+            <p class="text-[11px] text-slate-400">Update plantation owner name and location</p>
         </div>
 
         <form method="POST" action="/" class="space-y-3.5 text-xs">
@@ -171,8 +162,8 @@
 
             <div class="pt-3 flex items-center gap-2">
                 <button type="submit"
-                    class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-sm">
-                    <span>💾</span> <span>Save Farm Profile</span>
+                    class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center shadow-sm">
+                    <span>Save Farm Profile</span>
                 </button>
                 <button type="button" onclick="closeFarmProfileModal()"
                     class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold py-2.5 px-4 rounded-xl text-xs transition">

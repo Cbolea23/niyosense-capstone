@@ -14,25 +14,25 @@
 
         <nav class="space-y-1">
             <button onclick="switchTab('home')" id="nav-home"
-                class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-active">
-                <span>🏠</span> <span data-i18n="nav_home">Home</span>
+                class="w-full flex items-center px-4 py-3 rounded-xl transition text-left text-sm nav-active">
+                <span data-i18n="nav_home">Home</span>
             </button>
             <button onclick="switchTab('analytics')" id="nav-analytics"
-                class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-inactive">
-                <span>📊</span> <span data-i18n="nav_analytics">Analytics</span>
+                class="w-full flex items-center px-4 py-3 rounded-xl transition text-left text-sm nav-inactive">
+                <span data-i18n="nav_analytics">Analytics</span>
             </button>
             <button onclick="switchTab('logs')" id="nav-logs"
-                class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-inactive">
-                <span>📅</span> <span data-i18n="nav_logs">Grading Logs</span>
+                class="w-full flex items-center px-4 py-3 rounded-xl transition text-left text-sm nav-inactive">
+                <span data-i18n="nav_logs">Grading Logs</span>
             </button>
 
             <button onclick="switchTab('aggregators')" id="nav-aggregators"
-                class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-inactive">
-                <span>👥</span> <span data-i18n="nav_aggregators">Manage Workers</span>
+                class="w-full flex items-center px-4 py-3 rounded-xl transition text-left text-sm nav-inactive">
+                <span data-i18n="nav_aggregators">Manage Workers</span>
             </button>
             <button onclick="switchTab('settings')" id="nav-settings"
-                class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-inactive">
-                <span>⚙️</span> <span data-i18n="nav_settings">Settings</span>
+                class="w-full flex items-center px-4 py-3 rounded-xl transition text-left text-sm nav-inactive">
+                <span data-i18n="nav_settings">Settings</span>
             </button>
         </nav>
     </div>
@@ -40,12 +40,9 @@
     <div class="pt-4 border-t border-slate-100 space-y-2">
         <button onclick="openEulaModal()" type="button"
             class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 transition text-left border border-slate-200/70">
-            <div class="flex items-center space-x-2.5">
-                <span class="text-sm">🛡️</span>
-                <div>
-                    <span class="block text-[11px] font-bold leading-tight" data-i18n="nav_eula">EULA & Data Privacy</span>
-                    <span class="block text-[9.5px] text-slate-400">RA 10173 • NPC Compliant</span>
-                </div>
+            <div>
+                <span class="block text-[11px] font-bold leading-tight" data-i18n="nav_eula">EULA & Data Privacy</span>
+                <span class="block text-[9.5px] text-slate-400">RA 10173 • NPC Compliant</span>
             </div>
             <span class="text-xs text-emerald-600 font-bold">›</span>
         </button>

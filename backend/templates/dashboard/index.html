@@ -67,8 +67,8 @@
     <div id="eulaModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4 transition-opacity">
         <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 text-left relative flex flex-col max-h-[85vh]">
             <div class="flex items-center space-x-3 pb-4 border-b border-slate-100">
-                <div class="w-11 h-11 bg-emerald-50 border border-emerald-200/60 rounded-2xl flex items-center justify-center text-emerald-600 text-xl shrink-0">
-                    🛡️
+                <div class="w-11 h-11 bg-emerald-50 border border-emerald-200/60 rounded-2xl p-1.5 flex items-center justify-center shadow-sm shrink-0">
+                    <img src="{% static 'logo/logo.png' %}" alt="NiyoSense Logo" class="w-full h-full object-contain rounded-xl" />
                 </div>
                 <div>
                     <h3 class="font-bold text-slate-800 text-sm sm:text-base" data-i18n="eula_modal_title">End-User License Agreement (EULA) & Data Privacy</h3>
@@ -303,7 +303,7 @@
                         varianceCard.className = "border border-rose-200 bg-rose-50/70 rounded-xl p-4 transition";
                     }
                     if (varianceDisplay) varianceDisplay.className = "text-2xl font-bold font-mono text-rose-700";
-                    if (varianceIcon) varianceIcon.innerText = "📉";
+                    if (varianceIcon) varianceIcon.innerText = "";
                     if (varianceNotice) varianceNotice.innerText = "Commercial price leakage: Buyer paid below graded batch value.";
                 } else if (variance > 0) {
                     varianceDisplay.innerText = '+₱' + variance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -311,7 +311,7 @@
                         varianceCard.className = "border border-emerald-200 bg-emerald-50/70 rounded-xl p-4 transition";
                     }
                     if (varianceDisplay) varianceDisplay.className = "text-2xl font-bold font-mono text-emerald-700";
-                    if (varianceIcon) varianceIcon.innerText = "📈";
+                    if (varianceIcon) varianceIcon.innerText = "";
                     if (varianceNotice) varianceNotice.innerText = "Premium pricing: Buyer paid above graded batch value.";
                 } else {
                     varianceDisplay.innerText = '₱0.00';
@@ -319,7 +319,7 @@
                         varianceCard.className = "border border-slate-200 bg-slate-50/70 rounded-xl p-4 transition";
                     }
                     if (varianceDisplay) varianceDisplay.className = "text-2xl font-bold font-mono text-slate-700";
-                    if (varianceIcon) varianceIcon.innerText = "⚖️";
+                    if (varianceIcon) varianceIcon.innerText = "";
                     if (varianceNotice) varianceNotice.innerText = "Balanced: Buyer payout matches estimated graded value.";
                 }
             }
@@ -328,11 +328,11 @@
         function switchTab(tab) {
             document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
             document.querySelectorAll('nav button').forEach(btn => {
-                btn.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-inactive";
+                btn.className = "w-full flex items-center px-4 py-3 rounded-xl transition text-left text-sm nav-inactive";
             });
 
             document.getElementById('tab-' + tab).classList.remove('hidden');
-            document.getElementById('nav-' + tab).className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition text-left nav-active";
+            document.getElementById('nav-' + tab).className = "w-full flex items-center px-4 py-3 rounded-xl transition text-left text-sm nav-active";
 
             const titles = { 'home': 'nav_home', 'analytics': 'nav_analytics', 'logs': 'nav_logs', 'deliveries': 'nav_deliveries', 'aggregators': 'nav_aggregators', 'settings': 'nav_settings' };
             const lang = localStorage.getItem('niyosense_lang') || 'en';
@@ -555,8 +555,8 @@
                             </td>
                             <td class="p-4 text-right">
                                 <button type="button" ${newUserId ? `onclick="event.stopPropagation(); openAggregatorModal(${newUserId})"` : ''}
-                                    class="text-xs bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-600 font-semibold px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1">
-                                    <span>⚙️</span> <span>Edit</span>
+                                    class="text-xs bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-600 font-semibold px-3 py-1.5 rounded-lg transition inline-flex items-center justify-center">
+                                    <span>Edit</span>
                                 </button>
                             </td>
                         `;
@@ -577,7 +577,7 @@
                 alertEl.innerText = "Network error. Could not contact backend server.";
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.innerText = "➕ Create Operator Account";
+                submitBtn.innerText = "Create Operator Account";
             }
         }
 
@@ -618,7 +618,7 @@
                         credPassEl.type = "password";
                     }
                     const toggleBtn = document.getElementById('togglePasswordBtn');
-                    if (toggleBtn) toggleBtn.innerText = "👁️";
+                    if (toggleBtn) toggleBtn.innerText = "Show";
                     const copyStatus = document.getElementById('copyCredStatusText');
                     if (copyStatus) copyStatus.innerText = "Copy";
 
@@ -652,10 +652,10 @@
             if (!passInput) return;
             if (passInput.type === "password") {
                 passInput.type = "text";
-                if (toggleBtn) toggleBtn.innerText = "🙈";
+                if (toggleBtn) toggleBtn.innerText = "Hide";
             } else {
                 passInput.type = "password";
-                if (toggleBtn) toggleBtn.innerText = "👁️";
+                if (toggleBtn) toggleBtn.innerText = "Show";
             }
         }
 
@@ -745,7 +745,7 @@
                 alertMsg.innerText = "Network error while saving changes.";
             } finally {
                 saveBtn.disabled = false;
-                saveBtn.innerText = "💾 Save Changes";
+                saveBtn.innerText = "Save Changes";
             }
         }
 
@@ -850,8 +850,8 @@
                                             <td class="p-4 font-medium text-slate-700">${log.username}</td>
                                             <td class="p-4">${devHtml}</td>
                                             <td class="p-4">
-                                                <span class="inline-flex items-center gap-1 text-[10.5px] font-semibold text-emerald-800 bg-emerald-50/90 border border-emerald-200/60 px-2 py-0.5 rounded-lg">
-                                                    <span>🌿</span> <span>${log.bunch_count || 1} pcs in Bungkos</span>
+                                                <span class="inline-flex items-center text-[10.5px] font-semibold text-emerald-800 bg-emerald-50/90 border border-emerald-200/60 px-2 py-0.5 rounded-lg">
+                                                    <span>${log.bunch_count || 1} pcs in Bungkos</span>
                                                 </span>
                                             </td>
                                             <td class="p-4 text-slate-600">${log.visual_prediction}</td>
@@ -945,7 +945,7 @@
                 table_date_joined: "Date Added",
                 table_status: "Status",
                 no_aggregators_found: "No workers created yet. Use the form on the left to add mobile users.",
-                admin_credential_notice: "💡 Inform field operators to use these usernames and passwords in the mobile app's dedicated login screen.",
+                admin_credential_notice: "Inform field operators to use these usernames and passwords in the mobile app's dedicated login screen.",
                 qr_modal_title: "Pair Mobile App",
                 qr_modal_desc: "Scan this QR code in the NiyoSense mobile app to pair with your server endpoint.",
                 qr_modal_close: "Close",
@@ -990,7 +990,7 @@
                 table_date_joined: "Petsa ng Pagsali",
                 table_status: "Katayuan",
                 no_aggregators_found: "Wala pang nagagawang manggagawa. Gamitin ang form sa kaliwa upang magdagdag.",
-                admin_credential_notice: "💡 Ibigay sa mga field operator ang username at password para sa nakatalagang login screen ng mobile app.",
+                admin_credential_notice: "Ibigay sa mga field operator ang username at password para sa nakatalagang login screen ng mobile app.",
                 total_scans: "Kabuuan ng Niyog na Nasuri",
                 today_suffix: "ngayon",
                 all_time_visits: "Lahat ng tala sa mga naitalang bisita",

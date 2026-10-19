@@ -31,8 +31,8 @@
                     {% endif %}
                 </td>
                 <td class="p-4">
-                    <span class="inline-flex items-center gap-1 text-[10.5px] font-semibold text-emerald-800 bg-emerald-50/90 border border-emerald-200/60 px-2 py-0.5 rounded-lg" title="Graded sample represents this entire harvested cluster (bungkos)">
-                        <span>🌿</span> <span>{{ log.bunch_count|default:1 }} pcs in Bungkos</span>
+                    <span class="inline-flex items-center text-[10.5px] font-semibold text-emerald-800 bg-emerald-50/90 border border-emerald-200/60 px-2 py-0.5 rounded-lg" title="Graded sample represents this entire harvested cluster (bungkos)">
+                        <span>{{ log.bunch_count|default:1 }} pcs in Bungkos</span>
                     </span>
                 </td>
                 <td class="p-4 text-slate-600">{{ log.visual_prediction }}</td>

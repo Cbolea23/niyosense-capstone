@@ -3,14 +3,9 @@
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <!-- Left Column: Create New Worker Account Form -->
     <div class="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm h-fit">
-        <div class="flex items-center space-x-3 mb-4">
-            <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 text-lg">
-                👤➕
-            </div>
-            <div>
-                <h3 class="font-bold text-slate-800 text-sm" data-i18n="add_aggregator_title">Add Field Worker</h3>
-                <p class="text-[11px] text-slate-400" data-i18n="add_aggregator_sub">Create credentials for mobile app operator</p>
-            </div>
+        <div class="mb-4">
+            <h3 class="font-bold text-slate-800 text-sm" data-i18n="add_aggregator_title">Add Field Worker</h3>
+            <p class="text-[11px] text-slate-400" data-i18n="add_aggregator_sub">Create credentials for mobile app operator</p>
         </div>
 
         <form id="createAggregatorForm" onsubmit="handleCreateAggregator(event)" class="space-y-4">
@@ -51,8 +46,8 @@
             <div id="aggregatorFormAlert" class="hidden text-xs rounded-xl p-3"></div>
 
             <button type="submit" id="submitAggregatorBtn"
-                class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-sm">
-                <span>➕</span> <span data-i18n="create_account_btn">Create Operator Account</span>
+                class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center shadow-sm">
+                <span data-i18n="create_account_btn">Create Operator Account</span>
             </button>
         </form>
     </div>
@@ -125,8 +120,8 @@
                             </td>
                             <td class="p-4 text-right">
                                 <button type="button" data-agg-id="{{ agg.id }}" onclick="event.stopPropagation(); openAggregatorModal(this.dataset.aggId)"
-                                    class="text-xs bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-600 font-semibold px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1">
-                                    <span>⚙️</span> <span data-i18n="btn_edit">Edit</span>
+                                    class="text-xs bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-600 font-semibold px-3 py-1.5 rounded-lg transition inline-flex items-center justify-center">
+                                    <span data-i18n="btn_edit">Edit</span>
                                 </button>
                             </td>
                         </tr>
@@ -143,7 +138,7 @@
         </div>
 
         <div class="p-4 bg-slate-50 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between">
-            <span data-i18n="admin_credential_notice">💡 Click any account row to view details, reset password, change names, or manage access.</span>
+            <span data-i18n="admin_credential_notice">Click any account row to view details, reset password, change names, or manage access.</span>
         </div>
     </div>
 </div>
@@ -194,11 +189,9 @@
             <!-- Active Login Credentials Box for Admin -->
             <div class="bg-emerald-50/70 border border-emerald-200/90 rounded-2xl p-3.5 space-y-2">
                 <div class="flex items-center justify-between">
-                    <span class="text-emerald-900 font-bold text-xs flex items-center gap-1.5">
-                        <span>🔐</span> <span>Current Login Credentials</span>
-                    </span>
-                    <button type="button" onclick="copyAggregatorCredentials()" class="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1 transition">
-                        <span>📋</span> <span id="copyCredStatusText">Copy</span>
+                    <span class="text-emerald-900 font-bold text-xs">Current Login Credentials</span>
+                    <button type="button" onclick="copyAggregatorCredentials()" class="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 hover:underline transition">
+                        <span id="copyCredStatusText">Copy</span>
                     </button>
                 </div>
                 <div class="grid grid-cols-2 gap-2 text-xs">
@@ -209,8 +202,8 @@
                     <div class="bg-white/90 border border-emerald-200/70 rounded-xl p-2 relative">
                         <div class="flex items-center justify-between">
                             <span class="block text-[10px] text-slate-400 font-semibold uppercase">Password</span>
-                            <button type="button" onclick="togglePasswordVisibility()" class="text-xs text-slate-400 hover:text-slate-700 transition" title="Show/Hide Password" id="togglePasswordBtn">
-                                👁️
+                            <button type="button" onclick="togglePasswordVisibility()" class="text-[10px] font-semibold text-emerald-700 hover:text-emerald-900 transition" title="Show/Hide Password" id="togglePasswordBtn">
+                                Show
                             </button>
                         </div>
                         <div class="flex items-center mt-0.5">
@@ -220,13 +213,13 @@
                     </div>
                 </div>
                 <p class="text-[10px] text-emerald-800/80 leading-relaxed">
-                    💡 If this operator forgets their login details, share this username and password with them.
+                    If this operator forgets their login details, share this username and password with them.
                 </p>
             </div>
 
             <div class="bg-amber-50/60 border border-amber-200/80 rounded-2xl p-3.5 space-y-1.5">
-                <div class="flex items-center gap-1.5 text-amber-800 font-bold text-xs">
-                    <span>🔑</span> <span data-i18n="reset_password_label">Change / Reset Password</span>
+                <div class="text-amber-800 font-bold text-xs">
+                    <span data-i18n="reset_password_label">Change / Reset Password</span>
                 </div>
                 <p class="text-[11px] text-amber-700/80" data-i18n="reset_password_hint">Leave blank to keep existing password, or enter new password below.</p>
                 <input type="password" id="modalNewPassword" placeholder="New password (optional)" minlength="6"
@@ -248,12 +241,12 @@
 
             <div class="pt-2 flex items-center gap-2">
                 <button type="submit" id="saveAggregatorBtn"
-                    class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-sm">
-                    <span>💾</span> <span data-i18n="btn_save_changes">Save Changes</span>
+                    class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center shadow-sm">
+                    <span data-i18n="btn_save_changes">Save Changes</span>
                 </button>
                 <button type="button" onclick="handleDeleteAggregator()" id="deleteAggregatorBtn"
-                    class="bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold py-2.5 px-3 rounded-xl text-xs transition flex items-center gap-1 border border-rose-100">
-                    <span>🗑️</span> <span data-i18n="btn_delete">Delete</span>
+                    class="bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold py-2.5 px-3 rounded-xl text-xs transition flex items-center justify-center border border-rose-100">
+                    <span data-i18n="btn_delete">Delete</span>
                 </button>
             </div>
         </form>
