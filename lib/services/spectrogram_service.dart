@@ -4,15 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
 
-class SpectrogramValidationException implements Exception {
-  final String message;
-  final int stripeCount;
-  SpectrogramValidationException(this.message, {this.stripeCount = 0});
-
-  @override
-  String toString() => message;
-}
-
 class SpectrogramService {
   static const int sampleRate = 22050;
   static const int targetSamples = sampleRate * 4; // 88,200 samples (4.0s)
@@ -93,26 +84,14 @@ class SpectrogramService {
     return filterbank;
   }
 
-  /// Reads raw 16-bit PCM audio samples from a WAV file, detects native sample rate and channels,
-  /// downmixes stereo to mono if needed, resamples to exactly 22,050 Hz, and pads/trims to target 88,200 samples
+  /// Reads raw 16-bit PCM audio samples from a WAV file and pads/trims to 88,200 samples
   static Float32List _readAndFixWavAudio(File wavFile) {
     final bytes = wavFile.readAsBytesSync();
     if (bytes.length < 44) {
-      throw SpectrogramValidationException("No acoustic tap detected in spectrogram. Knock the coconut shoulder 3 times.");
+      throw Exception("Invalid WAV file: size too small.");
     }
 
-    int fileSampleRate = 44100;
-    int channels = 1;
-    try {
-      final headerData = ByteData.sublistView(bytes, 0, 44);
-      channels = headerData.getUint16(22, Endian.little);
-      fileSampleRate = headerData.getUint32(24, Endian.little);
-      debugPrint("🎵 [AUDIO SPEC] Detected WAV: $fileSampleRate Hz, $channels channel(s)");
-    } catch (_) {
-      fileSampleRate = 44100;
-      channels = 1;
-    }
-
+    // Locate the 'data' subchunk inside the WAV file header
     int dataIndex = 36;
     for (int i = 12; i < bytes.length - 4; i++) {
       if (bytes[i] == 0x64 &&
@@ -125,7 +104,7 @@ class SpectrogramService {
     }
 
     if (dataIndex >= bytes.length) {
-      dataIndex = 44;
+      dataIndex = 44; // Standard WAV header fallback
     }
 
     if (dataIndex >= bytes.length) {
@@ -133,51 +112,13 @@ class SpectrogramService {
     }
 
     final byteData = ByteData.sublistView(bytes, dataIndex);
-    final int rawSampleCount = byteData.lengthInBytes ~/ 2;
-    if (rawSampleCount == 0) {
-      return Float32List(targetSamples);
-    }
-
-    // Convert raw 16-bit PCM to normalized float [-1.0 .. 1.0] and mixdown to mono
-    Float32List monoSamples;
-    if (channels == 2) {
-      final int numFrames = rawSampleCount ~/ 2;
-      monoSamples = Float32List(numFrames);
-      for (int i = 0; i < numFrames; i++) {
-        final double left = byteData.getInt16(i * 4, Endian.little) / 32768.0;
-        final double right = byteData.getInt16(i * 4 + 2, Endian.little) / 32768.0;
-        monoSamples[i] = (left + right) / 2.0;
-      }
-    } else {
-      monoSamples = Float32List(rawSampleCount);
-      for (int i = 0; i < rawSampleCount; i++) {
-        monoSamples[i] = byteData.getInt16(i * 2, Endian.little) / 32768.0;
-      }
-    }
+    final int availableSamples = byteData.lengthInBytes ~/ 2;
+    final int samplesToRead = math.min(availableSamples, targetSamples);
 
     final pcmSamples = Float32List(targetSamples);
-
-    // Resample monoSamples to exactly 22,050 Hz (88,200 samples for 4.0s)
-    if (fileSampleRate <= 0) fileSampleRate = 44100;
-    final double resampleRatio = fileSampleRate / sampleRate;
-
-    final int samplesToGenerate = math.min(
-      targetSamples,
-      (monoSamples.length / resampleRatio).floor(),
-    );
-
-    for (int i = 0; i < samplesToGenerate; i++) {
-      final double srcPos = i * resampleRatio;
-      final int srcIdx = srcPos.floor();
-      final double frac = srcPos - srcIdx;
-
-      if (srcIdx + 1 < monoSamples.length) {
-        pcmSamples[i] = (1.0 - frac) * monoSamples[srcIdx] + frac * monoSamples[srcIdx + 1];
-      } else if (srcIdx < monoSamples.length) {
-        pcmSamples[i] = monoSamples[srcIdx];
-      }
+    for (int i = 0; i < samplesToRead; i++) {
+      pcmSamples[i] = byteData.getInt16(i * 2, Endian.little) / 32768.0;
     }
-
     return pcmSamples;
   }
 
@@ -228,225 +169,9 @@ class SpectrogramService {
     }
   }
 
-  /// GATE 2: MEL-SPECTROGRAM PERCUSSIVE KNOCK vs. VOICE/NOISE DISCRIMINATOR
-  /// Downsamples generated spectrogram image to 64x64 grid (1 col = ~62.5ms) and enforces:
-  /// 1. Event Width Check: Real coconut knocks are narrow impulses (1..4 cols = 62..250ms).
-  ///    Human speech, syllables, humming, or sustained noise span >= 5 cols (> 310ms) -> REJECTED.
-  /// 2. Sharp Attack & Decay Prominence: Each knock must rise >= 14 brightness units above its
-  ///    immediate pre/post neighbor columns. Slow vocal fade-ins/fade-outs -> REJECTED.
-  /// 3. Spectral Cavity Resonance Ratio: Compares Coconut Low-Mid Resonance Band (rows 28..58, ~150-1,800 Hz)
-  ///    against High-Frequency Sibilance/Clap/Plastic Band (rows 4..22, ~3,000-9,500 Hz).
-  /// 4. Valid Knock Count: Requires 2 to 5 distinct percussive coconut knocks in the 4.0s window.
-  static int validateSpectrogramStripes(img.Image specImage) {
-    final grid = img.copyResize(specImage, width: 64, height: 64);
-    const int startRow = 10;
-    const int endRow = 60;
-    const int numRows = endRow - startRow + 1;
-
-    final List<double> colEnergy = List<double>.filled(64, 0.0);
-    final List<double> lowMidBandEnergy = List<double>.filled(64, 0.0); // y=28..58 (~150Hz - 1800Hz coconut cavity)
-    final List<double> highVocalClapEnergy = List<double>.filled(64, 0.0); // y=4..22 (~3000Hz - 9500Hz voice sibilants/claps)
-
-    for (int x = 0; x < 64; x++) {
-      double sumBrightness = 0.0;
-      double sumLowMid = 0.0;
-      double sumHigh = 0.0;
-
-      for (int y = 0; y < 64; y++) {
-        final p = grid.getPixel(x, y);
-        final double brightness = 0.299 * p.r + 0.587 * p.g + 0.114 * p.b;
-        if (y >= startRow && y <= endRow) {
-          sumBrightness += brightness;
-        }
-        if (y >= 28 && y <= 58) {
-          sumLowMid += brightness;
-        }
-        if (y >= 4 && y <= 22) {
-          sumHigh += brightness;
-        }
-      }
-      colEnergy[x] = sumBrightness / numRows;
-      lowMidBandEnergy[x] = sumLowMid / 31.0;
-      highVocalClapEnergy[x] = sumHigh / 19.0;
-    }
-
-    final List<double> sortedEnergy = List<double>.from(colEnergy)..sort();
-    final double medianColEnergy = (sortedEnergy[31] + sortedEnergy[32]) / 2.0;
-    final double peakThreshold = math.max(medianColEnergy + 13.0, 24.0);
-
-    // 1. Reject continuous noisy environment or nonstop talking (median energy too high)
-    if (medianColEnergy > 50.0) {
-      debugPrint("⛔ [GATE 2 - CONTINUOUS NOISE/SPEECH] medianColEnergy=${medianColEnergy.toStringAsFixed(1)}");
-      throw SpectrogramValidationException(
-        "Background noise or continuous talking detected. Please record in a quieter spot and knock 3 times.",
-        stripeCount: 0,
-      );
-    }
-
-    // 2. Group active columns into contiguous sound events (bridging 1-column micro-gaps inside syllables)
-    final List<bool> isActive = List<bool>.generate(64, (x) => colEnergy[x] > peakThreshold);
-    int totalActiveCols = 0;
-    for (int x = 0; x < 64; x++) {
-      if (isActive[x]) totalActiveCols++;
-    }
-
-    // Bridge single-column dips inside spoken words so multi-syllable speech is measured as a wide event
-    final List<bool> bridged = List<bool>.from(isActive);
-    for (int x = 1; x < 63; x++) {
-      if (!bridged[x] && bridged[x - 1] && bridged[x + 1]) {
-        bridged[x] = true;
-      }
-    }
-
-    int validKnockCount = 0;
-    int wideVoiceOrNoiseEvents = 0;
-    int highFreqClapOrVocalEvents = 0;
-    int softNonPercussiveEvents = 0;
-
-    int x = 0;
-    while (x < 64) {
-      if (!bridged[x]) {
-        x++;
-        continue;
-      }
-      final int startCol = x;
-      while (x < 64 && bridged[x]) {
-        x++;
-      }
-      final int endCol = x - 1;
-      final int width = endCol - startCol + 1;
-
-      // Find peak column within this event
-      int peakCol = startCol;
-      double maxColVal = colEnergy[startCol];
-      for (int c = startCol; c <= endCol; c++) {
-        if (colEnergy[c] > maxColVal) {
-          maxColVal = colEnergy[c];
-          peakCol = c;
-        }
-      }
-
-      // Check A: Event Duration (Width)
-      // A real percussive coconut knock is 1 to 4 columns wide (62ms - 250ms).
-      // Human speech syllables/words, humming, or blowing last >= 5 columns (>= 312ms).
-      if (width >= 5) {
-        wideVoiceOrNoiseEvents++;
-        debugPrint(
-          "⛔ [GATE 2 - VOICE/WIDE EVENT] Cols $startCol..$endCol (width=$width cols, ~${width * 62}ms) -> Human speech/sustained sound",
-        );
-        continue;
-      }
-
-      // Check B: Sharp Percussive Attack & Decay Prominence
-      final int preIdx1 = (startCol - 1).clamp(0, 63);
-      final int preIdx2 = (startCol - 2).clamp(0, 63);
-      final double preBaseline = math.min(colEnergy[preIdx1], colEnergy[preIdx2]);
-
-      final int postIdx1 = (endCol + 1).clamp(0, 63);
-      final int postIdx2 = (endCol + 2).clamp(0, 63);
-      final double postBaseline = math.min(colEnergy[postIdx1], colEnergy[postIdx2]);
-
-      final double attackProminence = maxColVal - preBaseline;
-      final double decayProminence = maxColVal - postBaseline;
-
-      if (attackProminence < 13.0 || decayProminence < 11.0) {
-        softNonPercussiveEvents++;
-        debugPrint(
-          "⛔ [GATE 2 - SLOW ONSET/DECAY] Col $peakCol attack=${attackProminence.toStringAsFixed(1)}, decay=${decayProminence.toStringAsFixed(1)}",
-        );
-        continue;
-      }
-
-      // Check C: Spectral Band Ratio (Low-Mid Coconut Cavity vs High-Freq Sibilance/Claps)
-      final double lowMid = lowMidBandEnergy[peakCol];
-      final double highBand = highVocalClapEnergy[peakCol];
-      if (lowMid < 24.0 || highBand > lowMid * 1.08) {
-        highFreqClapOrVocalEvents++;
-        debugPrint(
-          "⛔ [GATE 2 - SPECTRAL MISMATCH] Col $peakCol lowMid=${lowMid.toStringAsFixed(1)}, highBand=${highBand.toStringAsFixed(1)}",
-        );
-        continue;
-      }
-
-      validKnockCount++;
-    }
-
-    debugPrint(
-      "🎵 [GATE 2 - KNOCK DISCRIMINATOR] Median=${medianColEnergy.toStringAsFixed(1)}, "
-      "Thresh=${peakThreshold.toStringAsFixed(1)}, ValidKnocks=$validKnockCount, "
-      "WideVoiceEvents=$wideVoiceOrNoiseEvents, SoftEvents=$softNonPercussiveEvents, "
-      "HighFreqEvents=$highFreqClapOrVocalEvents, ActiveCols=$totalActiveCols/64",
-    );
-
-    if (wideVoiceOrNoiseEvents >= 1 || totalActiveCols > 18) {
-      throw SpectrogramValidationException(
-        "Human voice or sustained background sound detected. Please stay quiet and knock the coconut 3 times.",
-        stripeCount: validKnockCount,
-      );
-    }
-
-    if (highFreqClapOrVocalEvents >= 2 && validKnockCount < 2) {
-      throw SpectrogramValidationException(
-        "Non-coconut sound detected (clap, snap, or speech). Please knock directly on the coconut equator 3 times.",
-        stripeCount: validKnockCount,
-      );
-    }
-
-    if (validKnockCount < 2) {
-      throw SpectrogramValidationException(
-        "Insufficient crisp coconut knocks detected ($validKnockCount/3). Stay quiet and knock the coconut firmly 3 times.",
-        stripeCount: validKnockCount,
-      );
-    }
-
-    if (validKnockCount > 5) {
-      throw SpectrogramValidationException(
-        "Too many rapid taps or noise spikes detected ($validKnockCount spikes). Knock strictly 3 times.",
-        stripeCount: validKnockCount,
-      );
-    }
-
-    return validKnockCount;
-  }
-
   /// Generates the exact [1, 3, 224, 224] Float32 tensor matching Librosa + Magma
-  /// and runs Gate 2 (Mel-Spectrogram Image Stripe Counter) before returning.
   static Object generateSpectrogramTensor(File wavFile) {
     final samples = _readAndFixWavAudio(wavFile);
-
-    // Remove DC offset so mic hardware bias does not skew low-frequency bins or peak detection
-    double sumSample = 0.0;
-    for (int i = 0; i < samples.length; i++) {
-      sumSample += samples[i];
-    }
-    final double dcOffset = sumSample / samples.length;
-
-    // Raw silence floor check (prevents amplifying pure digital zeros into white noise)
-    double peakAmp = 0.0;
-    for (int i = 0; i < samples.length; i++) {
-      final double centered = samples[i] - dcOffset;
-      samples[i] = centered;
-      final double val = centered.abs();
-      if (val > peakAmp) peakAmp = val;
-    }
-    if (peakAmp < 0.005) {
-      throw SpectrogramValidationException(
-        "No acoustic tap detected in spectrogram. Knock the coconut shoulder 3 times.",
-        stripeCount: 0,
-      );
-    }
-
-    // Normalize peak amplitude to 0.95 full scale (bounded at 25x max boost) so phones with raw
-    // UNPROCESSED ADC levels (e.g. Samsung S25+ with peak ~0.12) never clip against the 1e-10 STFT floor.
-    final double normGain = (0.95 / peakAmp).clamp(1.0, 25.0);
-    if (normGain > 1.01) {
-      for (int i = 0; i < samples.length; i++) {
-        samples[i] = (samples[i] * normGain).clamp(-1.0, 1.0);
-      }
-      debugPrint(
-        "🎵 [AUDIO SPEC] Peak=${peakAmp.toStringAsFixed(4)}, applied ${normGain.toStringAsFixed(2)}x gain normalization",
-      );
-    }
 
     // 1. Center-reflect pad audio with nFft // 2 = 1024 samples on both sides
     const int pad = nFft ~/ 2;
@@ -513,7 +238,9 @@ class SpectrogramService {
       }
     }
 
+    // Top-dB clipping floor (-80 dB below peak)
     const double topDb = 80.0;
+
     for (int m = 0; m < nMels; m++) {
       for (int f = 0; f < numFrames; f++) {
         sDb[m][f] = math.max(sDb[m][f] - maxVal, -topDb);
@@ -524,9 +251,11 @@ class SpectrogramService {
     final tensorBuffer = Float32List(1 * 3 * targetHeight * targetWidth);
     const int channelSize = targetHeight * targetWidth;
 
+    // Also build an RGB image to save as PNG for visual inspection
     final img.Image debugImg = img.Image(width: targetWidth, height: targetHeight);
 
     for (int y = 0; y < targetHeight; y++) {
+      // In specshow, row 0 (top of image) is highest frequency (mel 127)
       final double melPos = (1.0 - (y / (targetHeight - 1))) * (nMels - 1);
       final int m0 = melPos.floor().clamp(0, nMels - 2);
       final double mRatio = melPos - m0;
@@ -536,6 +265,7 @@ class SpectrogramService {
         final int f0 = framePos.floor().clamp(0, numFrames - 2);
         final double fRatio = framePos - f0;
 
+        // Bilinear interpolation of dB value
         final double v00 = sDb[m0][f0];
         final double v10 = sDb[m0 + 1][f0];
         final double v01 = sDb[m0][f0 + 1];
@@ -544,14 +274,16 @@ class SpectrogramService {
         final double interpDb = (1 - mRatio) * ((1 - fRatio) * v00 + fRatio * v01) +
             mRatio * ((1 - fRatio) * v10 + fRatio * v11);
 
+        // Normalize [-80, 0] dB to [0.0, 1.0]
         final double normalized = (interpDb + topDb) / topDb;
         final rgb = _magma(normalized);
 
         final int pixelIndex = y * targetWidth + x;
-        tensorBuffer[0 * channelSize + pixelIndex] = rgb[0];
-        tensorBuffer[1 * channelSize + pixelIndex] = rgb[1];
-        tensorBuffer[2 * channelSize + pixelIndex] = rgb[2];
+        tensorBuffer[0 * channelSize + pixelIndex] = rgb[0]; // Red channel
+        tensorBuffer[1 * channelSize + pixelIndex] = rgb[1]; // Green channel
+        tensorBuffer[2 * channelSize + pixelIndex] = rgb[2]; // Blue channel
 
+        // Set pixel for inspection PNG
         debugImg.setPixelRgb(
           x,
           y,
@@ -562,7 +294,7 @@ class SpectrogramService {
       }
     }
 
-    // Save PNG alongside audio file for inspection
+    // Save PNG alongside audio file for inspection (Test A)
     try {
       final pngPath = wavFile.path.replaceAll(RegExp(r'\.wav$', caseSensitive: false), '_spectrogram.png');
       final pngBytes = img.encodePng(debugImg);
@@ -572,30 +304,6 @@ class SpectrogramService {
       debugPrint("⚠️ Could not write debug spectrogram PNG: $e");
     }
 
-    // 7. Run Gate 2: Mel-Spectrogram Image Stripe Counter on the 224x224 Magma image
-    validateSpectrogramStripes(debugImg);
-
     return tensorBuffer.reshape([1, 3, targetHeight, targetWidth]);
-  }
-
-  /// Background isolate wrapper so STFT, Mel-filterbank, and PNG encoding never block the UI thread on budget phones
-  static Map<String, dynamic> generateSpectrogramInIsolate(String wavPath) {
-    try {
-      final tensor = generateSpectrogramTensor(File(wavPath));
-      return {'ok': true, 'tensor': tensor};
-    } on SpectrogramValidationException catch (e) {
-      return {
-        'ok': false,
-        'isValidation': true,
-        'message': e.message,
-        'stripeCount': e.stripeCount,
-      };
-    } catch (e) {
-      return {
-        'ok': false,
-        'isValidation': false,
-        'message': e.toString(),
-      };
-    }
   }
 }

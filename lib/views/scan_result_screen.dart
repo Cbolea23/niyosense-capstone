@@ -29,7 +29,9 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
   bool _isProcessing = true;
   String _finalGrade = "MATURE";
   String _visualPred = "buko";
+  double _visualConf = 0.0;
   String _audioPred = "buko";
+  double _audioConf = 0.0;
   double _confidence = 0.85;
   bool _isValidObject = true;
 
@@ -74,25 +76,22 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
         result = await _tfliteService.predict(
           imageFile: imgFile,
           audioFile: audioFile,
-          visualWeight: 0.30, // 30% Visual / 70% Audio
-          confidenceThreshold: 0.65,
+          visualWeight: 0.50, // 50% Visual / 50% Audio (Raw V2 Baseline)
+          confidenceThreshold: 0.0, // No rejection guardrails
         );
       }
 
       if (result != null) {
-        debugPrint("🎯 FUSED PREDICTION (V2): ${result.label} (Conf: ${(result.confidence * 100).toStringAsFixed(1)}%)");
-        debugPrint("📸 Visual: ${result.visualLabel} | 🎵 Audio: ${result.audioLabel}");
+        debugPrint("🎯 FUSED PREDICTION (RAW V2): ${result.label} (Conf: ${(result.confidence * 100).toStringAsFixed(1)}%)");
+        debugPrint("📸 Visual: ${result.visualLabel} (${(result.visualConfidence * 100).toStringAsFixed(1)}%) | 🎵 Audio: ${result.audioLabel} (${(result.audioConfidence * 100).toStringAsFixed(1)}%)");
 
-        _isValidObject = result.isValidObject;
+        _isValidObject = true;
         _confidence = result.confidence;
         _visualPred = result.visualLabel;
+        _visualConf = result.visualConfidence;
         _audioPred = widget.audioRecorded ? result.audioLabel : AppTranslations.text('skipped_audio');
-
-        if (_isValidObject) {
-          _finalGrade = result.label.toUpperCase();
-        } else {
-          _finalGrade = AppTranslations.text('unrecognized_object');
-        }
+        _audioConf = widget.audioRecorded ? result.audioConfidence : 0.0;
+        _finalGrade = result.label.toUpperCase();
       }
     } catch (e, stack) {
       debugPrint("⚠️ Inference error: $e");
@@ -325,7 +324,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                                       style: const TextStyle(color: Colors.black54),
                                     ),
                                     Text(
-                                      _visualPred.toUpperCase(),
+                                      "${_visualPred.toUpperCase()} (${(_visualConf * 100).toStringAsFixed(1)}%)",
                                       style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF059669)),
                                     ),
                                   ],
@@ -339,7 +338,9 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                                       style: const TextStyle(color: Colors.black54),
                                     ),
                                     Text(
-                                      _audioPred.toUpperCase(),
+                                      widget.audioRecorded
+                                          ? "${_audioPred.toUpperCase()} (${(_audioConf * 100).toStringAsFixed(1)}%)"
+                                          : _audioPred.toUpperCase(),
                                       style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF059669)),
                                     ),
                                   ],
