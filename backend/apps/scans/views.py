@@ -450,7 +450,7 @@ def download_apk_page(request):
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
 def app_version_check_api(request):
-    apk_release_url = "https://github.com/Cbolea23/niyosense-capstone/releases/download/v1.4.6/niyosense.apk"
+    apk_release_url = "https://github.com/Cbolea23/niyosense-capstone/releases/download/v1.4.7/niyosense.apk"
     apk_rel_path = 'media/downloads/niyosense.apk'
     apk_abs_path = os.path.join(settings.BASE_DIR, apk_rel_path)
     file_exists = os.path.exists(apk_abs_path)
@@ -465,10 +465,10 @@ def app_version_check_api(request):
 
     return Response({
         "success": True,
-        "latest_version": "1.4.6",
-        "latest_build_number": 18,
-        "release_title": "NiyoSense Field v1.4.6 (Universal & Budget Phone Edition)",
-        "release_notes": "Optimized for Budget & Older Phones (32-bit/64-bit ARM, 2-plane NV21 Camera HUD, Background Isolate Inference for 60 FPS UI, LargeHeap OOM Protection, 720p Compact Screen Support) + Google Drive Mirror.",
+        "latest_version": "1.4.7",
+        "latest_build_number": 19,
+        "release_title": "NiyoSense Field v1.4.7 (All-Light Coconut HUD & Voice Rejection)",
+        "release_notes": "Fixed Camera Live HUD & Gate 1 in Flash/Well-Lit/Daylight & Golden-Olive/Brown-Scarred Coconuts + Added Human Voice/Noise Rejection in Audio Modal & Gate 2 + Budget/Older Phone Optimization.",
         "download_url": download_url,
         "install_page_url": install_page_url,
         "google_drive_url": google_drive_url,
