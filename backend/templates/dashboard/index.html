@@ -79,7 +79,7 @@
             <div class="overflow-y-auto py-4 pr-1 space-y-3.5 text-xs text-slate-600 leading-relaxed">
                 <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5">
                     <h4 class="font-bold text-slate-800 mb-1">1. Purpose & Decision-Support Scope</h4>
-                    <p>NiyoSense is an AI-assisted coconut maturity profiling system developed as an academic capstone and agricultural decision-support tool for <em>Cocos nucifera</em> grading (<strong>Malauhog / Premature</strong>, <strong>Buko / Mature</strong>, and <strong>Overmature / Copra</strong>). It assists farmers, field operators, and plantation owners in harvest quality auditing and batch valuation.</p>
+                    <p>NiyoSense is an AI-assisted coconut maturity profiling system developed as an academic capstone and agricultural decision-support tool for <em>Cocos nucifera</em> grading (<strong>Malauhog / Premature</strong>, <strong>Buko / Mature</strong>, and <strong>Overmature / Copra</strong>). It assists farmers, field managers, and plantation owners in harvest quality auditing and batch valuation.</p>
                 </div>
 
                 <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5">
@@ -87,7 +87,7 @@
                     <p>In compliance with the <strong>Philippine Data Privacy Act of 2012 (Republic Act No. 10173)</strong>, NiyoSense collects only the minimum operational telemetry required for farm grading audits:</p>
                     <ul class="list-disc list-inside mt-1.5 space-y-1 text-slate-600">
                         <li>Coconut visual sample images and 5-second acoustic tap recordings</li>
-                        <li>Assigned operator username, device identifier, and scan timestamps</li>
+                        <li>Assigned field manager username, device identifier, and scan timestamps</li>
                         <li>Bunch counts (<em>bungkos</em>) and maturity classification probabilities</li>
                     </ul>
                     <p class="mt-1.5">No unrelated personal files, contacts, personal photos, or background conversations are accessed or shared with third-party advertisers.</p>
@@ -95,12 +95,12 @@
 
                 <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5">
                     <h4 class="font-bold text-slate-800 mb-1">3. Local Storage, Security & Retention</h4>
-                    <p>Field scans are stored locally on mobile SQLite and synchronized over encrypted HTTPS/JWT channels to the authorized farm server. Farm owners and operators retain full ownership of their plantation records and may export or delete records at any time.</p>
+                    <p>Field scans are stored locally on mobile SQLite and synchronized over encrypted HTTPS/JWT channels to the authorized farm server. Farm owners and field managers retain full ownership of their plantation records and may export or delete records at any time.</p>
                 </div>
 
                 <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5">
                     <h4 class="font-bold text-slate-800 mb-1">4. Limitation of Liability</h4>
-                    <p>AI predictions rely on lighting conditions, husk surface visibility, and acoustic tap clarity. NiyoSense provides automated grading estimates "AS IS" as a supplementary decision-support tool. Final commercial grading and settlement decisions remain the responsibility of the farm owner and aggregator.</p>
+                    <p>AI predictions rely on lighting conditions, husk surface visibility, and acoustic tap clarity. NiyoSense provides automated grading estimates "AS IS" as a supplementary decision-support tool. Final commercial grading and settlement decisions remain the responsibility of the farm owner and field manager.</p>
                 </div>
             </div>
 
@@ -515,7 +515,7 @@
                 const data = await res.json();
                 if (res.ok && data.success) {
                     alertEl.className = "text-xs rounded-xl p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 block";
-                    alertEl.innerText = `Account "${username}" created! Operator can now log in on mobile.`;
+                    alertEl.innerText = `Account "${username}" created! Field manager can now log in on mobile.`;
                     document.getElementById('createAggregatorForm').reset();
 
                     // Append row to table
@@ -540,12 +540,12 @@
                                             <span>${username}</span>
                                             <span class="opacity-0 group-hover:opacity-100 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded transition">Manage</span>
                                         </p>
-                                        <p class="text-[11px] text-slate-400">${firstName || lastName ? `${firstName} ${lastName}` : (email || 'Field Worker')}</p>
+                                        <p class="text-[11px] text-slate-400">${firstName || lastName ? `${firstName} ${lastName}` : (email || 'On-Site Farm Manager')}</p>
                                     </div>
                                 </div>
                             </td>
                             <td class="p-4">
-                                <span class="bg-teal-50 text-teal-700 font-semibold px-2.5 py-0.5 rounded-full text-[10.5px]">AGGREGATOR</span>
+                                <span class="bg-teal-50 text-teal-700 font-semibold px-2.5 py-0.5 rounded-full text-[10.5px]">FIELD MANAGER</span>
                             </td>
                             <td class="p-4 text-slate-500 text-[11px]">Just now</td>
                             <td class="p-4">
@@ -570,14 +570,14 @@
                     }
                 } else {
                     alertEl.className = "text-xs rounded-xl p-3 bg-rose-50 text-rose-800 border border-rose-200 block";
-                    alertEl.innerText = data.error || "Failed to create aggregator account.";
+                    alertEl.innerText = data.error || "Failed to create field manager account.";
                 }
             } catch (err) {
                 alertEl.className = "text-xs rounded-xl p-3 bg-rose-50 text-rose-800 border border-rose-200 block";
                 alertEl.innerText = "Network error. Could not contact backend server.";
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.innerText = "Create Operator Account";
+                submitBtn.innerText = "+ Create Field Manager Account";
             }
         }
 
@@ -752,7 +752,7 @@
         async function handleDeleteAggregator() {
             if (!currentManagingUserId) return;
             const username = document.getElementById('modalUsernameDisplay').innerText;
-            if (!confirm(`Are you sure you want to permanently delete aggregator account "${username}"?`)) {
+            if (!confirm(`Are you sure you want to permanently delete field manager account "${username}"?`)) {
                 return;
             }
 
@@ -903,7 +903,7 @@
                 monthly_yield_sub: "Total coconuts scanned per month (Historical)",
                 logs_sub: "Browse scan sessions synchronized from mobile SQLite",
                 table_uuid_date: "UUID / Date",
-                table_aggregator: "Aggregator",
+                table_aggregator: "Field Manager",
                 table_visual: "Visual",
                 table_acoustic: "Acoustic",
                 table_final_grade: "Final Grade",
@@ -926,26 +926,26 @@
                 meta_version: "App Version",
                 meta_pipeline: "Model Pipeline",
                 meta_engine: "Inference Engine",
-                nav_aggregators: "Manage Workers",
-                aggregators_sub: "Manage field operators and workers authorized to use the NiyoSense mobile app",
-                add_aggregator_title: "Add Field Worker",
-                add_aggregator_sub: "Create credentials for mobile app operator",
+                nav_aggregators: "Manage Field Managers",
+                aggregators_sub: "Manage on-site field managers authorized to grade harvests and log batch sales on the mobile app",
+                add_aggregator_title: "Add Field Manager",
+                add_aggregator_sub: "Create mobile app credentials for your on-site farm manager",
                 field_username: "Username *",
                 field_first_name: "First Name",
                 field_last_name: "Last Name",
                 field_email: "Email (Optional)",
                 field_password: "Password *",
-                password_min_hint: "Minimum 6 characters. Provide this to the field worker.",
-                create_account_btn: "Create Operator Account",
-                active_aggregators_title: "Registered Field Workers",
-                active_aggregators_sub: "Users authorized to record scans and synchronize from mobile",
+                password_min_hint: "Minimum 6 characters. Provide this to your field manager.",
+                create_account_btn: "+ Create Field Manager Account",
+                active_aggregators_title: "Registered Field Managers",
+                active_aggregators_sub: "Managers authorized to scan harvest batches and sync sales logs from mobile",
                 accounts_badge: "Accounts",
-                table_user: "Operator",
+                table_user: "Field Manager",
                 table_role: "Role",
                 table_date_joined: "Date Added",
                 table_status: "Status",
-                no_aggregators_found: "No workers created yet. Use the form on the left to add mobile users.",
-                admin_credential_notice: "Inform field operators to use these usernames and passwords in the mobile app's dedicated login screen.",
+                no_aggregators_found: "No field managers created yet. Use the form on the left to add mobile users.",
+                admin_credential_notice: "Provide these credentials to your field managers to log into the NiyoSense mobile scanner app.",
                 qr_modal_title: "Pair Mobile App",
                 qr_modal_desc: "Scan this QR code in the NiyoSense mobile app to pair with your server endpoint.",
                 qr_modal_close: "Close",
@@ -970,27 +970,27 @@
                 master_rates_title: "Pangunahing Presyo ng Pagbili Bawat Piraso (PHP)",
                 save_rates_btn: "I-save ang Presyo",
                 deliveries_history: "Mga Naitalang Delivery Mula sa Field App",
-                nav_aggregators: "Pamamahala ng Manggagawa",
+                nav_aggregators: "Pamamahala ng Field Manager",
                 nav_settings: "Mga Setting",
-                aggregators_sub: "Pamahalaan ang mga field operator at manggagawa na may pahintulot sa mobile app",
-                add_aggregator_title: "Magdagdag ng Manggagawa",
-                add_aggregator_sub: "Gumawa ng account para sa gagamit sa bukid",
+                aggregators_sub: "Pamahalaan ang mga on-site field manager na awtorisadong mag-grado ng ani at magtala ng batch sales sa mobile app",
+                add_aggregator_title: "Magdagdag ng Field Manager",
+                add_aggregator_sub: "Gumawa ng mobile app credentials para sa iyong on-site farm manager",
                 field_username: "Username *",
                 field_first_name: "Pangalan",
                 field_last_name: "Apelyido",
                 field_email: "Email (Opsyonal)",
                 field_password: "Password *",
-                password_min_hint: "Kahit 6 na character. Ibigay ito sa field worker.",
-                create_account_btn: "Gumawa ng Account",
-                active_aggregators_title: "Mga Rehistradong Manggagawa",
-                active_aggregators_sub: "Mga awtorisadong mag-record at mag-sync ng mga scan mula sa mobile",
+                password_min_hint: "Kahit 6 na character. Ibigay ito sa iyong field manager.",
+                create_account_btn: "+ Gumawa ng Field Manager Account",
+                active_aggregators_title: "Mga Rehistradong Field Manager",
+                active_aggregators_sub: "Mga manager na awtorisadong mag-scan ng ani at mag-sync ng sales logs mula sa mobile",
                 accounts_badge: "mga Account",
-                table_user: "Operator",
+                table_user: "Field Manager",
                 table_role: "Tungkulin",
                 table_date_joined: "Petsa ng Pagsali",
                 table_status: "Katayuan",
-                no_aggregators_found: "Wala pang nagagawang manggagawa. Gamitin ang form sa kaliwa upang magdagdag.",
-                admin_credential_notice: "Ibigay sa mga field operator ang username at password para sa nakatalagang login screen ng mobile app.",
+                no_aggregators_found: "Wala pang nagagawang field manager. Gamitin ang form sa kaliwa upang magdagdag.",
+                admin_credential_notice: "Ibigay ang mga kredensyal na ito sa iyong mga field manager upang makapag-login sa NiyoSense mobile scanner app.",
                 total_scans: "Kabuuan ng Niyog na Nasuri",
                 today_suffix: "ngayon",
                 all_time_visits: "Lahat ng tala sa mga naitalang bisita",
@@ -1010,7 +1010,7 @@
                 monthly_yield_sub: "Kabuuan ng niyog na na-scan bawat buwan (Kasaysayan)",
                 logs_sub: "Tingnan ang mga session ng pag-scan na naka-sync mula sa mobile SQLite",
                 table_uuid_date: "UUID / Petsa",
-                table_aggregator: "Aggregator",
+                table_aggregator: "Field Manager",
                 table_visual: "Biswal",
                 table_acoustic: "Akustika",
                 table_final_grade: "Panghuling Marka",

@@ -60,7 +60,7 @@ def manage_aggregators_api(request):
             plaintext_password=password
         )
         return Response(
-            {"success": True, "message": f"Aggregator account '{username}' created successfully.", "user": UserSerializer(user).data},
+            {"success": True, "message": f"Field manager account '{username}' created successfully.", "user": UserSerializer(user).data},
             status=status.HTTP_201_CREATED
         )
 
@@ -71,7 +71,7 @@ def aggregator_detail_api(request, user_id):
     try:
         user = User.objects.get(id=user_id, role=User.Roles.AGGREGATOR)
     except User.DoesNotExist:
-        return Response({"success": False, "error": "Aggregator account not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"success": False, "error": "Field manager account not found."}, status=status.HTTP_404_NOT_FOUND)
 
     from django.db.models import Sum
     from django.db.models.functions import Coalesce
