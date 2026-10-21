@@ -872,8 +872,8 @@ class _ScanGuideDialogState extends State<ScanGuideDialog> {
 }
 
 /// Native Flutter Looping Animated Knocker & Soundwave Illustration
-/// Draws a smooth interactive coconut, animated knuckle tapping 3 times,
-/// expanding acoustic soundwaves, and a live cadence status indicator.
+/// Accurately shows the Mambubuko-recommended knock spot (upper shoulder near stem cap),
+/// animated hand knuckle striking the target zone 3 times, and expanding soundwaves.
 class KnockAnimationWidget extends StatefulWidget {
   const KnockAnimationWidget({super.key});
 
@@ -908,7 +908,7 @@ class _KnockAnimationWidgetState extends State<KnockAnimationWidget>
       builder: (context, child) {
         final double progress = _animController.value; // 0.0 .. 1.0
 
-        // Determine current knock index (0, 1, 2) or pause (3)
+        // Determine current knock index (1, 2, 3) or pause (0)
         // 0.00 - 0.25 -> Knock 1
         // 0.25 - 0.50 -> Knock 2
         // 0.50 - 0.75 -> Knock 3
@@ -929,13 +929,16 @@ class _KnockAnimationWidgetState extends State<KnockAnimationWidget>
           knockPhase = 0.0;
         }
 
-        // Knuckle position: strike down towards coconut equator (at knockPhase ~0.2) then bounce back
-        double knuckleOffset = 0.0;
+        // Hand movement towards upper shoulder target spot:
+        // Moves down and slightly left towards the target spot on impact (at knockPhase ~0.22)
+        double strikeDelta = 0.0;
         if (knockIndex > 0) {
-          if (knockPhase < 0.25) {
-            knuckleOffset = (knockPhase / 0.25) * 16.0; // Moving down to contact
-          } else if (knockPhase < 0.60) {
-            knuckleOffset = (1.0 - (knockPhase - 0.25) / 0.35) * 16.0; // Bouncing back up
+          if (knockPhase < 0.22) {
+            // Forward strike down-left
+            strikeDelta = (knockPhase / 0.22);
+          } else if (knockPhase < 0.55) {
+            // Spring bounce back
+            strikeDelta = 1.0 - ((knockPhase - 0.22) / 0.33);
           }
         }
 
@@ -944,157 +947,196 @@ class _KnockAnimationWidgetState extends State<KnockAnimationWidget>
         double rippleOpacity = 0.0;
         if (knockIndex > 0 && knockPhase >= 0.20) {
           final double waveProgress = (knockPhase - 0.20) / 0.80;
-          rippleRadius = waveProgress * 48.0;
+          rippleRadius = waveProgress * 54.0;
           rippleOpacity = (1.0 - waveProgress).clamp(0.0, 1.0);
         }
 
         return Container(
-          height: 130,
+          height: 155,
           width: double.infinity,
           decoration: BoxDecoration(
             color: const Color(0xFF0F172A),
             borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Soundwave Ripples expanding from coconut equator
-              CustomPaint(
-                size: const Size(double.infinity, 130),
-                painter: _SoundwavePainter(
-                  rippleRadius: rippleRadius,
-                  rippleOpacity: rippleOpacity,
-                ),
-              ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final double cardW = constraints.maxWidth;
+              // Target spot coordinate on the card (upper shoulder near stem)
+              // Coconut is centered slightly left
+              final double coconutLeft = (cardW / 2) - 85;
+              const double coconutTop = 38;
+              const double coconutW = 95;
+              const double coconutH = 92;
 
-              // Central Coconut Graphic
-              Positioned(
-                bottom: 18,
-                child: Column(
-                  children: [
-                    Container(
-                      width: 58,
-                      height: 72,
+              // The upper shoulder target spot relative to card coordinates
+              final double targetX = coconutLeft + 68;
+              final double targetY = coconutTop + 34;
+
+              // Hand positioning: top right of coconut, striking towards (targetX, targetY)
+              final double handRestX = coconutLeft + 105;
+              final double handRestY = coconutTop - 18;
+
+              // Hand movement vector towards target
+              final double handX = handRestX - (strikeDelta * 22);
+              final double handY = handRestY + (strikeDelta * 20);
+
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // Soundwave Ripples expanding from exact target spot on the coconut
+                  CustomPaint(
+                    size: Size(cardW, 155),
+                    painter: _SoundwavePainter(
+                      origin: Offset(targetX, targetY),
+                      rippleRadius: rippleRadius,
+                      rippleOpacity: rippleOpacity,
+                    ),
+                  ),
+
+                  // Central Coconut Image
+                  Positioned(
+                    left: coconutLeft,
+                    top: coconutTop,
+                    width: coconutW,
+                    height: coconutH,
+                    child: Image.asset(
+                      'assets/guide/scan_ok/coconut_knock_clean.png',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+
+                  // Mambubuko Knock Target Zone (Glowing Red Curved Outline & Fill)
+                  Positioned(
+                    left: coconutLeft + 42,
+                    top: coconutTop + 14,
+                    child: CustomPaint(
+                      size: const Size(40, 36),
+                      painter: _TargetZonePainter(
+                        isImpact: knockIndex > 0 && strikeDelta > 0.8,
+                      ),
+                    ),
+                  ),
+
+                  // Red Target Callout Label / Pill
+                  Positioned(
+                    left: coconutLeft - 10,
+                    top: 14,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF34D399), Color(0xFF059669), Color(0xFF064E3B)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(29),
+                        color: const Color(0xFFEF4444).withValues(alpha: 0.95),
+                        borderRadius: BorderRadius.circular(10),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF10B981).withValues(alpha: 0.35),
-                            blurRadius: 10,
+                            color: const Color(0xFFEF4444).withValues(alpha: 0.4),
+                            blurRadius: 6,
                           ),
                         ],
                       ),
-                      child: Center(
-                        child: Container(
-                          width: 44,
-                          height: 2,
-                          color: Colors.white.withValues(alpha: 0.3), // Equator marker
-                        ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.gps_fixed_rounded, color: Colors.white, size: 10),
+                          SizedBox(width: 4),
+                          Text(
+                            "Target: Upper Shoulder",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    const Text(
-                      "Coconut Equator",
-                      style: TextStyle(color: Colors.white38, fontSize: 8.5),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Animated Knuckle / Mallet Striker
-              Positioned(
-                top: 8 + knuckleOffset,
-                child: Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: knockIndex > 0 && knuckleOffset > 10
-                        ? const Color(0xFF10B981)
-                        : const Color(0xFF334155),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.4),
-                        blurRadius: 6,
-                      ),
-                    ],
                   ),
-                  child: const Icon(Icons.touch_app_rounded, color: Colors.white, size: 22),
-                ),
-              ),
 
-              // Phone Microphone Indicator (5-10cm side positioning)
-              Positioned(
-                left: 20,
-                bottom: 24,
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
+                  // Animated Knocking Hand (Transparent PNG)
+                  Positioned(
+                    left: handX,
+                    top: handY,
+                    width: 52,
+                    height: 96,
+                    child: Transform.rotate(
+                      angle: -0.22, // Slight natural angle towards coconut upper shoulder
+                      child: Image.asset(
+                        'assets/guide/scan_ok/knock_hand.png',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+
+                  // Phone Microphone Indicator (5-10cm left positioning)
+                  Positioned(
+                    left: 14,
+                    bottom: 12,
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E293B),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.5)),
+                          ),
+                          child: const Icon(Icons.mic, color: Color(0xFF10B981), size: 14),
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          "Mic 5–10 cm\nfrom coconut",
+                          style: TextStyle(color: Colors.white70, fontSize: 9, height: 1.2),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Live Tap Step Badge (Top Right)
+                  Positioned(
+                    top: 10,
+                    right: 12,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.white24),
-                      ),
-                      child: const Icon(Icons.mic, color: Color(0xFF10B981), size: 16),
-                    ),
-                    const SizedBox(width: 6),
-                    const Text(
-                      "Mic 5–10 cm\nfrom equator",
-                      style: TextStyle(color: Colors.white60, fontSize: 9, height: 1.2),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Live Tap Step Badge (Top Right)
-              Positioned(
-                top: 10,
-                right: 12,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: knockIndex > 0 ? const Color(0xFF065F46) : const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: knockIndex > 0 ? const Color(0xFF10B981) : Colors.white24,
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        knockIndex > 0 ? Icons.volume_up_rounded : Icons.pause_rounded,
-                        color: knockIndex > 0 ? const Color(0xFF34D399) : Colors.white38,
-                        size: 13,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        knockIndex > 0 ? "Knock $knockIndex of 3" : "Wait 1s...",
-                        style: TextStyle(
-                          color: knockIndex > 0 ? Colors.white : Colors.white54,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                        color: knockIndex > 0 ? const Color(0xFF065F46) : const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: knockIndex > 0 ? const Color(0xFF10B981) : Colors.white24,
+                          width: 1,
                         ),
                       ),
-                    ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            knockIndex > 0 ? Icons.volume_up_rounded : Icons.pause_rounded,
+                            color: knockIndex > 0 ? const Color(0xFF34D399) : Colors.white38,
+                            size: 13,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            knockIndex > 0 ? "Knock $knockIndex of 3" : "Wait 1s...",
+                            style: TextStyle(
+                              color: knockIndex > 0 ? Colors.white : Colors.white54,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ],
+                ],
+              );
+            },
           ),
         );
       },
@@ -1102,36 +1144,74 @@ class _KnockAnimationWidgetState extends State<KnockAnimationWidget>
   }
 }
 
+/// Custom painter to draw the glowing red target zone on the upper shoulder near the stem
+class _TargetZonePainter extends CustomPainter {
+  final bool isImpact;
+
+  _TargetZonePainter({required this.isImpact});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(2, 4, size.width - 4, size.height - 8);
+
+    // Glowing background fill
+    final fillPaint = Paint()
+      ..color = (isImpact ? const Color(0xFFEF4444) : const Color(0xFFF87171))
+          .withValues(alpha: isImpact ? 0.45 : 0.25)
+      ..style = PaintingStyle.fill;
+
+    // Glowing border outline
+    final strokePaint = Paint()
+      ..color = (isImpact ? Colors.white : const Color(0xFFEF4444))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = isImpact ? 2.5 : 1.8;
+
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(14));
+    canvas.drawRRect(rrect, fillPaint);
+    canvas.drawRRect(rrect, strokePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TargetZonePainter oldDelegate) {
+    return oldDelegate.isImpact != isImpact;
+  }
+}
+
 class _SoundwavePainter extends CustomPainter {
+  final Offset origin;
   final double rippleRadius;
   final double rippleOpacity;
 
-  _SoundwavePainter({required this.rippleRadius, required this.rippleOpacity});
+  _SoundwavePainter({
+    required this.origin,
+    required this.rippleRadius,
+    required this.rippleOpacity,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     if (rippleRadius <= 0.0 || rippleOpacity <= 0.0) return;
 
-    final center = Offset(size.width / 2, size.height / 2 + 10);
-
     final paint1 = Paint()
-      ..color = const Color(0xFF10B981).withValues(alpha: rippleOpacity * 0.7)
+      ..color = const Color(0xFF10B981).withValues(alpha: rippleOpacity * 0.8)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5;
 
     final paint2 = Paint()
-      ..color = const Color(0xFF34D399).withValues(alpha: rippleOpacity * 0.35)
+      ..color = const Color(0xFF34D399).withValues(alpha: rippleOpacity * 0.4)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
 
-    canvas.drawCircle(center, rippleRadius, paint1);
+    canvas.drawCircle(origin, rippleRadius, paint1);
     if (rippleRadius > 14.0) {
-      canvas.drawCircle(center, rippleRadius - 12.0, paint2);
+      canvas.drawCircle(origin, rippleRadius - 12.0, paint2);
     }
   }
 
   @override
   bool shouldRepaint(covariant _SoundwavePainter oldDelegate) {
-    return oldDelegate.rippleRadius != rippleRadius || oldDelegate.rippleOpacity != rippleOpacity;
+    return oldDelegate.rippleRadius != rippleRadius ||
+        oldDelegate.rippleOpacity != rippleOpacity ||
+        oldDelegate.origin != origin;
   }
 }
