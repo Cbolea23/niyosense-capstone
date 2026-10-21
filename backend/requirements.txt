@@ -22,3 +22,5 @@ uritemplate==4.2.0
 gunicorn==23.0.0
 whitenoise==6.9.0
 dj-database-url==2.3.0
+cloudinary==1.46.3
+django-cloudinary-storage==0.3.0
