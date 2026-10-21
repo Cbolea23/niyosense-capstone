@@ -150,6 +150,11 @@ def web_dashboard(request):
 
             img_url = l.image.url if l.image else None
             audio_url = l.audio_file.url if l.audio_file else None
+            if audio_url:
+                if '/image/upload/' in audio_url and '/audio/' in audio_url:
+                    audio_url = audio_url.replace('/image/upload/', '/video/upload/')
+                if ('/audio/' in audio_url or '_tap_' in audio_url) and not audio_url.lower().endswith(('.wav', '.mp3', '.m4a')):
+                    audio_url = f'{audio_url}.wav' 
 
             formatted_scans.append({
                 'uuid': str(l.uuid),

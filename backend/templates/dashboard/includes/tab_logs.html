@@ -464,7 +464,15 @@
         const audioBadge = document.getElementById('modalAudioBadge');
 
         if (targetScan.audio_url) {
-            audioSrc.src = targetScan.audio_url;
+            let finalAudioUrl = targetScan.audio_url;
+            if (finalAudioUrl.includes('/image/upload/') && finalAudioUrl.includes('/audio/')) {
+                finalAudioUrl = finalAudioUrl.replace('/image/upload/', '/video/upload/');
+            }
+            if ((finalAudioUrl.includes('/audio/') || finalAudioUrl.includes('_tap_')) && !finalAudioUrl.toLowerCase().endsWith('.wav')) {
+                finalAudioUrl += '.wav';
+            }
+
+            audioSrc.src = finalAudioUrl;
             audioEl.load();
             audioContainer.classList.remove('hidden');
             noAudioFallback.classList.add('hidden');
