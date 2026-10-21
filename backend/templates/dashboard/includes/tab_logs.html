@@ -166,21 +166,26 @@
 
     <!-- Subtle bottom tip matching prototype -->
     <p class="text-center text-xs text-slate-400 font-medium py-3">
-        Tap any scan to review or correct the AI grade
+        Tap any scan card to inspect its photo, acoustic audio recording, and harvest details
     </p>
 </div>
 
-<!-- SCREEN 3: Review & Correct Grade Modal -->
-<div id="correctGradeModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200/80 transform transition-all animate-in fade-in zoom-in-95 duration-200">
+<!-- SCREEN 3: Inspection Record Details Modal -->
+<div id="inspectionDetailModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200/80 my-8 transform transition-all animate-in fade-in zoom-in-95 duration-200">
         
         <!-- Modal Header -->
-        <div class="flex items-center justify-between p-5 border-b border-slate-100">
-            <div>
-                <h3 class="font-bold text-slate-800 text-base">Correct Grade</h3>
-                <p id="modalScanFilename" class="text-xs text-slate-400 font-mono">scan_morning_01.jpg</p>
+        <div class="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/50">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-100/70 border border-emerald-200 flex items-center justify-center text-lg">
+                    🥥
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800 text-base" data-i18n="inspection_details_title">Inspection Record Details</h3>
+                    <p id="modalScanSubtitle" class="text-xs text-slate-400 font-mono mt-0.5">Scan #-------- • --:-- --</p>
+                </div>
             </div>
-            <button type="button" onclick="closeCorrectGradeModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition">
+            <button type="button" onclick="closeInspectionDetailModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
@@ -188,89 +193,130 @@
         </div>
 
         <!-- Modal Body -->
-        <div class="p-5 space-y-4">
-            <!-- Large Image Preview -->
-            <div class="w-full h-44 rounded-2xl bg-slate-100 overflow-hidden border border-slate-200/80 relative">
+        <div class="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+            
+            <!-- Coconut Photo & Full-View Link -->
+            <div class="w-full h-52 rounded-2xl bg-slate-100 overflow-hidden border border-slate-200/80 relative shadow-inner group">
                 <img id="modalPreviewImg" src="" alt="Coconut Preview" class="w-full h-full object-cover">
-                <div id="modalNoImgFallback" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-400">
-                    <svg class="w-10 h-10 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                    </svg>
-                    <span class="text-xs">No Photo Available</span>
+                <div id="modalNoImgFallback" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-50">
+                    <span class="text-4xl mb-1">🥥</span>
+                    <span class="text-xs font-bold text-slate-600">No Photo Available</span>
+                    <span class="text-[10px] text-slate-400">Offline scan or image archived</span>
                 </div>
+                <a id="modalFullImgLink" href="#" target="_blank" class="hidden absolute bottom-2.5 right-2.5 bg-black/75 hover:bg-black text-white text-[11px] font-semibold px-3 py-1.5 rounded-xl backdrop-blur-sm transition flex items-center gap-1.5 shadow">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                    </svg>
+                    <span>View Full Photo</span>
+                </a>
             </div>
 
-            <!-- Current AI Grading Info Box -->
-            <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 flex items-center justify-between">
-                <div>
-                    <span class="text-[11px] font-semibold text-slate-400 block mb-0.5">AI Grading</span>
-                    <span id="modalCurrentAiText" class="font-bold text-slate-800 text-xs">Malauhog (96.5%)</span>
-                </div>
-                <div id="modalCurrentAiBadge">
-                    <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full border border-emerald-200">
-                        • Malauhog
+            <!-- Acoustic Audio Knock Recording -->
+            <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-slate-700 flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs">🎵</span>
+                        <span>Acoustic Tap Sound</span>
+                    </span>
+                    <span id="modalAudioBadge" class="text-[10.5px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        4.0s .WAV
                     </span>
                 </div>
-            </div>
 
-            <!-- Model Details (Husk vs Sound) -->
-            <div class="text-[11px] text-slate-500 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100 flex justify-between">
-                <span>📸 Visual Husk: <strong id="modalVisLabel" class="text-slate-700">Malauhog</strong></span>
-                <span>🎵 Soundwave: <strong id="modalAudLabel" class="text-slate-700">Malauhog</strong></span>
-            </div>
-
-            <!-- "Correct to:" Radio Options -->
-            <div>
-                <label class="block text-xs font-bold text-slate-700 mb-2">Correct to:</label>
-                <div class="space-y-2">
-                    <!-- Option 1: Malauhog -->
-                    <label class="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:border-emerald-400 cursor-pointer transition bg-white has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50/40">
-                        <div class="flex items-center gap-2.5">
-                            <input type="radio" name="overrideGradeOption" value="Malauhog" class="w-4 h-4 text-emerald-600 focus:ring-emerald-500 border-slate-300">
-                            <span class="font-bold text-slate-700 text-xs">Malauhog</span>
-                        </div>
-                        <span class="text-[11px] font-bold text-emerald-700 bg-emerald-100/70 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                            • Malauhog
-                        </span>
-                    </label>
-
-                    <!-- Option 2: Buko -->
-                    <label class="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:border-amber-400 cursor-pointer transition bg-white has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50/40">
-                        <div class="flex items-center gap-2.5">
-                            <input type="radio" name="overrideGradeOption" value="Buko" class="w-4 h-4 text-amber-600 focus:ring-amber-500 border-slate-300">
-                            <span class="font-bold text-slate-700 text-xs">Buko</span>
-                        </div>
-                        <span class="text-[11px] font-bold text-amber-700 bg-amber-100/70 border border-amber-200 px-2.5 py-0.5 rounded-full">
-                            • Buko
-                        </span>
-                    </label>
-
-                    <!-- Option 3: Reject -->
-                    <label class="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:border-rose-400 cursor-pointer transition bg-white has-[:checked]:border-rose-500 has-[:checked]:bg-rose-50/40">
-                        <div class="flex items-center gap-2.5">
-                            <input type="radio" name="overrideGradeOption" value="Reject" class="w-4 h-4 text-rose-600 focus:ring-rose-500 border-slate-300">
-                            <span class="font-bold text-slate-700 text-xs">Reject / Inconclusive</span>
-                        </div>
-                        <span class="text-[11px] font-bold text-rose-700 bg-rose-100/70 border border-rose-200 px-2.5 py-0.5 rounded-full">
-                            • Reject
-                        </span>
-                    </label>
+                <div id="modalAudioPlayerContainer">
+                    <audio id="modalAudioPlayer" controls class="w-full h-9 rounded-lg focus:outline-none">
+                        <source id="modalAudioSource" src="" type="audio/wav">
+                        Your browser does not support audio playback.
+                    </audio>
                 </div>
+
+                <div id="modalNoAudioFallback" class="hidden text-center py-2 text-xs text-slate-400 font-medium">
+                    <span>No acoustic audio recording uploaded for this scan</span>
+                </div>
+            </div>
+
+            <!-- Comprehensive Inspection Details (All columns from original design) -->
+            <div>
+                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2.5">Inspection Specifications</h4>
+                <div class="grid grid-cols-2 gap-2.5 text-xs">
+                    
+                    <!-- Final Grade -->
+                    <div class="bg-slate-50 border border-slate-200/70 rounded-xl p-3">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Final Grade</span>
+                        <div id="modalFinalGradeBadge">
+                            <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full border border-emerald-200">
+                                • Malauhog
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Confidence -->
+                    <div class="bg-slate-50 border border-slate-200/70 rounded-xl p-3">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Confidence Score</span>
+                        <span id="modalConfidenceText" class="text-sm font-bold text-slate-800 font-mono">--%</span>
+                    </div>
+
+                    <!-- Sampling Unit (Bungkos) -->
+                    <div class="bg-slate-50 border border-slate-200/70 rounded-xl p-3">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Sampling Unit</span>
+                        <span id="modalBunchCountText" class="text-xs font-bold text-emerald-800 bg-emerald-100/70 border border-emerald-200/80 px-2.5 py-0.5 rounded-lg inline-block">
+                            10 pcs in Bungkos
+                        </span>
+                    </div>
+
+                    <!-- Field Manager -->
+                    <div class="bg-slate-50 border border-slate-200/70 rounded-xl p-3">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Field Manager</span>
+                        <span id="modalOperatorText" class="text-xs font-bold text-slate-800 block truncate">farm_worker</span>
+                    </div>
+
+                    <!-- Visual Prediction -->
+                    <div class="bg-slate-50 border border-slate-200/70 rounded-xl p-3">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Visual Prediction</span>
+                        <span id="modalVisualText" class="text-xs font-bold text-slate-700 block truncate">📸 Malauhog</span>
+                    </div>
+
+                    <!-- Acoustic Prediction -->
+                    <div class="bg-slate-50 border border-slate-200/70 rounded-xl p-3">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Acoustic Prediction</span>
+                        <span id="modalAudioText" class="text-xs font-bold text-slate-700 block truncate">🎵 malauhog</span>
+                    </div>
+
+                    <!-- Device Identifier -->
+                    <div class="bg-slate-50 border border-slate-200/70 rounded-xl p-3">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Device ID</span>
+                        <span id="modalDeviceIdText" class="text-xs font-mono font-bold text-slate-700 block truncate">NYS-DEV-MV8VU5GP</span>
+                    </div>
+
+                    <!-- Delivery Batch -->
+                    <div class="bg-slate-50 border border-slate-200/70 rounded-xl p-3">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Delivery Batch</span>
+                        <span id="modalBatchIdText" class="text-xs font-bold text-slate-700 block truncate">Standalone Harvest</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Full Unique Scan UUID with Copy -->
+            <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3 flex items-center justify-between">
+                <div class="min-w-0 flex-1 mr-2">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Scan UUID / ID</span>
+                    <span id="modalFullUuidText" class="text-[11px] font-mono text-slate-600 truncate block">------------------------------------</span>
+                </div>
+                <button type="button" onclick="copyScanUuid()" id="copyScanUuidBtn"
+                    class="shrink-0 text-slate-500 hover:text-emerald-600 p-2 rounded-lg hover:bg-white border border-transparent hover:border-slate-200 transition"
+                    title="Copy full UUID">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                    </svg>
+                </button>
             </div>
         </div>
 
         <!-- Modal Footer Actions -->
-        <div class="p-5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
-            <button type="button" onclick="closeCorrectGradeModal()"
-                class="px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-800 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 transition shadow-sm">
-                Cancel
-            </button>
-            <button type="button" id="confirmOverrideBtn" onclick="submitGradeOverride()"
-                class="inline-flex items-center gap-1.5 px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition shadow-md shadow-emerald-600/20">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-                <span>Confirm</span>
+        <div class="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end">
+            <button type="button" onclick="closeInspectionDetailModal()"
+                class="px-6 py-2.5 text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-xl transition shadow-md shadow-slate-800/10">
+                Close
             </button>
         </div>
     </div>
@@ -333,7 +379,7 @@
 
             const card = document.createElement('div');
             card.className = 'bg-white border border-slate-200/80 hover:border-emerald-400 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition cursor-pointer group';
-            card.onclick = () => openCorrectGradeModal(scan.uuid);
+            card.onclick = () => openInspectionDetailModal(scan.uuid);
 
             const fallbackPlaceholder = `this.onerror=null; this.parentElement.innerHTML='<div class=\\'w-full h-36 bg-gradient-to-br from-emerald-50/70 to-slate-100 flex flex-col items-center justify-center text-slate-400\\'><span class=\\'text-3xl mb-1\\'>🥥</span><span class=\\'text-[10px] font-bold text-slate-500\\'>Coconut Husk</span><span class=\\'text-[9px] text-slate-400\\'>Photo archived / offline</span></div>';`;
             const imgHtml = scan.image_url 
@@ -371,7 +417,7 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    function openCorrectGradeModal(scanUuid) {
+    function openInspectionDetailModal(scanUuid) {
         let targetScan = null;
         for (const s of rawDateSessions) {
             const found = s.scans.find(sc => sc.uuid === scanUuid);
@@ -383,48 +429,96 @@
         if (!targetScan) return;
 
         activeScanUuid = scanUuid;
-        document.getElementById('modalScanFilename').textContent = `Scan #${targetScan.short_uuid} • ${targetScan.created_at_time}`;
+        const timeStr = targetScan.created_at_time || '';
+        const dateStr = targetScan.created_at_date || '';
+        document.getElementById('modalScanSubtitle').textContent = `Scan #${targetScan.short_uuid} • ${dateStr ? dateStr + ' at ' : ''}${timeStr}`;
 
+        // Photo Setup
         const imgEl = document.getElementById('modalPreviewImg');
         const fallbackEl = document.getElementById('modalNoImgFallback');
+        const fullImgLink = document.getElementById('modalFullImgLink');
         if (targetScan.image_url) {
             imgEl.src = targetScan.image_url;
             imgEl.onerror = () => {
                 imgEl.classList.add('hidden');
                 fallbackEl.classList.remove('hidden');
+                fullImgLink.classList.add('hidden');
             };
             imgEl.onload = () => {
                 imgEl.classList.remove('hidden');
                 fallbackEl.classList.add('hidden');
+                fullImgLink.href = targetScan.image_url;
+                fullImgLink.classList.remove('hidden');
             };
         } else {
             imgEl.classList.add('hidden');
             fallbackEl.classList.remove('hidden');
+            fullImgLink.classList.add('hidden');
         }
 
-        document.getElementById('modalCurrentAiText').textContent = `${targetScan.final_stage} (${targetScan.confidence}%)`;
-        document.getElementById('modalVisLabel').textContent = targetScan.visual_prediction;
-        document.getElementById('modalAudLabel').textContent = targetScan.audio_prediction;
+        // Acoustic Audio Setup
+        const audioEl = document.getElementById('modalAudioPlayer');
+        const audioSrc = document.getElementById('modalAudioSource');
+        const audioContainer = document.getElementById('modalAudioPlayerContainer');
+        const noAudioFallback = document.getElementById('modalNoAudioFallback');
+        const audioBadge = document.getElementById('modalAudioBadge');
 
-        const badgeCont = document.getElementById('modalCurrentAiBadge');
+        if (targetScan.audio_url) {
+            audioSrc.src = targetScan.audio_url;
+            audioEl.load();
+            audioContainer.classList.remove('hidden');
+            noAudioFallback.classList.add('hidden');
+            audioBadge.textContent = '4.0s .WAV';
+            audioBadge.className = 'text-[10.5px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200';
+        } else {
+            audioEl.pause();
+            audioSrc.src = '';
+            audioContainer.classList.add('hidden');
+            noAudioFallback.classList.remove('hidden');
+            audioBadge.textContent = 'No Audio';
+            audioBadge.className = 'text-[10.5px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200';
+        }
+
+        // Specifications Populate
         let badgeColor = 'bg-emerald-100 text-emerald-800 border-emerald-200';
         if (targetScan.final_stage.toLowerCase() === 'buko') badgeColor = 'bg-amber-100 text-amber-800 border-amber-200';
         if (targetScan.final_stage.toLowerCase() === 'reject') badgeColor = 'bg-rose-100 text-rose-800 border-rose-200';
-        badgeCont.innerHTML = `<span class="${badgeColor} text-xs font-bold px-3 py-1 rounded-full border">• ${targetScan.final_stage}</span>`;
+        document.getElementById('modalFinalGradeBadge').innerHTML = `<span class="${badgeColor} text-xs font-bold px-3 py-1 rounded-full border">• ${targetScan.final_stage}</span>`;
 
-        // Pre-select radio option
-        const radios = document.querySelectorAll('input[name="overrideGradeOption"]');
-        radios.forEach(r => {
-            r.checked = r.value.toLowerCase() === targetScan.final_stage.toLowerCase();
-        });
+        document.getElementById('modalConfidenceText').textContent = `${targetScan.confidence}%`;
+        document.getElementById('modalBunchCountText').textContent = `${targetScan.bunch_count} pcs in Bungkos`;
+        document.getElementById('modalOperatorText').textContent = targetScan.operator || 'farm_worker';
+        document.getElementById('modalVisualText').textContent = `📸 ${targetScan.visual_prediction || 'Coconut'}`;
+        document.getElementById('modalAudioText').textContent = `🎵 ${targetScan.audio_prediction || 'Acoustic Tap'}`;
+        document.getElementById('modalDeviceIdText').textContent = targetScan.device_id || '--';
+        document.getElementById('modalBatchIdText').textContent = targetScan.batch_id || 'Standalone Harvest';
+        document.getElementById('modalFullUuidText').textContent = targetScan.uuid;
 
-        document.getElementById('correctGradeModal').classList.remove('hidden');
+        document.getElementById('inspectionDetailModal').classList.remove('hidden');
     }
 
-    function closeCorrectGradeModal() {
-        document.getElementById('correctGradeModal').classList.add('hidden');
+    function closeInspectionDetailModal() {
+        const audioEl = document.getElementById('modalAudioPlayer');
+        if (audioEl) audioEl.pause();
+        const modal = document.getElementById('inspectionDetailModal');
+        if (modal) modal.classList.add('hidden');
         activeScanUuid = null;
     }
+
+    function copyScanUuid() {
+        const fullUuid = document.getElementById('modalFullUuidText').textContent;
+        if (!fullUuid || fullUuid.startsWith('--')) return;
+        navigator.clipboard.writeText(fullUuid).then(() => {
+            const btn = document.getElementById('copyScanUuidBtn');
+            const orig = btn.innerHTML;
+            btn.innerHTML = `<span class="text-[10px] font-bold text-emerald-600">Copied!</span>`;
+            setTimeout(() => { btn.innerHTML = orig; }, 1800);
+        });
+    }
+
+    // Aliases for backward compatibility
+    function openCorrectGradeModal(scanUuid) { openInspectionDetailModal(scanUuid); }
+    function closeCorrectGradeModal() { closeInspectionDetailModal(); }
 
     async function submitGradeOverride() {
         if (!activeScanUuid) return;
