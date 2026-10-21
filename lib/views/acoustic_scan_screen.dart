@@ -32,7 +32,6 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
   double _currentAmplitudeLevel = 0.0;
   int _knocksDetected = 0;
   int _lastKnockTimestamp = 0;
-  bool _isSustainedVoiceWarning = false;
   final List<double> _waveformHeights = List.filled(28, 6.0);
 
   @override
@@ -142,14 +141,7 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
       _knocksDetected = 0;
       _currentAmplitudeLevel = 0.0;
       _lastKnockTimestamp = 0;
-      _isSustainedVoiceWarning = false;
-
-      double rollingFloorDb = -48.0;
       double prevDb = -52.0;
-      bool inSoundEvent = false;
-      int eventLoudFrames = 0;
-      double eventPeakDb = -55.0;
-      double eventOnsetJump = 0.0;
 
       _amplitudeSub = _audioRecorder
           .onAmplitudeChanged(const Duration(milliseconds: 60))
@@ -165,50 +157,11 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
         final double normalized = ((db + 55.0) / 55.0).clamp(0.0, 1.0);
         final int now = DateTime.now().millisecondsSinceEpoch;
 
-        // 2-Frame Percussive Impulse State Machine:
-        // A real coconut knock has:
-        //   (1) A sharp single-tick onset jump (db - prevDb >= 7.5 dB) above noise floor
-        //   (2) A rapid decay within 1 to 2 ticks (60ms - 120ms) where db drops >= 4.5 dB below peak
-        // Human voice, syllables ("hello", "one two three"), humming, or background noise stay loud
-        // for >= 3 ticks (>= 180ms) or have a gradual onset (< 7.5 dB/tick) and are REJECTED.
-        final bool isAboveThreshold = (db > -38.0) && ((db - rollingFloorDb) >= 8.5);
-
-        if (!inSoundEvent) {
-          if (isAboveThreshold) {
-            inSoundEvent = true;
-            eventLoudFrames = 1;
-            eventPeakDb = db;
-            eventOnsetJump = db - prevDb;
-            // If onset is gradual (< 7.0 dB jump), it's a voice fade-in rather than a sharp knock
-            if (eventOnsetJump < 7.0) {
-              _isSustainedVoiceWarning = true;
-            }
-          } else {
-            rollingFloorDb = (0.85 * rollingFloorDb) + (0.15 * db);
-          }
-        } else {
-          // Check if the sound has decayed by >= 4.5 dB from its peak or dropped below threshold
-          final bool hasDecayed = (db <= eventPeakDb - 4.5) || !isAboveThreshold;
-          if (!hasDecayed) {
-            eventLoudFrames++;
-            if (db > eventPeakDb) eventPeakDb = db;
-            // Sustained for >= 3 frames (>= 180ms) -> Human speech/syllable or continuous noise!
-            if (eventLoudFrames >= 3) {
-              _isSustainedVoiceWarning = true;
-            }
-          } else {
-            // Sound event just ended! Verify if it was a true narrow percussive impulse (1..2 frames = 60..120ms)
-            if (eventLoudFrames <= 2 &&
-                eventOnsetJump >= 7.0 &&
-                (now - _lastKnockTimestamp) > 250) {
-              _lastKnockTimestamp = now;
-              _knocksDetected++;
-              _isSustainedVoiceWarning = false;
-              HapticFeedback.lightImpact();
-            }
-            inSoundEvent = false;
-            eventLoudFrames = 0;
-          }
+        // Detect firm knock impulse: amplitude jump or strong level with cadence check
+        if ((db > -42.0) && (now - _lastKnockTimestamp) > 220 && (db - prevDb >= 4.0 || db >= -32.0)) {
+          _lastKnockTimestamp = now;
+          _knocksDetected++;
+          HapticFeedback.lightImpact();
         }
         prevDb = db;
 
@@ -266,12 +219,16 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
           await _validateAndNavigateToResult(hasAudio: true, realAudioPath: savedPath);
         }
       } else {
-        debugPrint("⚠️ No audio recorded or empty file. Proceeding with photo only.");
-        if (mounted) await _validateAndNavigateToResult(hasAudio: false);
+        debugPrint("⚠️ No audio recorded or empty file. Prompting to record tap.");
+        if (mounted) {
+          _showRejectionError("No acoustic signal recorded. Please knock the coconut 3 times firmly during the 4-second recording.");
+        }
       }
     } catch (e) {
       debugPrint("❌ Failed to stop recording: $e");
-      if (mounted) await _validateAndNavigateToResult(hasAudio: false);
+      if (mounted) {
+        _showRejectionError("Recording error: $e");
+      }
     }
   }
 
@@ -334,93 +291,20 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
     );
   }
 
-  void _showIncompleteDataModal() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFFFFFBEB),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Colors.amber.shade100, shape: BoxShape.circle),
-              child: const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 28),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    AppTranslations.text('incomplete_data_title'),
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
-                  ),
-                  Text(
-                    AppTranslations.text('reduced_accuracy_warning'),
-                    style: const TextStyle(fontSize: 11, color: Colors.amber),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          AppTranslations.text('incomplete_data_desc'),
-          style: const TextStyle(fontSize: 13, color: Colors.black87),
-        ),
-        actions: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF10B981),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.mic, color: Colors.white),
-                label: Text(
-                  AppTranslations.text('record_audio_btn'),
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.black26),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                onPressed: () {
-                  Navigator.pop(context);
-                  _validateAndNavigateToResult(hasAudio: false);
-                },
-                child: Text(
-                  AppTranslations.text('proceed_photo_only_btn'),
-                  style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _validateAndNavigateToResult({required bool hasAudio, String? realAudioPath}) async {
     if (widget.imagePath == null || widget.imagePath!.isEmpty) {
       _showRejectionError("No coconut detected. Center a green coconut in the frame.");
+      return;
+    }
+    if (!hasAudio || realAudioPath == null || realAudioPath.isEmpty) {
+      _showRejectionError("Controlled grading requires 3 acoustic knocks. Please record the audio tap.");
       return;
     }
 
     setState(() => _isValidating = true);
     try {
       final imgFile = File(widget.imagePath!);
-      final File? audFile = (hasAudio && realAudioPath != null && realAudioPath.isNotEmpty)
-          ? File(realAudioPath)
-          : null;
+      final File audFile = File(realAudioPath);
 
       final result = await _tfliteService.predict(
         imageFile: imgFile,
@@ -493,18 +377,7 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                 ),
               ],
             ),
-            actions: [
-              if (widget.imagePath != null)
-                TextButton(
-                  onPressed: _showIncompleteDataModal,
-                  child: Row(
-                    children: [
-                      Text(AppTranslations.text('skip'), style: const TextStyle(color: Colors.black45, fontWeight: FontWeight.bold)),
-                      const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.black45),
-                    ],
-                  ),
-                ),
-            ],
+            actions: const [],
           ),
           body: LayoutBuilder(
             builder: (context, constraints) {
@@ -553,18 +426,14 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                             duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                             decoration: BoxDecoration(
-                              color: _isSustainedVoiceWarning
-                                  ? const Color(0xFF3B1212)
-                                  : ((_knocksDetected >= 2 && _knocksDetected <= 5)
-                                      ? const Color(0xFF0A2E23)
-                                      : const Color(0xFF2E1F0A)),
+                              color: (_knocksDetected >= 2 && _knocksDetected <= 4)
+                                  ? const Color(0xFF0A2E23)
+                                  : const Color(0xFF2E1F0A),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: _isSustainedVoiceWarning
-                                    ? const Color(0xFFEF4444)
-                                    : ((_knocksDetected >= 2 && _knocksDetected <= 5)
-                                        ? const Color(0xFF10B981)
-                                        : const Color(0xFFF59E0B)),
+                                color: (_knocksDetected >= 2 && _knocksDetected <= 4)
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFFF59E0B),
                                 width: 1.2,
                               ),
                             ),
@@ -572,30 +441,22 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  _isSustainedVoiceWarning
-                                      ? Icons.mic_off_rounded
-                                      : ((_knocksDetected >= 2 && _knocksDetected <= 5)
-                                          ? Icons.check_circle_rounded
-                                          : Icons.touch_app_rounded),
-                                  color: _isSustainedVoiceWarning
-                                      ? const Color(0xFFF87171)
-                                      : ((_knocksDetected >= 2 && _knocksDetected <= 5)
-                                          ? const Color(0xFF10B981)
-                                          : const Color(0xFFF59E0B)),
+                                  (_knocksDetected >= 2 && _knocksDetected <= 4)
+                                      ? Icons.check_circle_rounded
+                                      : Icons.touch_app_rounded,
+                                  color: (_knocksDetected >= 2 && _knocksDetected <= 4)
+                                      ? const Color(0xFF10B981)
+                                      : const Color(0xFFF59E0B),
                                   size: 15,
                                 ),
                                 const SizedBox(width: 8),
                                 Flexible(
                                   child: Text(
-                                    _isSustainedVoiceWarning
-                                        ? "Voice/Noise Ignored (${AppTranslations.text('knocks_detected')}: $_knocksDetected/3)"
-                                        : "${AppTranslations.text('knocks_detected')}: $_knocksDetected / 3–4",
+                                    "${AppTranslations.text('knocks_detected')}: $_knocksDetected / 3",
                                     style: TextStyle(
-                                      color: _isSustainedVoiceWarning
-                                          ? const Color(0xFFF87171)
-                                          : ((_knocksDetected >= 2 && _knocksDetected <= 5)
-                                              ? const Color(0xFF10B981)
-                                              : const Color(0xFFF59E0B)),
+                                      color: (_knocksDetected >= 2 && _knocksDetected <= 4)
+                                          ? const Color(0xFF10B981)
+                                          : const Color(0xFFF59E0B),
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
                                     ),
@@ -625,11 +486,9 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                                   height: _isRecording ? _waveformHeights[i] : 6.0,
                                   margin: const EdgeInsets.symmetric(horizontal: 2),
                                   decoration: BoxDecoration(
-                                    color: _isSustainedVoiceWarning
-                                        ? const Color(0xFFF59E0B)
-                                        : (_waveformHeights[i] > 40.0
-                                            ? const Color(0xFF34D399)
-                                            : const Color(0xFF10B981)),
+                                    color: _waveformHeights[i] > 40.0
+                                        ? const Color(0xFF34D399)
+                                        : const Color(0xFF10B981),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                 ),
@@ -659,25 +518,17 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                                   ),
                                   Text(
                                     _isRecording
-                                        ? (_isSustainedVoiceWarning
-                                            ? "Voice/Noise (Knock Only!)"
-                                            : (_currentAmplitudeLevel > 0.88
-                                                ? "Too Loud!"
-                                                : (_currentAmplitudeLevel >= 0.30
-                                                    ? "Good Volume ✓"
-                                                    : "Tap Firmly")))
+                                        ? (_currentAmplitudeLevel >= 0.35
+                                            ? "Good Volume ✓"
+                                            : "Knock Firmly")
                                         : AppTranslations.text('ideal_range'),
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
                                       color: _isRecording
-                                          ? (_isSustainedVoiceWarning
-                                              ? const Color(0xFFEF4444)
-                                              : (_currentAmplitudeLevel > 0.88
-                                                  ? Colors.red
-                                                  : (_currentAmplitudeLevel >= 0.30
-                                                      ? const Color(0xFF10B981)
-                                                      : Colors.grey)))
+                                          ? (_currentAmplitudeLevel >= 0.35
+                                              ? const Color(0xFF10B981)
+                                              : const Color(0xFFF59E0B))
                                           : const Color(0xFF10B981),
                                     ),
                                   ),
@@ -691,13 +542,9 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                                   minHeight: 10,
                                   backgroundColor: Colors.grey.shade200,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    _isSustainedVoiceWarning
-                                        ? const Color(0xFFF59E0B)
-                                        : (_currentAmplitudeLevel > 0.88
-                                            ? const Color(0xFFEF4444)
-                                            : (_currentAmplitudeLevel >= 0.30
-                                                ? const Color(0xFF10B981)
-                                                : const Color(0xFF9CA3AF))),
+                                    _currentAmplitudeLevel >= 0.35
+                                        ? const Color(0xFF10B981)
+                                        : const Color(0xFFF59E0B),
                                   ),
                                 ),
                               ),
@@ -706,15 +553,16 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                         ),
                         const SizedBox(height: 14),
                         Container(
-                          padding: const EdgeInsets.all(14),
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             color: const Color(0xFFECFDF5),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(color: const Color(0xFFA7F3D0)),
                           ),
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.adjust, color: Color(0xFF10B981), size: 34),
+                              const Icon(Icons.touch_app, color: Color(0xFF10B981), size: 30),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
@@ -724,10 +572,10 @@ class _AcousticScanScreenState extends State<AcousticScanScreen> {
                                       AppTranslations.text('tap_equator_title'),
                                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF065F46)),
                                     ),
-                                    const SizedBox(height: 2),
+                                    const SizedBox(height: 4),
                                     Text(
                                       AppTranslations.text('tap_equator_desc'),
-                                      style: const TextStyle(fontSize: 11, color: Color(0xFF047857)),
+                                      style: const TextStyle(fontSize: 12, color: Color(0xFF047857), height: 1.35),
                                     ),
                                   ],
                                 ),

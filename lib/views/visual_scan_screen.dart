@@ -1,3 +1,4 @@
+import '../widgets/scan_guide_dialog.dart';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -210,12 +211,11 @@ class _VisualScanScreenState extends State<VisualScanScreen>
         final double sat = hsv[1];
         final double val = hsv[2];
 
-        // Natural Coconut Husk HSV Criteria (supports green, olive, golden-yellow, brown-scarred husks,
-        // well-lit daylight, and warm LED camera flash highlights):
+        // Controlled Field Manager Coconut Husk HSV Criteria:
         final bool isGreenHusk =
-            (hue >= 14.0 && hue <= 162.0) &&
-            (sat >= 0.06 && sat <= 0.95) &&
-            (val >= 0.12 && val <= 0.98);
+            (hue >= 36.0 && hue <= 148.0) &&
+            (sat >= 0.15 && sat <= 0.88) &&
+            (val >= 0.18 && val <= 0.92);
 
         final bool isCenter = (gx >= 2 && gx <= 7 && gy >= 2 && gy <= 7);
         if (isCenter) {
@@ -232,8 +232,8 @@ class _VisualScanScreenState extends State<VisualScanScreen>
             if (gx >= 5 && gy >= 5) qBottomRight++;
           }
           if (gx >= 3 && gx <= 6 && gy >= 3 && gy <= 6) {
-            // Only flag unnatural non-coconut colors (blue, cyan, purple, magenta)
-            if (sat > 0.48 && (hue >= 180.0 && hue <= 338.0)) {
+            // Flag foreign non-coconut colors (hands, red, blue, cyan, purple, magenta)
+            if (sat > 0.40 && (hue < 30.0 || (hue >= 175.0 && hue <= 340.0))) {
               centerGlareCount++;
             }
           }
@@ -293,51 +293,51 @@ class _VisualScanScreenState extends State<VisualScanScreen>
     double newScore = 0.0;
     String newStatusKey = 'not_aligned_hint';
 
-    if (meanLum < 22.0) {
-      // Camera lens covered or pitch dark
+    if (meanLum < 35.0) {
+      // Station too dark or camera lens covered
       newTier = 0;
       newScore = 0.08;
       newStatusKey = 'too_dark_hint';
-    } else if (centerRatio < 0.25) {
+    } else if (centerRatio < 0.35) {
       // No coconut in center circle
       newTier = 0;
-      newScore = (centerRatio / 0.40).clamp(0.05, 0.30);
+      newScore = (centerRatio / 0.45).clamp(0.05, 0.30);
       newStatusKey = 'not_aligned_hint';
-    } else if (meanHue > 148.0 && meanSat > 0.78) {
+    } else if (meanHue > 145.0 && meanSat > 0.72) {
       // Extreme neon/cyan dye
       newTier = 0;
       newScore = 0.15;
       newStatusKey = 'flat_color_hint';
-    } else if (centerGlareCount >= 5) {
-      // Blue/purple/magenta non-coconut label inside the core
+    } else if (centerGlareCount >= 3) {
+      // Foreign hand or label inside the core
       newTier = 0;
       newScore = 0.18;
       newStatusKey = 'flat_color_hint';
-    } else if (centerRatio >= 0.40 && (greenLumStdDev < 4.5 && edgeRoughness < 1.8)) {
-      // Completely flat painted wall or solid digital screen lacking 3D shading
+    } else if (centerRatio >= 0.45 && (greenLumStdDev < 6.0 && edgeRoughness < 2.2)) {
+      // Flat painted surface or digital screen lacking 3D shading
       newTier = 0;
       newScore = 0.18;
       newStatusKey = 'flat_color_hint';
-    } else if (borderRatio >= 0.85) {
+    } else if (borderRatio >= 0.75) {
       // Camera too close or background filled with green clutter
       newTier = 0;
       newScore = 0.25;
       newStatusKey = 'too_close_hint';
-    } else if (edgeRoughness > 42.0) {
-      // Extreme high-frequency grass or clutter
+    } else if (edgeRoughness > 32.0) {
+      // High-frequency clutter / grass
       newTier = 0;
       newScore = 0.25;
       newStatusKey = 'foliage_hint';
-    } else if (centerRatio < 0.38 || activeQuadrants < 3) {
-      // Coconut detected, but slightly off-center or too small
+    } else if (centerRatio < 0.48 || activeQuadrants < 4) {
+      // Coconut detected, but slightly off-center or filling < 48%
       newTier = 1;
       newScore = 0.65;
-      newStatusKey = centerRatio < 0.38 ? 'almost_aligned_closer' : 'almost_aligned_center';
+      newStatusKey = centerRatio < 0.48 ? 'almost_aligned_closer' : 'almost_aligned_center';
     } else {
-      // Locked On! Real 3D coconut fills the circle (works in dim, well-lit, and flash-on conditions)
+      // Locked On! Real 3D coconut fills all 4 quadrants in the controlled station
       newTier = 2;
-      final double fillBonus = ((centerRatio - 0.38) / 0.45).clamp(0.0, 0.20);
-      newScore = (0.82 + fillBonus).clamp(0.82, 0.98);
+      final double fillBonus = ((centerRatio - 0.48) / 0.40).clamp(0.0, 0.20);
+      newScore = (0.85 + fillBonus).clamp(0.85, 0.98);
       newStatusKey = 'coconut_aligned';
     }
 
@@ -455,10 +455,20 @@ class _VisualScanScreenState extends State<VisualScanScreen>
     if (_isCapturing) return;
     _isCapturing = true;
 
-    // If live reticle is RED (Tier 0), give immediate tactile shake warning before checking
+    // HARD SHUTTER LOCK: In a controlled station audit, prevent capturing when Red (Tier 0)
     if (_alignmentTier == 0) {
+      _isCapturing = false;
       HapticFeedback.heavyImpact();
       _shakeController.forward(from: 0.0);
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppTranslations.text(_alignmentStatusKey)),
+          backgroundColor: const Color(0xFFDC2626),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
     } else {
       HapticFeedback.mediumImpact();
     }
@@ -527,29 +537,6 @@ class _VisualScanScreenState extends State<VisualScanScreen>
           SnackBar(content: Text('Error capturing photo: $e')),
         );
       }
-    }
-  }
-
-  void _skipToAudioOnly() async {
-    if (_isStreaming) {
-      _isStreaming = false;
-      try {
-        await _controller.stopImageStream();
-      } catch (_) {}
-    }
-    if (_isFlashOn) {
-      await _controller.setFlashMode(FlashMode.off);
-      if (mounted) setState(() => _isFlashOn = false);
-    }
-    if (!mounted) return;
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const AcousticScanScreen(imagePath: null),
-      ),
-    );
-    if (mounted && !_isStreaming) {
-      _startLiveAlignmentStream();
     }
   }
 
@@ -665,12 +652,27 @@ class _VisualScanScreenState extends State<VisualScanScreen>
                           ),
                         ],
                       ),
-                      IconButton(
-                        icon: Icon(
-                          _isFlashOn ? Icons.flash_on : Icons.flash_off,
-                          color: _isFlashOn ? Colors.amber : Colors.white,
-                        ),
-                        onPressed: _toggleFlash,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.help_outline_rounded, color: Colors.white, size: 24),
+                            tooltip: AppTranslations.text('inspection_guide_btn'),
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) => const ScanGuideDialog(isHelpMode: true),
+                              );
+                            },
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              _isFlashOn ? Icons.flash_on : Icons.flash_off,
+                              color: _isFlashOn ? Colors.amber : Colors.white,
+                            ),
+                            onPressed: _toggleFlash,
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -910,14 +912,7 @@ class _VisualScanScreenState extends State<VisualScanScreen>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.mic_none,
-                              color: Colors.white70,
-                              size: 28,
-                            ),
-                            onPressed: _skipToAudioOnly,
-                          ),
+                          const SizedBox(width: 48),
                           GestureDetector(
                             onTap: _takePicture,
                             child: AnimatedContainer(

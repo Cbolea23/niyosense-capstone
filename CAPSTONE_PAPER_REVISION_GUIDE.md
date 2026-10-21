@@ -1,10 +1,10 @@
-# NiyoSense Capstone Paper Revision & Alignment Guide (v1.4.5)
+# NiyoSense Capstone Paper Revision & Alignment Guide (v1.5.0)
 **Prepared for:** Seann Yves Saracho (Manuscript & Documentation Lead)  
 **Authors:** Christian Louis Bolea, Wayne Yzon Nagares, Seann Yves Saracho  
 **Adviser:** Engr. Roselyn A. Maaño | **Technical Mentor / Panelist:** Prof. Eleazar Salanda  
 **Primary Stakeholder / Beneficiary:** Dr. Nona D. Nagares (Coconut Plantation Owner, Quezon Province)  
-**System Version:** `v1.4.5` (Build 17 — Production Cloud Release)
-**Live Cloud URL:** [https://niyosense.me](https://niyosense.me) | **APK CDN:** [GitHub Release v1.4.5](https://github.com/Cbolea23/niyosense-capstone/releases/tag/v1.4.5)
+**System Version:** `v1.5.0` (Build 22 — Production Cloud Release)
+**Live Cloud URL:** [https://niyosense.me](https://niyosense.me) | **APK CDN:** [GitHub Release v1.5.0](https://github.com/Cbolea23/niyosense-capstone/releases/tag/v1.5.0)
 
 ---
 
@@ -36,7 +36,7 @@ Before editing the manuscript, note these **two major panel-mandated shifts** fr
 | **Input Tensor Format** | `[1, 3, 224, 224]` NCHW or unspecified | **`[1, 320, 320, 3]` NHWC RGB Float32** normalized to `[0.0, 1.0]` for both the Visual Husk model and the Acoustic Mel-Spectrogram model. |
 | **Maturity Classes** | 3 classes (`Premature`, `Mature`, `Overmature`) + `50` samples each (`150` total) | **2 Target Young Coconut Classes** (`0: Buko` [Marketable / Mature Young Coconut with firm meat] vs. `1: Malauhog` [Premature / Mucus-like thin meat]) + **Deterministic Out-of-Distribution (`Unrecognized`) Rejection State** via a 3-Gate Pre-Inference Validation Pipeline. |
 | **Dual-Model Decision Weighting** | Unspecified or `60% Visual / 40% Audio` fusion | **70% Acoustic / 30% Visual Dual-Model Weighted Decision Rule** ($P_{\text{final}} = 0.70 \cdot P_{\text{audio}} + 0.30 \cdot P_{\text{visual}}$). **Justification:** External green husks of *Buko* and *Malauhog* are visually near-identical in plantation piles, whereas internal endosperm meat thickness and water cavity resonance produce distinct acoustic knock signatures. |
-| **Out-of-Distribution (OOD) / Non-Coconut Handling** | None (relied on raw CNN output) | **3-Gate Deterministic Pre-Inference & Post-Inference Validation Pipeline** (Gate 1: `64×64` HSV Husk Color + Luminance + Sobel Grass/Foliage Edge-Roughness Gate; Gate 2: `64×64` Spectrogram Vertical Tap-Stripe Counter requiring `2–5` knocks; Gate 3: Softmax Temperature Scaling $T=1.6$, `96.5%` confidence cap, and Acoustic-Dominant Cross-Model Verification). |
+| **Out-of-Distribution (OOD) / Non-Coconut Handling** | None (relied on raw CNN output) | **3-Gate Deterministic Pre-Inference & Post-Inference Validation Pipeline** (Gate 1: `64×64` HSV Husk Color + Luminance + Sobel Grass/Foliage Edge-Roughness Gate; Gate 2: `64×64` Spectrogram Vertical Tap-Stripe Counter requiring `2–4` knocks; Gate 3: Softmax Temperature Scaling $T=1.6$, `96.5%` confidence cap, and Acoustic-Dominant Cross-Model Verification). |
 | **Audio Recording Format & Preprocessing** | Recorded in `.M4A` format indoors | Recorded in **uncompressed 16-bit PCM `.WAV` (`22,050 Hz`, mono, 4.0 seconds)** using `AndroidAudioSource.unprocessed` (hardware AGC/Noise-Suppression disabled), followed by a **300 Hz High-Pass Filter**, **1.5s Peak-Window Auto-Centering**, **Hann STFT (`n_fft=2048, hop=512`)**, **128 Slaney Mel bands**, **$-80\text{ dB}$ to $0\text{ dB}$ normalization**, and **Matplotlib `magma` colormap**. |
 | **Post-Harvest Sampling Unit** | Individual coconut per scan (`1 scan = 1 nut`) | **Bungkos (Cluster) Representative Sampling (`bunch_count`)**: In real Quezon Province plantation harvests, coconuts are cut and graded by cluster (*bungkos*, typically 8–15 nuts per bunch). Scanning 1 representative nut profiles the entire *bungkos*, and the field operator inputs the exact **Bungkos Coconut Count (`bunch_count`)** so all dashboard volume KPIs, charts, and financial valuations track both **Total Coconuts** and **Sampled Bunches**. |
 | **Plantation Management & Financial Features** | Only mentioned basic aggregator inventory & grading logs | **Plantation Harvest Batch Session & Tally Voucher System** (mobile) + **Estimated Harvest Valuation Engine & Commercial Settlement / Profit Reconciliation (Price Variance / Leakage Detection)** (web dashboard for Plantation Owners & Farm Managers). |
@@ -133,22 +133,28 @@ When the field operator taps a coconut 3–4 times during the 4.0-second recordi
 ### 3.2 3-Gate Pre-Inference & Post-Inference Out-of-Distribution (OOD) Validation Pipeline
 Because standard Softmax classification networks (`YOLOv8-cls`) trained on closed-set classes (*Buko* vs. *Malauhog*) can assign high probabilities to out-of-distribution inputs (e.g., grass, concrete, faces, or silent/noisy audio) without adding a third "non-coconut" class that could degrade visual feature boundaries, NiyoSense implements a deterministic **3-Gate Validation Pipeline** in [`ModelService.dart`](file:///d:/desktop/GITHUB/niyosense-capstone/lib/services/model_service.dart):
 
-- **Gate 1: Camera Pixel & Texture Validation (`64×64` Downsampled RGB):**
-  1. *Luminance & Exposure Check:* Rejects covered lenses or overexposed glare if mean luminance $\mu_Y \notin [28, 242]$ or standard deviation $\sigma_Y < 8.0$.
-  2. *Center-ROI Husk Chromaticity Check:* Evaluates the central 60% bounding box (`x, y ∈ [12, 52]`) in HSV space. Requires at least **40%** of center pixels to match natural green/yellow-green/olive-brown coconut husk chromaticity ($H \in [32^\circ, 158^\circ], S \in [0.14, 0.92], V \in [0.15, 0.92]$).
-  3. *Sobel Edge-Roughness Texture Check:* Computes horizontal and vertical luminance gradients ($g_x, g_y$). A smooth coconut shell yields low spatial gradient roughness ($\le 30.0$), whereas grass blades, leaves, or gravel exceed `30.0` and are rejected before inference.
+- **Controlled Grading Station Environmental Guardrail Protocol:**
+  Because the two specialized neural networks (`img_best_v2.tflite` and `spec_best_v2.tflite`) are strictly closed-set **2-class models** (`0: Buko` vs. `1: Malauhog`) with no third class for non-coconut objects or ambient sounds, post-harvest grading is conducted exclusively by the **Field Manager** at a **Controlled Grading Station** (shaded inspection table, neutral matte background, quiet room, standardized 3-knock tapping protocol). Pre-inference guardrails (Gates 1 & 2) deterministically reject any non-coconut input before the model can be queried.
 
-- **Gate 2: Mel-Spectrogram Vertical Tap-Stripe Counter (`64×64` Grid):**
-  - Rather than relying on raw microphone amplitude (which varies across phone hardware), Gate 2 inspects the generated Mel-spectrogram image across the **upper 70% frequency rows** (`y = 0..44`, ignoring the bottom 30% low-frequency microphone hum).
-  - For each time column $x \in [0, 63]$, mean brightness `colEnergy[x]` is compared against the background median:
-    $$\text{isTapColumn}(x) \iff \text{colEnergy}[x] > \text{median}(\text{colEnergy}) + 35 \quad \text{and} \quad \text{colEnergy}[x] > 85$$
-  - Distinct vertical stripes separated by at least 3 time columns are counted (`stripeCount`). A scan is accepted **if and only if `2 <= stripeCount <= 5`** (matching the SOP of 3–4 taps). Silence (`0–1` stripes) or continuous speech/clapping (`> 5` stripes) is immediately rejected as `Unrecognized`.
+- **Gate 1: Controlled Station Visual Husk & Texture Gate (`64×64` Downsampled RGB):**
+  1. *Station Lighting Exposure Window:* Rejects dark station shadows, covered lenses, or washed-out flash glare if mean luminance $\mu_Y \notin [35.0, 230.0]$ or standard deviation $\sigma_Y < 8.0$.
+  2. *Authentic Coconut Husk HSV Window:* Restricts valid husk chromaticity to natural green and golden-olive hues: $H \in [36^\circ, 148^\circ]$, $S \in [0.15, 0.88]$, $V \in [0.18, 0.92]$.
+  3. *Core Foreign Color Rejection:* Checks the core 30% ROI for foreign saturated colors ($S > 0.40$ with $H < 30^\circ$ or $H \in [175^\circ, 340^\circ]$, rejecting human skin tones, cardboard, wooden tables, blue jeans, and synthetic plastics).
+  4. *Husk Coverage & Aspect Ratio:* Requires $\ge 45\%$ husk coverage in the Center 60% ROI and $\ge 60\%$ in the Core 30% ROI, with an aspect ratio of $0.65–1.55$ to prevent thin elongated non-coconut objects.
+  5. *3D Spherical Shading & Natural Texture:* Requires green luminance standard deviation $\sigma_{\text{greenLum}} \ge 6.5$ (verifying natural 3D spherical lighting gradients across the nut) and Sobel gradient edge roughness of $2.2–32.0$ (rejecting flat 2D printouts, perfectly smooth balls, or high-frequency grass/foliage).
+  6. *Hard Shutter Lock:* The Live Reticle HUD in `visual_scan_screen.dart` strictly blocks shutter release when alignment is Red (Tier 0), preventing out-of-spec photos from ever reaching inference.
 
-- **Gate 3: Softmax Temperature Scaling ($T = 1.6$), Confidence Cap (`96.5%`), & Cross-Model Agreement:**
-  - Raw YOLOv8-cls probabilities $p_i$ from each model are softened via temperature scaling ($T = 1.6$) to prevent artificial `99.9%–100.0%` saturation:
-    $$\hat{P}_i = \frac{p_i^{1/T}}{\sum_{j} p_j^{1/T}}, \quad T = 1.6$$
-  - Displayed confidence is capped at **96.5%** ($\min(\text{conf}, 0.965)$).
-  - Minimum final confidence threshold is **65.0%**. If the Visual and Acoustic models predict opposite classes, the scan is rejected as `Unrecognized` **unless** the Acoustic model is highly decisive ($\max(\hat{P}_{\text{audio}}) \ge 0.75$), in which case the 70/30 dual-model weighting proceeds.
+- **Gate 2: Acoustic Signal Processing & Standard Operating Procedure (SOP):**
+  1. *First-Order 300 Hz High-Pass Filter:* Applied to raw 22,050 Hz PCM audio prior to STFT padding to suppress low-frequency hand handling noise, desk bumps, and ambient room rumble.
+  2. *Mel-Spectrogram Generation:* Preprocesses the 4.0-second `.wav` into a calibrated 128-band Slaney Mel-spectrogram on-device (`320×320` Float32, `magma` colormap).
+  3. *Standard Operating Procedure (SOP) Protocol:* To prevent fragile false-rejection dropouts caused by microphone hardware differences across smartphones, acoustic validation relies on a standardized on-screen SOP instructing the Field Manager to hold the device 5–10 cm from the coconut and firmly knock 3 times on the coconut equator (~1 second apart).
+
+- **Gate 3: Calibrated Softmax Temperature Scaling ($T = 1.6$), Confidence Cap (`96.5%`), & Dual-Model Late Fusion:**
+  1. *Softmax Temperature Scaling:* Raw YOLOv8-cls output probabilities are softened ($T = 1.6$):
+     $$\hat{P}_i = \frac{p_i^{1/T}}{\sum_{j} p_j^{1/T}}, \quad T = 1.6$$
+  2. *Confidence Cap:* Displayed confidence is capped at **96.5%** to prevent false certainty.
+  3. *Dual-Model Late Fusion Combiner ($0.70 \cdot P_{\text{audio}} + 0.30 \cdot P_{\text{visual}}$):* Combines acoustic resonance with visual husk traits without artificial disagreement vetoes, allowing the model's true acoustic weights to guide maturity grading.
+  4. *Mandatory Dual-Modality:* Both visual inspection and acoustic tapping are mandatory for every grading session.
 
 ---
 
@@ -158,6 +164,13 @@ $$P_{\text{final}}(c) = 0.70 \cdot \hat{P}_{\text{audio}}(c) + 0.30 \cdot \hat{P
 $$\text{Predicted Stage} = \arg\max_{c} P_{\text{final}}(c)$$
 
 ---
+
+### 3.3.1 Controlled Grading Station Operator Guide (Defense Alignment)
+To reinforce the scope and limitations of the dual-model closed-set architecture (`Buko` vs. `Malauhog`, with no 3rd class) during user evaluation and defense demonstrations, the mobile application introduces an interactive 4-page **Controlled Inspection Guide** (`ScanGuideDialog`) triggered before camera capture:
+1. **Operator Role & Station Gating:** Establishes that the tool is operated strictly by the **Field Manager** at a controlled grading station (indoor/shaded table, neutral matte background, quiet room), not by random field hands in uncontrolled outdoor conditions.
+2. **Visual Object Differentiation (Scan vs. Do Not Scan):** Displays side-by-side reference images of valid green young coconuts versus non-coconut green distractors (green fruits, green plastic tables, green microfiber fabrics) with explicit warnings that non-coconut green objects are out-of-scope.
+3. **Controlled Station Do's and Don'ts:** Outlines framing best practices (single nut, circular reticle lock-on, flash usage under shadows, silence during audio capture).
+4. **Animated Acoustic Tapping Protocol:** Features an interactive animated knocker illustrating phone microphone distance (5–10 cm from the coconut equator) and the 3-knock cadence (~1 second apart), supported by a "Don't show again" preference and an on-demand "? Guide" button in the camera viewfinder.
 
 ### 3.4 Bungkos (Cluster) Sampling & Plantation Volume Accounting Formula
 In coconut plantation operations, harvesters cut entire clusters (*bungkos*) from a tree spadix. Since nuts within a single *bungkos* develop simultaneously, scanning one representative coconut grades the entire cluster. On `ScanResultScreen`, the field operator inputs the cluster's nut count $n_i$ (`bunch_count`, default `10`, quick-select chips `8, 10, 12, 15`). Total graded volume across $K$ scanned clusters is computed as:
@@ -204,6 +217,6 @@ where $\Omega_s$ is the set of scanned clusters classified under maturity stage 
 - [ ] **Beneficiary Terminology:** Replace *"Small-Scale Coconut Aggregators"* across the manuscript with **"Coconut Plantation Owners and Farm Managers"** (for the Web Dashboard) and **"Field Operators / Sorters"** (for the Mobile App).
 - [ ] **Architecture Terminology:** Replace *"Multimodal Fusion"* and *"YOLOv11"* with **"Dual-Model Audio-Visual Machine Learning Architecture"** using **two independent on-device `YOLOv8-cls` TensorFlow Lite models (`img_best_v2.tflite` and `spec_best_v2.tflite`)**.
 - [ ] **70/30 Dual-Model Equation:** Include $P_{\text{final}}(c) = 0.70 \cdot \hat{P}_{\text{audio}}(c) + 0.30 \cdot \hat{P}_{\text{visual}}(c)$ and its field justification (outer green husks of *Buko* and *Malauhog* look almost identical, whereas internal meat thickness alters acoustic resonance).
-- [ ] **3-Gate OOD Validation Pipeline:** Document Gate 1 (`64×64` HSV Husk + Luminance + Sobel Texture), Gate 2 (`64×64` Spectrogram Vertical Tap-Stripe Counter requiring `2–5` knocks), and Gate 3 (Softmax Temperature Scaling $T=1.6$ + `96.5%` cap).
+- [ ] **3-Gate OOD Validation Pipeline:** Document Gate 1 (`64×64` HSV Husk + Luminance + Sobel Texture), Gate 2 (`64×64` Spectrogram Vertical Tap-Stripe Counter requiring `2–4` knocks), and Gate 3 (Softmax Temperature Scaling $T=1.6$ + `96.5%` cap).
 - [ ] **Bungkos (Cluster) Sampling & Plantation Valuation:** Add the `bunch_count` cluster volume equation and the Commercial Settlement Reconciliation ($\Delta V = V_{\text{est}} - V_{\text{actual}}$) equation.
-- [ ] **Deployment & Screenshots:** Update Fig. 21 (Deployment Diagram) from Vercel to **Render Web Services + Cloudflare Edge (https://niyosense.me) + GitHub Releases CDN**, and replace old Figma screenshots (Figs. 7–19) with live `v1.4.5` production screenshots.
+- [ ] **Deployment & Screenshots:** Update Fig. 21 (Deployment Diagram) from Vercel to **Render Web Services + Cloudflare Edge (https://niyosense.me) + GitHub Releases CDN**, and replace old Figma screenshots (Figs. 7–19) with live `v1.5.0` production screenshots.

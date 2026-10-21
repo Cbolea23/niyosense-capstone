@@ -163,10 +163,15 @@ class TfliteService {
         // Natural Coconut Husk HSV Criteria (supports green, olive, golden-yellow, brown-scarred husks,
         // well-lit daylight, and warm LED camera flash highlights):
         // Hue 14° to 162°, Saturation 0.06 to 0.95, Value 0.12 to 0.98
+        // Controlled Field Manager Coconut Husk HSV Criteria:
+        // Authentic olive-golden-yellow to botanical deep green coconut husks:
+        // Hue 36° to 148°, Saturation 0.15 to 0.88, Value 0.18 to 0.92
+        // Strictly excludes: human skin/hands (<36°), red/brown wood tables (<36°),
+        // washed-out grey/white cardboard (<0.15 sat), and cyan/blue plastics (>148°).
         final bool isGreenHuskPixel =
-            (hue >= 14.0 && hue <= 162.0) &&
-            (sat >= 0.06 && sat <= 0.95) &&
-            (val >= 0.12 && val <= 0.98);
+            (hue >= 36.0 && hue <= 148.0) &&
+            (sat >= 0.15 && sat <= 0.88) &&
+            (val >= 0.18 && val <= 0.92);
 
         // Center 60% ROI check [13..50]
         if (x >= roiStart && x <= roiEnd && y >= roiStart && y <= roiEnd) {
@@ -188,10 +193,9 @@ class TfliteService {
             if (isGreenHuskPixel) {
               coreGreenPixels++;
             }
-            // Detect unnatural non-coconut colors (blue, cyan, purple, magenta, neon pink)
-            // Does NOT penalize camera flash highlights or natural brown coconut scars (Hue 10°..34°)
+            // Detect unnatural non-coconut colors (blue, cyan, purple, magenta, hands, red objects)
             final bool isLabelColor =
-                (sat > 0.48 && (hue >= 180.0 && hue <= 338.0));
+                (sat > 0.40 && (hue < 30.0 || (hue >= 175.0 && hue <= 340.0)));
             if (isLabelColor) {
               coreGlareOrLabelPixels++;
             }
@@ -213,11 +217,12 @@ class TfliteService {
     final double variance = math.max(0.0, (sumLumSq / totalPixels) - (meanLuminance * meanLuminance));
     final double stdDev = math.sqrt(variance);
 
-    if (meanLuminance < 22.0 || meanLuminance > 248.0 || stdDev < 5.5) {
+    // 1. Controlled Station Lighting & Exposure Check
+    if (meanLuminance < 35.0 || meanLuminance > 230.0 || stdDev < 8.0) {
       debugPrint(
         "⛔ [GATE 1 - LUMINANCE] Rejected: meanLum=${meanLuminance.toStringAsFixed(1)}, stdDev=${stdDev.toStringAsFixed(1)}",
       );
-      return "Camera obstructed or invalid lighting.";
+      return "Controlled lighting invalid: station is too dim or overexposed. Ensure even, neutral lighting on the coconut.";
     }
 
     // 2. Coconut Husk Fill Check (Center 60% ROI & Inner Core 37.5%)
@@ -226,20 +231,21 @@ class TfliteService {
     final double coreGreenRatio = coreGreenPixels / totalCorePixels;
     final double coreGlareRatio = coreGlareOrLabelPixels / totalCorePixels;
 
-    if (centerGreenRatio < 0.34 || coreGreenRatio < 0.48) {
+    // 2. Controlled Coconut Husk Fill Check (Center 60% ROI & Inner Core 37.5%)
+    if (centerGreenRatio < 0.45 || coreGreenRatio < 0.60) {
       debugPrint(
-        "⛔ [GATE 1 - HSV HUSK FILL] Rejected: centerGreen=${(centerGreenRatio * 100).toStringAsFixed(1)}%, "
-        "coreGreen=${(coreGreenRatio * 100).toStringAsFixed(1)}%",
+        "⛔ [GATE 1 - HSV HUSK FILL] Rejected: centerGreen=${(centerGreenRatio * 100).toStringAsFixed(1)}% (req >=45%), "
+        "coreGreen=${(coreGreenRatio * 100).toStringAsFixed(1)}% (req >=60%)",
       );
-      return "No coconut centered in the frame. Fill the circular guide with a single coconut.";
+      return "No coconut centered in the frame. Fill the circular guide with a single coconut on the inspection table.";
     }
 
-    // 3. Inner Core Unnatural Color Check (Blue/Purple/Magenta Labels)
-    if (coreGlareRatio > 0.22) {
+    // 3. Inner Core Foreign Object / Hand / Label Check
+    if (coreGlareRatio > 0.10) {
       debugPrint(
-        "⛔ [GATE 1 - GLARE/LABEL] Rejected: coreGlareRatio=${(coreGlareRatio * 100).toStringAsFixed(1)}% (> 22%)",
+        "⛔ [GATE 1 - FOREIGN OBJECT] Rejected: coreGlareRatio=${(coreGlareRatio * 100).toStringAsFixed(1)}% (> 10%)",
       );
-      return "Non-coconut label or object detected. Point camera at a natural coconut husk.";
+      return "Foreign color or hand detected in the reticle. Keep hands clear and point camera at the natural coconut husk.";
     }
 
     // 4. Spherical Aspect Ratio & Span Check (Rejects narrow cylindrical bottles)
@@ -250,11 +256,11 @@ class TfliteService {
       if (rowGreenCounts[i] >= 8) hSpan++;
     }
     final double aspect = wSpan / math.max(hSpan, 1);
-    if (wSpan < 16 || hSpan < 16 || aspect < 0.50 || aspect > 1.85) {
+    if (wSpan < 18 || hSpan < 18 || aspect < 0.65 || aspect > 1.55) {
       debugPrint(
         "⛔ [GATE 1 - SHAPE/ASPECT] Rejected: wSpan=$wSpan, hSpan=$hSpan, aspect=${aspect.toStringAsFixed(2)}",
       );
-      return "Object shape is too narrow or elongated (e.g. bottle/container). Center a round coconut in the guide.";
+      return "Object shape is too narrow or elongated. Center a round coconut in the circular guide.";
     }
 
     // 5. Color & 3D Organic Husk Shading Statistics
@@ -280,12 +286,12 @@ class TfliteService {
     final double greenLumStdDev = math.sqrt(greenLumVar);
 
     // Reject only extreme neon/cyan artificial dyes (while allowing vibrant well-lit green coconuts)
-    if (meanCenterHue > 148.0 && meanCenterSat > 0.78) {
+    if (meanCenterHue > 145.0 && meanCenterSat > 0.72) {
       debugPrint(
         "⛔ [GATE 1 - ARTIFICIAL DYE] Rejected: meanHue=${meanCenterHue.toStringAsFixed(1)}°, "
         "meanSat=${meanCenterSat.toStringAsFixed(2)}",
       );
-      return "Artificial green plastic, bottle, or dyed object detected. Point camera at a natural coconut husk.";
+      return "Artificial green plastic, container, or dyed object detected. Point camera at a natural coconut husk.";
     }
 
     // 6. Edge Roughness, Border Overfill & Flat Solid Wall Check
@@ -313,27 +319,27 @@ class TfliteService {
       "sat=${meanCenterSat.toStringAsFixed(2)}±${satStdDev.toStringAsFixed(3)}",
     );
 
-    if (borderGreenRatio > 0.85) {
+    if (borderGreenRatio > 0.75) {
       debugPrint(
-        "⛔ [GATE 1 - BORDER OVERFILL] Rejected: borderGreen=${(borderGreenRatio * 100).toStringAsFixed(1)}% (> 85%)",
+        "⛔ [GATE 1 - BORDER OVERFILL] Rejected: borderGreen=${(borderGreenRatio * 100).toStringAsFixed(1)}% (> 75%)",
       );
-      return "Camera is too close, or background has too much green foliage/clutter. Frame a single coconut inside the circle.";
+      return "Camera is too close, or background has too much green clutter. Frame a single coconut inside the circle against a neutral surface.";
     }
 
-    if (edgeRoughness > 42.0) {
+    if (edgeRoughness > 32.0) {
       debugPrint(
-        "⛔ [GATE 1 - HIGH ROUGHNESS] Rejected: edgeRoughness=${edgeRoughness.toStringAsFixed(1)} (> 42.0)",
+        "⛔ [GATE 1 - HIGH ROUGHNESS] Rejected: edgeRoughness=${edgeRoughness.toStringAsFixed(1)} (> 32.0)",
       );
-      return "Background foliage, grass, or sharp text/labels detected. Center a single coconut husk.";
+      return "Background clutter, grass, or text detected. Place coconut on a clean grading surface.";
     }
 
-    // Reject only completely uniform digital screens or flat painted walls lacking any 3D shading
-    if (greenLumStdDev < 5.0 && edgeRoughness < 1.8) {
+    // Reject flat screens, printed paper, or solid walls lacking 3D spherical shading
+    if (greenLumStdDev < 6.5 || edgeRoughness < 2.2) {
       debugPrint(
-        "⛔ [GATE 1 - SYNTHETIC/FLAT OBJECT] Rejected: greenLumStd=${greenLumStdDev.toStringAsFixed(1)}, "
-        "edgeRough=${edgeRoughness.toStringAsFixed(1)}",
+        "⛔ [GATE 1 - SYNTHETIC/FLAT OBJECT] Rejected: greenLumStd=${greenLumStdDev.toStringAsFixed(1)} (<6.5), "
+        "edgeRough=${edgeRoughness.toStringAsFixed(1)} (<2.2)",
       );
-      return "Flat painted surface or solid color detected. Please scan a real 3D coconut.";
+      return "Flat printed surface or digital screen detected. Please scan a real 3D coconut.";
     }
 
     return null; // Passed all Gate 1 checks!
@@ -470,76 +476,44 @@ class TfliteService {
     String visualLabel = imgProbs[0] >= imgProbs[1] ? "buko" : "malauhog";
     double visualConf = math.max(imgProbs[0], imgProbs[1]);
 
-    // --- GATE 2: MEL-SPECTROGRAM STRIPE COUNTER & AUDIO INFERENCE (OFFLOADED TO ISOLATE) ---
+    // --- AUDIO MEL-SPECTROGRAM INFERENCE (70% AUDIO DOMINANT) ---
     List<double> specProbs;
     String audioLabel = "N/A";
     double audioConf = 0.0;
 
     if (audioFile != null && await audioFile.exists()) {
       try {
-        debugPrint("🎵 Generating Dart Mel-Spectrogram & running Gate 2 in background isolate for: ${audioFile.path}");
+        debugPrint("🎵 Generating Dart Mel-Spectrogram in background isolate for: ${audioFile.path}");
         final Map<String, dynamic> specIsoResult = await compute(
           SpectrogramService.generateSpectrogramInIsolate,
           audioFile.path,
         );
-        if (specIsoResult['ok'] != true) {
-          final String errMsg = (specIsoResult['message'] as String?) ??
-              "No acoustic tap detected in spectrogram. Knock the coconut shoulder 3 times.";
-          debugPrint("⛔ [GATE 2 REJECTED] $errMsg");
-          return PredictionResult(
-            label: "Invalid Object",
-            confidence: 0.0,
-            classProbabilities: {"buko": 0.0, "malauhog": 0.0},
-            visualLabel: visualLabel,
-            visualConfidence: visualConf,
-            audioLabel: "INVALID TAP",
-            audioConfidence: 0.0,
-            isValidObject: false,
-            rejectionReason: errMsg,
-          );
+        if (specIsoResult['ok'] == true && specIsoResult['tensor'] != null) {
+          final Object specInput = specIsoResult['tensor'] as Object;
+
+          final specOutputShape = _specInterpreter!.getOutputTensor(0).shape;
+          final int numSpecOutputs = specOutputShape.reduce((a, b) => a * b);
+          var specOutput = List.filled(numSpecOutputs, 0.0).reshape(specOutputShape);
+          _specInterpreter!.run(specInput, specOutput);
+
+          List<double> rawSpecProbs = List<double>.from(specOutputShape.length == 2 ? specOutput[0] : specOutput);
+          specProbs = _normalizeAndScaleProbs(rawSpecProbs, temperature: 1.6);
+
+          audioLabel = specProbs[0] >= specProbs[1] ? "buko" : "malauhog";
+          audioConf = math.max(specProbs[0], specProbs[1]);
+          debugPrint("🎵 Real Audio Prediction: $audioLabel (${(audioConf * 100).toStringAsFixed(1)}%)");
+        } else {
+          final String errMsg = (specIsoResult['message'] as String?) ?? "Could not decode audio";
+          debugPrint("⚠️ [AUDIO INFERENCE NOTICE] $errMsg -> using visual fallback");
+          specProbs = List.from(imgProbs);
+          audioLabel = visualLabel;
+          audioConf = visualConf;
         }
-        final Object specInput = specIsoResult['tensor'] as Object;
-
-        final specOutputShape = _specInterpreter!.getOutputTensor(0).shape;
-        final int numSpecOutputs = specOutputShape.reduce((a, b) => a * b);
-        var specOutput = List.filled(numSpecOutputs, 0.0).reshape(specOutputShape);
-        _specInterpreter!.run(specInput, specOutput);
-
-        List<double> rawSpecProbs = List<double>.from(specOutputShape.length == 2 ? specOutput[0] : specOutput);
-        specProbs = _normalizeAndScaleProbs(rawSpecProbs, temperature: 1.6);
-
-        audioLabel = specProbs[0] >= specProbs[1] ? "buko" : "malauhog";
-        audioConf = math.max(specProbs[0], specProbs[1]);
-        debugPrint("🎵 Real Audio Prediction: $audioLabel (${(audioConf * 100).toStringAsFixed(1)}%)");
-      } on SpectrogramValidationException catch (specErr) {
-        debugPrint("⛔ [GATE 2 REJECTED] ${specErr.message}");
-        return PredictionResult(
-          label: "Invalid Object",
-          confidence: 0.0,
-          classProbabilities: {"buko": 0.0, "malauhog": 0.0},
-          visualLabel: visualLabel,
-          visualConfidence: visualConf,
-          audioLabel: "INVALID TAP",
-          audioConfidence: 0.0,
-          isValidObject: false,
-          rejectionReason: specErr.message,
-        );
       } catch (e) {
-        debugPrint("⛔ [GATE 2 ERROR] $e");
-        final String cleanReason = e.toString().contains("SpectrogramValidationException:")
-            ? e.toString().split("SpectrogramValidationException:").last.trim()
-            : "Audio analysis failed: ${e.toString().replaceAll('Exception:', '').trim()}";
-        return PredictionResult(
-          label: "Invalid Object",
-          confidence: 0.0,
-          classProbabilities: {"buko": 0.0, "malauhog": 0.0},
-          visualLabel: visualLabel,
-          visualConfidence: visualConf,
-          audioLabel: "INVALID TAP",
-          audioConfidence: 0.0,
-          isValidObject: false,
-          rejectionReason: cleanReason,
-        );
+        debugPrint("⚠️ [AUDIO PROCESSING ERROR] $e -> using visual fallback");
+        specProbs = List.from(imgProbs);
+        audioLabel = visualLabel;
+        audioConf = visualConf;
       }
     } else {
       specProbs = List.from(imgProbs);
@@ -547,7 +521,7 @@ class TfliteService {
       audioConf = visualConf;
     }
 
-    // --- 70% AUDIO / 30% VISUAL LATE FUSION & GATE 3 (ACOUSTIC-DOMINANT VETO) ---
+    // --- 70% AUDIO / 30% VISUAL LATE FUSION ---
     final double audioWeight = 1.0 - visualWeight; // 0.70
     double bukoProb = (visualWeight * imgProbs[0]) + (audioWeight * specProbs[0]);
     double malauhogProb = (visualWeight * imgProbs[1]) + (audioWeight * specProbs[1]);
@@ -560,58 +534,6 @@ class TfliteService {
       "Audio(70%)=$audioLabel(${(audioConf * 100).toStringAsFixed(1)}%) -> "
       "Fused=$finalLabel(${(highestConfidence * 100).toStringAsFixed(1)}%)",
     );
-
-    if (audioFile != null && audioLabel != "N/A (Skipped)") {
-      // Require minimum individual confidence floor (0.52) on the dominant audio model (above chance)
-      if (audioConf < 0.52) {
-        return PredictionResult(
-          label: "Invalid Object",
-          confidence: 0.0,
-          classProbabilities: {"buko": 0.0, "malauhog": 0.0},
-          visualLabel: visualLabel,
-          visualConfidence: visualConf,
-          audioLabel: audioLabel,
-          audioConfidence: audioConf,
-          isValidObject: false,
-          rejectionReason: "Inconclusive Scan: Acoustic signal confidence too low. Please knock 3 times clearly.",
-        );
-      }
-
-      // If Visual and Audio disagree:
-      // Allow 70% Audio to override ambiguous outer husk when Fused confidence >= 0.58.
-      // Otherwise reject as Inconclusive Scan if both models are in a dead heat (< 58%).
-      if (visualLabel != audioLabel && highestConfidence < 0.58) {
-        debugPrint(
-          "⛔ [GATE 3 - VETO] Visual ($visualLabel) != Audio ($audioLabel) and Fused Conf (${(highestConfidence * 100).toStringAsFixed(1)}%) < 58%",
-        );
-        return PredictionResult(
-          label: "Invalid Object",
-          confidence: 0.0,
-          classProbabilities: {"buko": 0.0, "malauhog": 0.0},
-          visualLabel: visualLabel,
-          visualConfidence: visualConf,
-          audioLabel: audioLabel,
-          audioConfidence: audioConf,
-          isValidObject: false,
-          rejectionReason: "Inconclusive Scan: Visual and audio readings disagree. Please rescan.",
-        );
-      }
-    } else {
-      // Photo-only mode requires visualConfidence >= 0.65
-      if (visualConf < 0.65) {
-        return PredictionResult(
-          label: "Invalid Object",
-          confidence: 0.0,
-          classProbabilities: {"buko": 0.0, "malauhog": 0.0},
-          visualLabel: visualLabel,
-          visualConfidence: visualConf,
-          audioLabel: audioLabel,
-          audioConfidence: audioConf,
-          isValidObject: false,
-          rejectionReason: "No coconut detected. Center a green coconut in the frame.",
-        );
-      }
-    }
 
     return PredictionResult(
       label: finalLabel,

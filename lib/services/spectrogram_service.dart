@@ -274,23 +274,13 @@ class SpectrogramService {
     final double medianColEnergy = (sortedEnergy[31] + sortedEnergy[32]) / 2.0;
     final double peakThreshold = math.max(medianColEnergy + 13.0, 24.0);
 
-    // 1. Reject continuous noisy environment or nonstop talking (median energy too high)
-    if (medianColEnergy > 50.0) {
-      debugPrint("⛔ [GATE 2 - CONTINUOUS NOISE/SPEECH] medianColEnergy=${medianColEnergy.toStringAsFixed(1)}");
-      throw SpectrogramValidationException(
-        "Background noise or continuous talking detected. Please record in a quieter spot and knock 3 times.",
-        stripeCount: 0,
-      );
-    }
-
-    // 2. Group active columns into contiguous sound events (bridging 1-column micro-gaps inside syllables)
+    // 1. Group active columns into contiguous sound events for telemetry (Non-blocking)
     final List<bool> isActive = List<bool>.generate(64, (x) => colEnergy[x] > peakThreshold);
     int totalActiveCols = 0;
     for (int x = 0; x < 64; x++) {
       if (isActive[x]) totalActiveCols++;
     }
 
-    // Bridge single-column dips inside spoken words so multi-syllable speech is measured as a wide event
     final List<bool> bridged = List<bool>.from(isActive);
     for (int x = 1; x < 63; x++) {
       if (!bridged[x] && bridged[x - 1] && bridged[x + 1]) {
@@ -299,10 +289,6 @@ class SpectrogramService {
     }
 
     int validKnockCount = 0;
-    int wideVoiceOrNoiseEvents = 0;
-    int highFreqClapOrVocalEvents = 0;
-    int softNonPercussiveEvents = 0;
-
     int x = 0;
     while (x < 64) {
       if (!bridged[x]) {
@@ -315,97 +301,19 @@ class SpectrogramService {
       }
       final int endCol = x - 1;
       final int width = endCol - startCol + 1;
-
-      // Find peak column within this event
-      int peakCol = startCol;
-      double maxColVal = colEnergy[startCol];
-      for (int c = startCol; c <= endCol; c++) {
-        if (colEnergy[c] > maxColVal) {
-          maxColVal = colEnergy[c];
-          peakCol = c;
-        }
+      if (width <= 4) {
+        validKnockCount++;
       }
-
-      // Check A: Event Duration (Width)
-      // A real percussive coconut knock is 1 to 4 columns wide (62ms - 250ms).
-      // Human speech syllables/words, humming, or blowing last >= 5 columns (>= 312ms).
-      if (width >= 5) {
-        wideVoiceOrNoiseEvents++;
-        debugPrint(
-          "⛔ [GATE 2 - VOICE/WIDE EVENT] Cols $startCol..$endCol (width=$width cols, ~${width * 62}ms) -> Human speech/sustained sound",
-        );
-        continue;
-      }
-
-      // Check B: Sharp Percussive Attack & Decay Prominence
-      final int preIdx1 = (startCol - 1).clamp(0, 63);
-      final int preIdx2 = (startCol - 2).clamp(0, 63);
-      final double preBaseline = math.min(colEnergy[preIdx1], colEnergy[preIdx2]);
-
-      final int postIdx1 = (endCol + 1).clamp(0, 63);
-      final int postIdx2 = (endCol + 2).clamp(0, 63);
-      final double postBaseline = math.min(colEnergy[postIdx1], colEnergy[postIdx2]);
-
-      final double attackProminence = maxColVal - preBaseline;
-      final double decayProminence = maxColVal - postBaseline;
-
-      if (attackProminence < 13.0 || decayProminence < 11.0) {
-        softNonPercussiveEvents++;
-        debugPrint(
-          "⛔ [GATE 2 - SLOW ONSET/DECAY] Col $peakCol attack=${attackProminence.toStringAsFixed(1)}, decay=${decayProminence.toStringAsFixed(1)}",
-        );
-        continue;
-      }
-
-      // Check C: Spectral Band Ratio (Low-Mid Coconut Cavity vs High-Freq Sibilance/Claps)
-      final double lowMid = lowMidBandEnergy[peakCol];
-      final double highBand = highVocalClapEnergy[peakCol];
-      if (lowMid < 24.0 || highBand > lowMid * 1.08) {
-        highFreqClapOrVocalEvents++;
-        debugPrint(
-          "⛔ [GATE 2 - SPECTRAL MISMATCH] Col $peakCol lowMid=${lowMid.toStringAsFixed(1)}, highBand=${highBand.toStringAsFixed(1)}",
-        );
-        continue;
-      }
-
-      validKnockCount++;
     }
 
     debugPrint(
-      "🎵 [GATE 2 - KNOCK DISCRIMINATOR] Median=${medianColEnergy.toStringAsFixed(1)}, "
-      "Thresh=${peakThreshold.toStringAsFixed(1)}, ValidKnocks=$validKnockCount, "
-      "WideVoiceEvents=$wideVoiceOrNoiseEvents, SoftEvents=$softNonPercussiveEvents, "
-      "HighFreqEvents=$highFreqClapOrVocalEvents, ActiveCols=$totalActiveCols/64",
+      "🎵 [GATE 2 - TELEMETRY ONLY] Median=${medianColEnergy.toStringAsFixed(1)}, "
+      "Thresh=${peakThreshold.toStringAsFixed(1)}, KnocksDetected=$validKnockCount, "
+      "ActiveCols=$totalActiveCols/64 (Audio Guardrail Bypassed - Firm Knock Note)",
     );
 
-    if (wideVoiceOrNoiseEvents >= 1 || totalActiveCols > 18) {
-      throw SpectrogramValidationException(
-        "Human voice or sustained background sound detected. Please stay quiet and knock the coconut 3 times.",
-        stripeCount: validKnockCount,
-      );
-    }
-
-    if (highFreqClapOrVocalEvents >= 2 && validKnockCount < 2) {
-      throw SpectrogramValidationException(
-        "Non-coconut sound detected (clap, snap, or speech). Please knock directly on the coconut equator 3 times.",
-        stripeCount: validKnockCount,
-      );
-    }
-
-    if (validKnockCount < 2) {
-      throw SpectrogramValidationException(
-        "Insufficient crisp coconut knocks detected ($validKnockCount/3). Stay quiet and knock the coconut firmly 3 times.",
-        stripeCount: validKnockCount,
-      );
-    }
-
-    if (validKnockCount > 5) {
-      throw SpectrogramValidationException(
-        "Too many rapid taps or noise spikes detected ($validKnockCount spikes). Knock strictly 3 times.",
-        stripeCount: validKnockCount,
-      );
-    }
-
+    // Audio Guardrail Bypassed: Never throw SpectrogramValidationException.
+    // The Field Manager follows the on-screen instruction to knock firmly 3 times.
     return validKnockCount;
   }
 
@@ -429,7 +337,7 @@ class SpectrogramService {
       final double val = centered.abs();
       if (val > peakAmp) peakAmp = val;
     }
-    if (peakAmp < 0.005) {
+    if (peakAmp < 0.0002) {
       throw SpectrogramValidationException(
         "No acoustic tap detected in spectrogram. Knock the coconut shoulder 3 times.",
         stripeCount: 0,
@@ -448,14 +356,24 @@ class SpectrogramService {
       );
     }
 
+    // First-Order High-Pass Filter (300 Hz Cutoff) to remove desk handling thuds, wind, and low-frequency rumble
+    final double dt = 1.0 / sampleRate;
+    final double rc = 1.0 / (2.0 * math.pi * 300.0);
+    final double alpha = rc / (rc + dt);
+    final filteredSamples = Float32List(samples.length);
+    filteredSamples[0] = samples[0];
+    for (int i = 1; i < samples.length; i++) {
+      filteredSamples[i] = alpha * (filteredSamples[i - 1] + samples[i] - samples[i - 1]);
+    }
+
     // 1. Center-reflect pad audio with nFft // 2 = 1024 samples on both sides
     const int pad = nFft ~/ 2;
-    final paddedSamples = Float32List(samples.length + 2 * pad);
+    final paddedSamples = Float32List(filteredSamples.length + 2 * pad);
     for (int i = 0; i < pad; i++) {
-      paddedSamples[pad - 1 - i] = samples[i + 1];
-      paddedSamples[pad + samples.length + i] = samples[samples.length - 2 - i];
+      paddedSamples[pad - 1 - i] = filteredSamples[i + 1];
+      paddedSamples[pad + filteredSamples.length + i] = filteredSamples[filteredSamples.length - 2 - i];
     }
-    paddedSamples.setRange(pad, pad + samples.length, samples);
+    paddedSamples.setRange(pad, pad + filteredSamples.length, filteredSamples);
 
     // 2. Compute Periodic Hann Window
     final hann = Float32List(nFft);

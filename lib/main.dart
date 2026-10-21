@@ -1,3 +1,4 @@
+import 'widgets/scan_guide_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -541,6 +542,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             onPressed: () async {
                               if (cameras.isNotEmpty) {
+                                final bool proceed = await ScanGuideDialog.showIfNeeded(context);
+                                if (!proceed) return;
+
+                                if (!context.mounted) return;
                                 await Navigator.push(
                                   context,
                                   MaterialPageRoute(

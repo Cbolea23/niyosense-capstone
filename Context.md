@@ -1,4 +1,4 @@
-# Project Name: NiyoSense (v1.4.5 — Build 17)
+# Project Name: NiyoSense (v1.5.0 — Build 22)
 
 **Description**: Fully offline-first, **Dual-Model Audio-Visual** coconut maturity profiling and grading system for Android devices, supported by a 24/7 cloud-deployed Django web dashboard on `https://niyosense.me` designed for **Coconut Plantation Owners and Farm Managers** to oversee cluster (*bungkos*) harvest volume, estimated valuation, commercial settlement reconciliation, and concurrent multi-device field operator synchronization.
 
@@ -46,10 +46,23 @@ Instead of a single monolithic neural network, NiyoSense employs a **Dual-Model 
      * Mel Filterbank: `128` Slaney-normalized Mel bands (`0 Hz – 11,025 Hz`)
      * Log-power normalization: `-80 dB` to `0 dB`
      * Colormap: 256-color Matplotlib `magma` LUT resized to `[1, 320, 320, 3]` Float32.
-3. **3-Gate Out-of-Distribution (OOD) Validation Pipeline (`ModelService.dart`)**:
-   * **Gate 1 (Camera Pixel & Texture Gate on `64×64` RGB)**: Checks luminance exposure ($\mu \in [28, 242], \sigma \ge 8.0$), Center 60% ROI HSV green/olive/brown husk ratio ($\ge 40\%$), and Sobel gradient edge roughness ($\le 30.0$ to reject grass, foliage, and synthetic green bottles/objects).
-   * **Gate 2 (Spectrogram Vertical Tap-Stripe Counter on `64×64` Grid)**: Inspects the upper 70% frequency rows for distinct vertical tap stripes (`colEnergy[x] > median + 35` and `> 85`, separated by $\ge 3$ columns), requiring strictly `2..5` knocks.
-   * **Gate 3 (Softmax Temperature Scaling & Cross-Model Check)**: Applies temperature scaling ($T = 1.6$), caps display confidence at `96.5%`, requires final confidence $\ge 65.0\%$, and resolves cross-model disagreements when acoustic confidence is decisive ($\ge 75.0\%$).
+3. **3-Gate Out-of-Distribution (OOD) Validation Pipeline (	flite_service.dart & spectrogram_service.dart)**:
+   * **Controlled Grading Environment Requirement**: Standardized inspection station (indoor/shaded grading table, neutral matte background, quiet acoustic setting, standard 3-tap acoustic knuckle/mallet protocol).
+   * **Gate 1 (Controlled Station Visual Husk & Texture Gate on 64×64 RGB)**:
+     * Lighting Exposure Window: $\\mu \\in [35.0, 230.0], \\sigma \\ge 8.0$ (rejects extreme glare, washed-out flash, or dark shadows).
+     * Strict Authentic Husk HSV Range: Hue ^\\circ–148^\\circ$, Saturation .15–0.88$, Value .18–0.92$.
+     * Core Foreign Color Rejection: Detects foreign colors ( > 0.40$ with  < 30^\\circ$ or  \\in [175^\\circ, 340^\\circ]$, e.g., skin, clothing, cardboard, blue/red plastics) in the center core.
+     * Husk Coverage & Shape: Center 60% ROI fill $\\ge 45\%$, Core 30% ROI fill $\\ge 60\%$, Bounding Box Aspect Ratio .65–1.55$.
+     * 3D Spherical Shading & Natural Texture: $\\sigma_{\\text{greenLum}} \\ge 6.5$ (verifies natural 3D spherical curvature luminance gradient) and Sobel gradient edge roughness .2–32.0$ (rejects flat prints, smooth synthetic balls, or fibrous grass/leaves).
+     * Hard Shutter Lock: Live Reticle HUD blocks camera shutter release when alignment is Red (Tier 0).
+   * **Gate 2 (Acoustic Signal Processing & Firm-Knock SOP)**:
+     * First-order 300 Hz High-Pass Filter before STFT (suppresses low-frequency hand handling noise and room rumble).
+     * Mel-Spectrogram Generation: Generates calibrated 128-band Slaney Mel-spectrogram on-device (`[1, 3, 320, 320]` Float32, `magma` colormap).
+     * Firm-Knock Standard Operating Procedure (SOP): Rather than fragile, hardware-dependent threshold rejection that causes false dropouts across varying phone microphones, acoustic validation relies on a standardized on-screen SOP instructing the Field Manager to position the phone 5–10 cm away and firmly knock 3 times on the coconut equator (~1 second apart).
+   * **Gate 3 (Calibrated Softmax Temperature Scaling & 70/30 Dual-Model Decision Combiner)**:
+     * Softmax Temperature Scaling: $T = 1.6$, capping display confidence at $96.5\%$.
+     * Dual-Model Late Fusion ($0.70 \cdot P_{\text{audio}} + 0.30 \cdot P_{\text{visual}}$): Transparently combines acoustic resonance and visual husk traits without false disagreement vetoes, allowing the acoustic model's learned weights to guide maturity grading.
+     * Mandatory Dual-Modality: Both visual capture and acoustic tap recording are strictly required for every scan.
 4. **Acoustic-Dominant 70/30 Dual-Model Decision Formula**:
    $$P_{\text{final}}(c) = (0.70 \times P_{\text{audio}}(c)) + (0.30 \times P_{\text{visual}}(c))$$
    * Reflects field testing showing that outer husks of *Buko* and *Malauhog* appear visually similar, whereas internal meat thickness and water cavity resonance differ distinctly under acoustic knocking.

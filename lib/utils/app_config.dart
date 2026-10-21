@@ -1,10 +1,10 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppConfig {
-  static const String appVersion = "1.4.7";
-  static const int buildNumber = 19;
+  static const String appVersion = "1.5.0";
+  static const int buildNumber = 22;
   static const String fullVersionString = "NiyoSense Field v$appVersion";
-  static const String modelEngine = "Vision v2.5.4 (70/30 Audio-Dominant 3-Gate)";
+  static const String modelEngine = "Vision v2.6.0 (Controlled Station Guide & 70/30 Fusion)";
   static const String defaultServerUrl = "https://niyosense.me";
 
   /// Sanitizes user-entered or QR-scanned server URLs by stripping accidental
