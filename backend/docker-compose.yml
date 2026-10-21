@@ -7,6 +7,7 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+      - "8080:8000"
     env_file:
       - .env
     environment:
@@ -14,7 +15,11 @@ services:
       - SECRET_KEY=${SECRET_KEY:-niyosense_super_secret_production_key_2026}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
       - DATABASE_URL=${DATABASE_URL:-}
-      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-https://niyosense.me,https://www.niyosense.me,https://*.niyosense.me,https://*.trycloudflare.com,https://*.ngrok-free.app,http://localhost:8000,http://127.0.0.1:8000}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-https://niyosense.me,https://www.niyosense.me,https://*.niyosense.me,https://*.trycloudflare.com,https://*.ngrok-free.app,http://localhost:8000,http://127.0.0.1:8000,http://localhost:8080,http://127.0.0.1:8080}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-}
+      - CLOUDINARY_URL=${CLOUDINARY_URL:-}
     volumes:
       # Persistent SQLite database so scans and logs are never wiped on restart
       - ./db.sqlite3:/app/db.sqlite3

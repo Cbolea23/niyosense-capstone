@@ -12,6 +12,16 @@ import dj_database_url
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Automatically load environment variables from .env if present
+_env_path = BASE_DIR / '.env'
+if _env_path.exists():
+    with open(_env_path, 'r', encoding='utf-8') as _env_file:
+        for _line in _env_file:
+            _line = _line.strip()
+            if _line and not _line.startswith('#') and '=' in _line:
+                _k, _v = _line.split('=', 1)
+                os.environ.setdefault(_k.strip(), _v.strip())
+
 # Quick-start development settings - unsuitable for production
 SECRET_KEY = os.environ.get(
     'SECRET_KEY',

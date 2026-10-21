@@ -16,6 +16,7 @@ class NiyoSenseMediaCloudinaryStorage(MediaCloudinaryStorage):
     - Coconut husk photos (.jpg, .jpeg, .png) -> 'image' resource type.
     - Acoustic knock recordings (.wav, .m4a, .mp3) -> 'video' resource type
       (Cloudinary categorizes audio under 'video', enabling HTML5 audio streaming and waveform preview).
+    - If a model field already stores a direct HTTPS URL, returns it directly without double-prefixing.
     """
 
     def _get_resource_type(self, name):
@@ -23,3 +24,8 @@ class NiyoSenseMediaCloudinaryStorage(MediaCloudinaryStorage):
         if ext in ('.wav', '.mp3', '.m4a', '.aac', '.ogg', '.flac'):
             return RESOURCE_TYPES.get('VIDEO', 'video')
         return RESOURCE_TYPES.get('IMAGE', 'image')
+
+    def url(self, name):
+        if name and (str(name).startswith('http://') or str(name).startswith('https://')):
+            return str(name)
+        return super().url(name)
