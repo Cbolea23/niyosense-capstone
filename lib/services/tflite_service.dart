@@ -319,9 +319,13 @@ class TfliteService {
       "sat=${meanCenterSat.toStringAsFixed(2)}±${satStdDev.toStringAsFixed(3)}",
     );
 
-    if (borderGreenRatio > 0.75) {
+    final double totalGreenRatio = totalPixels > 0
+        ? ((validCoconutCenterPixels + borderGreenPixels) / totalPixels)
+        : 0.0;
+
+    if (borderGreenRatio > 0.75 || totalGreenRatio > 0.82) {
       debugPrint(
-        "⛔ [GATE 1 - BORDER OVERFILL] Rejected: borderGreen=${(borderGreenRatio * 100).toStringAsFixed(1)}% (> 75%)",
+        "⛔ [GATE 1 - BORDER OVERFILL / FLOOD] Rejected: borderGreen=${(borderGreenRatio * 100).toStringAsFixed(1)}% (> 75%), totalGreen=${(totalGreenRatio * 100).toStringAsFixed(1)}% (> 82%)",
       );
       return "Camera is too close, or background has too much green clutter. Frame a single coconut inside the circle against a neutral surface.";
     }
@@ -334,15 +338,15 @@ class TfliteService {
     }
 
     // Reject flat screens, printed paper, or solid walls lacking 3D spherical shading
-    if (greenLumStdDev < 6.5 || edgeRoughness < 2.2) {
+    if (centerGreenRatio >= 0.40 && (greenLumStdDev < 8.0 && edgeRoughness < 5.0)) {
       debugPrint(
-        "⛔ [GATE 1 - SYNTHETIC/FLAT OBJECT] Rejected: greenLumStd=${greenLumStdDev.toStringAsFixed(1)} (<6.5), "
-        "edgeRough=${edgeRoughness.toStringAsFixed(1)} (<2.2)",
+        "⛔ [GATE 1 - SYNTHETIC/FLAT OBJECT] Rejected: greenLumStd=${greenLumStdDev.toStringAsFixed(1)} (<8.0), "
+        "edgeRough=${edgeRoughness.toStringAsFixed(1)} (<5.0)",
       );
       return "Flat printed surface or digital screen detected. Please scan a real 3D coconut.";
     }
 
-    return null; // Passed all Gate 1 checks!
+        return null; // Passed all Gate 1 checks!
   }
 
   /// Static isolate entry point for decoding, Gate 1 validation, and tensor creation off the UI thread.

@@ -251,6 +251,8 @@ class _VisualScanScreenState extends State<VisualScanScreen>
         totalCenter > 0 ? (centerGreenCount / totalCenter) : 0.0;
     final double borderRatio =
         totalBorder > 0 ? (borderGreenCount / totalBorder) : 0.0;
+    final double totalGreenRatio =
+        (centerGreenCount + borderGreenCount) / 100.0;
 
     // Hue & Luminance standard deviation across green center pixels
     double meanHue = 0.0;
@@ -293,50 +295,54 @@ class _VisualScanScreenState extends State<VisualScanScreen>
     double newScore = 0.0;
     String newStatusKey = 'not_aligned_hint';
 
+    // 1. Too Dark
     if (meanLum < 35.0) {
-      // Station too dark or camera lens covered
       newTier = 0;
       newScore = 0.08;
       newStatusKey = 'too_dark_hint';
-    } else if (centerRatio < 0.35) {
-      // No coconut in center circle
-      newTier = 0;
-      newScore = (centerRatio / 0.45).clamp(0.05, 0.30);
-      newStatusKey = 'not_aligned_hint';
-    } else if (meanHue > 145.0 && meanSat > 0.72) {
-      // Extreme neon/cyan dye
+    } 
+    // 2. THE GREEN WALL FIX: If the whole screen or border is flooded with green pixels, 
+    // it's a wall/table or camera too close. We use 'too_close_hint' so user steps back.
+    else if (borderRatio > 0.75 || totalGreenRatio > 0.82) {
       newTier = 0;
       newScore = 0.15;
-      newStatusKey = 'flat_color_hint';
-    } else if (centerGlareCount >= 3) {
-      // Foreign hand or label inside the core
-      newTier = 0;
-      newScore = 0.18;
-      newStatusKey = 'flat_color_hint';
-    } else if (centerRatio >= 0.45 && (greenLumStdDev < 6.0 && edgeRoughness < 2.2)) {
-      // Flat painted surface or digital screen lacking 3D shading
-      newTier = 0;
-      newScore = 0.18;
-      newStatusKey = 'flat_color_hint';
-    } else if (borderRatio >= 0.75) {
-      // Camera too close or background filled with green clutter
-      newTier = 0;
-      newScore = 0.25;
-      newStatusKey = 'too_close_hint';
-    } else if (edgeRoughness > 32.0) {
-      // High-frequency clutter / grass
+      newStatusKey = 'too_close_hint'; 
+    } 
+    // 3. High-frequency clutter / grass / foliage
+    else if (edgeRoughness > 32.0) {
       newTier = 0;
       newScore = 0.25;
       newStatusKey = 'foliage_hint';
-    } else if (centerRatio < 0.48 || activeQuadrants < 4) {
-      // Coconut detected, but slightly off-center or filling < 48%
+    } 
+    // 4. Foreign Objects / Glare / Neon Dyes (Hands, labels, neon colors)
+    else if (centerGlareCount >= 3 || (meanHue > 145.0 && meanSat > 0.72)) {
+      newTier = 0;
+      newScore = 0.18;
+      newStatusKey = 'flat_color_hint';
+    } 
+    // 5. Flat Surface (Thresholds relaxed to account for mobile camera sensor noise)
+    else if (centerRatio >= 0.40 && greenLumStdDev < 8.0 && edgeRoughness < 5.0) {
+      newTier = 0;
+      newScore = 0.18;
+      newStatusKey = 'flat_color_hint';
+    } 
+    // 6. Not enough coconut in the center (Too far away)
+    else if (centerRatio < 0.30) {
+      newTier = 0;
+      newScore = (centerRatio / 0.35).clamp(0.05, 0.29);
+      newStatusKey = 'not_aligned_hint';
+    } 
+    // 7. THE "NORMAL DISTANCE" FIX: Relaxed quadrant check! 
+    // Real coconuts don't always perfectly fill all 4 inner grid quadrants.
+    else if (centerRatio < 0.45 || activeQuadrants < 3) {
       newTier = 1;
       newScore = 0.65;
-      newStatusKey = centerRatio < 0.48 ? 'almost_aligned_closer' : 'almost_aligned_center';
-    } else {
-      // Locked On! Real 3D coconut fills all 4 quadrants in the controlled station
+      newStatusKey = centerRatio < 0.45 ? 'almost_aligned_closer' : 'almost_aligned_center';
+    } 
+    // 8. Locked On! (Coconut fills the circle well, but doesn't flood the borders)
+    else {
       newTier = 2;
-      final double fillBonus = ((centerRatio - 0.48) / 0.40).clamp(0.0, 0.20);
+      final double fillBonus = ((centerRatio - 0.45) / 0.40).clamp(0.0, 0.20);
       newScore = (0.85 + fillBonus).clamp(0.85, 0.98);
       newStatusKey = 'coconut_aligned';
     }
