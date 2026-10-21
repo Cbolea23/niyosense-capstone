@@ -47,7 +47,7 @@
    [ Web Analytics Dashboard ]                                    [ Central REST API & Auth ]
   • Tailwind CSS & Chart.js                                      • Django REST Framework
   • Real-Time Delivery Summaries                                 • SimpleJWT Auth & Batch Sync
-  • Dynamic QR Onboarding                                        • Initial Data Seeding / SQLite
+  • Dynamic QR Onboarding                                        • Render PostgreSQL + Cloudinary
                 │                                                               ▲
                 │                                                               │ (Batch Sync)
                 ▼                                                               │
