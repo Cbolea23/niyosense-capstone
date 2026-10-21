@@ -5,12 +5,12 @@ echo "==> Running database migrations..."
 python manage.py migrate --noinput
 
 if [ -f "initial_data.json" ]; then
-    DATA_COUNT=$(python -c "import django, os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings'); django.setup(); from apps.scans.models import GradingLog; print(GradingLog.objects.count())" 2>/dev/null || echo "0")
-    if [ "$DATA_COUNT" = "0" ]; then
+    PROFILE_COUNT=$(python -c "import django, os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings'); django.setup(); from apps.scans.models import FarmProfile; print(FarmProfile.objects.count())" 2>/dev/null || echo "0")
+    if [ "$PROFILE_COUNT" = "0" ]; then
         echo "==> Fresh database detected. Loading initial fixture data..."
         python manage.py loaddata initial_data.json || true
     else
-        echo "==> Existing database has $DATA_COUNT logs. Skipping fixture loaddata to preserve live counts."
+        echo "==> Database already initialized. Preserving live data across deployments."
     fi
 fi
 

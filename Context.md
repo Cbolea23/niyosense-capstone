@@ -21,11 +21,14 @@
   * On-device Acoustic DSP: Custom pure-Dart STFT & 128-band Slaney Mel-Spectrogram generator (`SpectrogramService.dart`).
   * Hardware Audio Calibration: Configured with `AndroidAudioSource.unprocessed` (low-latency PCM, disabled hardware AGC/ANC) specifically tuned for modern Android hardware (e.g., Samsung Galaxy S25+).
 * **Backend Dashboard & Cloud API**: Django 6.1 + Django REST Framework + Gunicorn 23.0.0 + WhiteNoise 6.9.0
-  * Database: Embedded SQLite with automated fixture seeding (`initial_data.json`) on container start (56 scans, user accounts `bolea23`, `farm_worker`), with production support for external PostgreSQL via `dj-database-url` and `psycopg2-binary`.
+  * Database: **Render Managed PostgreSQL** (`DATABASE_URL` via `dj-database-url` and `psycopg2-binary`) providing permanent cloud persistence across container lifecycle events, with embedded SQLite fallback for local development.
+  * Media Storage: **Cloudinary Object Storage CDN** (`django-cloudinary-storage`) for permanent storage and streaming of coconut husk photos and acoustic tap recordings.
   * Authentication: 30-day multi-device JWT (`SIMPLE_JWT` with `BLACKLIST_AFTER_ROTATION = False`) for field operators, and session authentication for web managers.
   * Synchronization endpoint: Concurrent bulk log & media sync (`/api/v1/sync/bulk-logs/`) with 5-attempt atomic locking retry handlers.
 * **Production Deployment & Cloud Infrastructure**:
   * **Render Web Services**: Containerized Docker image (`niyosense-capstone.onrender.com`) running Python 3.12, dynamic `$PORT` binding, and `/healthz` uptime health check.
+  * **Render Managed PostgreSQL**: Zero-latency private network relational database (`dpg-...:5432`) hosting persistent grading logs, price settings, and user accounts.
+  * **Cloudinary CDN**: Decoupled cloud storage for media BLOBs, preventing ephemeral container data loss.
   * **Cloudflare Edge**: Apex domain **`https://niyosense.me`** and `www.niyosense.me` with automatic SSL/TLS termination, HTTP/2 & HTTP/3 acceleration, and DDoS protection.
   * **GitHub Releases CDN**: Distributes the official release asset `niyosense.apk` (100.25 MB) under release tag `v1.4.5` with unthrottled global download speeds.
 

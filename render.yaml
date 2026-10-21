@@ -1,0 +1,39 @@
+# Render Blueprint Specification for NiyoSense
+# Deploys a stateless Django web container linked to managed Render PostgreSQL
+databases:
+  - name: niyosense-db
+    databaseName: niyosense
+    user: niyosense_user
+    plan: free
+    region: singapore
+
+services:
+  - type: web
+    name: niyosense-backend
+    runtime: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    plan: free
+    region: singapore
+    healthCheckPath: /healthz
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        value: "*"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: niyosense-db
+          property: connectionString
+      - key: CSRF_TRUSTED_ORIGINS
+        value: "https://niyosense.me,https://*.niyosense.me,https://*.onrender.com"
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_URL
+        sync: false

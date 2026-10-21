@@ -119,12 +119,19 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Automatically binds to Neon PostgreSQL via DATABASE_URL; falls back to SQLite for local dev
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:
+    # Render internal URLs (dpg-*** without render.com) communicate over an isolated private VPC and do not support SSL.
+    # External URLs (render.com, neon.tech, or ?sslmode=require) require SSL/TLS encryption.
+    is_internal_render = ('dpg-' in DATABASE_URL) and ('render.com' not in DATABASE_URL)
+    ssl_required = not is_internal_render and (
+        'sslmode=require' in DATABASE_URL or 'render.com' in DATABASE_URL or 'neon.tech' in DATABASE_URL
+    )
+
     DATABASES = {
         'default': dj_database_url.config(
             default=DATABASE_URL,
             conn_max_age=600,
             conn_health_checks=True,
-            ssl_require=True,
+            ssl_require=ssl_required,
         )
     }
 else:
