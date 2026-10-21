@@ -64,15 +64,32 @@ def web_dashboard(request):
     total_bunches = GradingLog.objects.count()
     total_scans = _sum_bunch(GradingLog.objects.all())
     scans_today = _sum_bunch(GradingLog.objects.filter(created_at__date=today))
-    mature_count = _sum_bunch(GradingLog.objects.filter(final_maturity_stage__iexact='Mature'))
-    premature_count = _sum_bunch(GradingLog.objects.filter(final_maturity_stage__iexact='Premature'))
-    overmature_count = _sum_bunch(GradingLog.objects.filter(final_maturity_stage__iexact='Overmature'))
+
+    # Clean Coconut Classification: Malauhog (tender jelly/mucus-like) & Buko (young soft meat)
+    malauhog_count = _sum_bunch(GradingLog.objects.filter(
+        final_maturity_stage__in=['Malauhog', 'malauhog', 'Mature', 'mature', 'Overmature', 'overmature']
+    ))
+    buko_count = _sum_bunch(GradingLog.objects.filter(
+        final_maturity_stage__in=['Buko', 'buko', 'Premature', 'premature']
+    ))
+    reject_count = _sum_bunch(GradingLog.objects.filter(
+        final_maturity_stage__in=['Reject', 'reject', 'Unrecognized', 'unrecognized']
+    ))
+
+    # Backwards compatibility aliases for existing chart integrations
+    mature_count = malauhog_count
+    premature_count = buko_count
+    overmature_count = reject_count
+
     this_month_scans = _sum_bunch(
         GradingLog.objects.filter(created_at__year=now.year, created_at__month=now.month)
     )
-    mature_rate = round((mature_count / total_scans) * 100, 1) if total_scans > 0 else 0.0
-    premature_rate = round((premature_count / total_scans) * 100, 1) if total_scans > 0 else 0.0
-    overmature_rate = round((overmature_count / total_scans) * 100, 1) if total_scans > 0 else 0.0
+    malauhog_rate = round((malauhog_count / total_scans) * 100, 1) if total_scans > 0 else 0.0
+    buko_rate = round((buko_count / total_scans) * 100, 1) if total_scans > 0 else 0.0
+    reject_rate = round((reject_count / total_scans) * 100, 1) if total_scans > 0 else 0.0
+    mature_rate = malauhog_rate
+    premature_rate = buko_rate
+    overmature_rate = reject_rate
 
     daily_labels = []
     daily_counts = []
@@ -98,7 +115,91 @@ def web_dashboard(request):
         monthly_labels = [now.strftime('%b %Y')]
         monthly_counts = [0]
 
-    recent_logs = GradingLog.objects.select_related('user', 'batch').order_by('-created_at')[:50]
+    all_logs = GradingLog.objects.select_related('user', 'batch').order_by('-created_at')
+    recent_logs = all_logs[:50]
+
+    # Group Grading Logs by Date Session for Interactive Logs UI
+    from collections import defaultdict
+    logs_by_date = defaultdict(list)
+    for log in all_logs:
+        log_date = log.created_at.date()
+        logs_by_date[log_date].append(log)
+
+    date_sessions = []
+    for log_date, day_logs in logs_by_date.items():
+        total_scans_day = len(day_logs)
+        total_nuts_day = sum(l.bunch_count or 1 for l in day_logs)
+
+        m_count = 0
+        b_count = 0
+        r_count = 0
+        formatted_scans = []
+
+        for l in day_logs:
+            raw_stage = (l.final_maturity_stage or '').strip()
+            stage_lower = raw_stage.lower()
+            if 'malauhog' in stage_lower or stage_lower in ('mature', 'overmature'):
+                clean_stage = 'Malauhog'
+                m_count += (l.bunch_count or 1)
+            elif 'buko' in stage_lower or stage_lower == 'premature':
+                clean_stage = 'Buko'
+                b_count += (l.bunch_count or 1)
+            else:
+                clean_stage = 'Reject'
+                r_count += (l.bunch_count or 1)
+
+            img_url = l.image.url if l.image else None
+            audio_url = l.audio_file.url if l.audio_file else None
+
+            formatted_scans.append({
+                'uuid': str(l.uuid),
+                'short_uuid': str(l.uuid)[:8].upper(),
+                'created_at_time': l.created_at.strftime('%I:%M %p'),
+                'created_at_iso': l.created_at.isoformat(),
+                'final_stage': clean_stage,
+                'raw_stage': raw_stage,
+                'confidence': round(l.confidence_score * 100, 1) if l.confidence_score <= 1.0 else round(l.confidence_score, 1),
+                'visual_prediction': l.visual_prediction or 'Coconut',
+                'audio_prediction': l.audio_prediction or 'Acoustic Tap',
+                'bunch_count': l.bunch_count or 1,
+                'device_id': l.device_id or '--',
+                'operator': l.user.username if l.user else 'Manager',
+                'image_url': img_url,
+                'audio_url': audio_url,
+            })
+
+        day_total = m_count + b_count + r_count
+        m_pct = round((m_count / day_total) * 100) if day_total > 0 else 0
+        b_pct = round((b_count / day_total) * 100) if day_total > 0 else 0
+        r_pct = round((r_count / day_total) * 100) if day_total > 0 else 0
+
+        if m_pct >= b_pct and m_pct >= r_pct:
+            dom_pct = m_pct
+            dom_lbl = 'Malauhog'
+        elif b_pct >= m_pct and b_pct >= r_pct:
+            dom_pct = b_pct
+            dom_lbl = 'Buko'
+        else:
+            dom_pct = r_pct
+            dom_lbl = 'Reject'
+
+        date_sessions.append({
+            'date_iso': log_date.isoformat(),
+            'date_formatted': log_date.strftime('%B %d, %Y'),
+            'date_short': log_date.strftime('%b %d'),
+            'is_today': log_date == today,
+            'total_scans': total_scans_day,
+            'total_nuts': total_nuts_day,
+            'malauhog_count': m_count,
+            'buko_count': b_count,
+            'reject_count': r_count,
+            'malauhog_pct': m_pct,
+            'buko_pct': b_pct,
+            'reject_pct': r_pct,
+            'dominant_pct': dom_pct,
+            'dominant_label': dom_lbl,
+            'scans': formatted_scans,
+        })
 
     from django.contrib.auth import get_user_model
     User = get_user_model()
@@ -115,17 +216,21 @@ def web_dashboard(request):
 
     for b in batches:
         b_scans = b.scans.all()
-        m_cnt = sum((s.bunch_count or 1) for s in b_scans if 'mature' in s.final_maturity_stage.lower() and 'premature' not in s.final_maturity_stage.lower())
-        p_cnt = sum((s.bunch_count or 1) for s in b_scans if 'premature' in s.final_maturity_stage.lower() or 'malauhog' in s.final_maturity_stage.lower())
-        r_cnt = sum((s.bunch_count or 1) for s in b_scans) - m_cnt - p_cnt
-        payout = (Decimal(m_cnt) * b.mature_price) + (Decimal(p_cnt) * b.premature_price) + (Decimal(r_cnt) * b.reject_price)
+        m_cnt = sum((s.bunch_count or 1) for s in b_scans if 'malauhog' in s.final_maturity_stage.lower() or ('mature' in s.final_maturity_stage.lower() and 'premature' not in s.final_maturity_stage.lower()))
+        buko_cnt = sum((s.bunch_count or 1) for s in b_scans if 'buko' in s.final_maturity_stage.lower() or 'premature' in s.final_maturity_stage.lower())
+        r_cnt = sum((s.bunch_count or 1) for s in b_scans) - m_cnt - buko_cnt
+        if r_cnt < 0:
+            r_cnt = 0
+        payout = (Decimal(m_cnt) * b.mature_price) + (Decimal(buko_cnt) * b.premature_price) + (Decimal(r_cnt) * b.reject_price)
         total_farm_payout += payout
 
         batch_summaries.append({
             'batch': b,
-            'total_scans': m_cnt + p_cnt + r_cnt,
+            'total_scans': m_cnt + buko_cnt + r_cnt,
+            'malauhog_count': m_cnt,
+            'buko_count': buko_cnt,
             'mature_count': m_cnt,
-            'premature_count': p_cnt,
+            'premature_count': buko_cnt,
             'reject_count': r_cnt,
             'payout': payout,
         })
@@ -146,6 +251,14 @@ def web_dashboard(request):
         'monthly_labels_json': json.dumps(monthly_labels),
         'monthly_counts_json': json.dumps(monthly_counts),
         'logs': recent_logs,
+        'date_sessions': date_sessions,
+        'date_sessions_json': json.dumps(date_sessions),
+        'malauhog_count': malauhog_count,
+        'buko_count': buko_count,
+        'reject_count': reject_count,
+        'malauhog_rate': malauhog_rate,
+        'buko_rate': buko_rate,
+        'reject_rate': reject_rate,
         'aggregators': aggregators,
         'current_prices': current_prices,
         'batch_summaries': batch_summaries,
@@ -402,9 +515,12 @@ def dashboard_stats_api(request):
     total_bunches = GradingLog.objects.count()
     total_scans = _sum_bunch(GradingLog.objects.all())
     scans_today = _sum_bunch(GradingLog.objects.filter(created_at__date=today))
-    mature_count = _sum_bunch(GradingLog.objects.filter(final_maturity_stage__iexact='Mature'))
-    premature_count = _sum_bunch(GradingLog.objects.filter(final_maturity_stage__iexact='Premature'))
-    overmature_count = _sum_bunch(GradingLog.objects.filter(final_maturity_stage__iexact='Overmature'))
+    malauhog_count = _sum_bunch(GradingLog.objects.filter(final_maturity_stage__in=['Malauhog', 'malauhog', 'Mature', 'mature', 'Overmature', 'overmature']))
+    buko_count = _sum_bunch(GradingLog.objects.filter(final_maturity_stage__in=['Buko', 'buko', 'Premature', 'premature']))
+    reject_count = _sum_bunch(GradingLog.objects.filter(final_maturity_stage__in=['Reject', 'reject', 'Unrecognized', 'unrecognized']))
+    mature_count = malauhog_count
+    premature_count = buko_count
+    overmature_count = reject_count
 
     daily_labels = []
     daily_counts = []
@@ -440,6 +556,9 @@ def dashboard_stats_api(request):
         "total_scans": total_scans,
         "total_bunches": total_bunches,
         "scans_today": scans_today,
+        "malauhog_count": malauhog_count,
+        "buko_count": buko_count,
+        "reject_count": reject_count,
         "mature_count": mature_count,
         "premature_count": premature_count,
         "overmature_count": overmature_count,
@@ -481,3 +600,35 @@ def app_version_check_api(request):
         "file_size_mb": file_size_mb,
         "available": True,
     })
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def override_grade_api(request, log_uuid):
+    """Allows the farm manager to review and correct the AI grade on the web dashboard."""
+    try:
+        log = GradingLog.objects.get(uuid=log_uuid)
+    except (GradingLog.DoesNotExist, ValidationError, ValueError):
+        return Response({'success': False, 'error': 'Scan log not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    stage_val = None
+    if hasattr(request, 'data') and request.data:
+        stage_val = request.data.get('final_maturity_stage') or request.data.get('corrected_grade')
+    if not stage_val and request.body:
+        try:
+            import json
+            bdata = json.loads(request.body.decode('utf-8'))
+            stage_val = bdata.get('final_maturity_stage') or bdata.get('corrected_grade')
+        except Exception:
+            pass
+    new_stage = str(stage_val or '').strip()
+    valid_stages = {'Malauhog', 'Buko', 'Reject', 'Mature', 'Premature', 'Unrecognized'}
+    if new_stage not in valid_stages:
+        return Response({'success': False, 'error': f"Invalid grade '{new_stage}'"}, status=status.HTTP_400_BAD_REQUEST)
+
+    log.final_maturity_stage = new_stage
+    log.save(update_fields=['final_maturity_stage'])
+    return Response({
+        'success': True,
+        'uuid': str(log.uuid),
+        'final_maturity_stage': log.final_maturity_stage,
+    }, status=status.HTTP_200_OK)

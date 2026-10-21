@@ -69,24 +69,25 @@ class BulkSyncGradingLogSerializer(serializers.ModelSerializer):
     mutable_data = data.copy() if hasattr(data, 'copy') else dict(data)
 
     STAGE_MAPPING = {
-        'buko': 'Mature',
-        'malauhog': 'Premature',
-        'mature': 'Mature',
-        'premature': 'Premature',
-        'overmature': 'Overmature',
-        'unrecognized': 'Unrecognized',
-        'unrecognized object': 'Unrecognized',
-        'unrecognized_object': 'Unrecognized',
+        'buko': 'Buko',
+        'malauhog': 'Malauhog',
+        'mature': 'Malauhog',
+        'premature': 'Buko',
+        'overmature': 'Malauhog',
+        'reject': 'Reject',
+        'unrecognized': 'Reject',
+        'unrecognized object': 'Reject',
+        'unrecognized_object': 'Reject',
     }
 
-    # Normalize final_maturity_stage to standard stages
+    # Normalize final_maturity_stage to standard stages (Malauhog, Buko, Reject)
     final_stage = str(mutable_data.get('final_maturity_stage', '')).strip()
     lowered = final_stage.lower()
-    if 'unrecognized' in lowered:
-      mutable_data['final_maturity_stage'] = 'Unrecognized'
+    if 'unrecognized' in lowered or 'reject' in lowered:
+      mutable_data['final_maturity_stage'] = 'Reject'
     else:
       mutable_data['final_maturity_stage'] = STAGE_MAPPING.get(
-          lowered, final_stage.capitalize() or 'Mature'
+          lowered, final_stage.capitalize() or 'Buko'
       )
 
     # Clean raw prediction fields without triggering choice validation

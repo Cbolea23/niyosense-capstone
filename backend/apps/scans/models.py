@@ -98,11 +98,12 @@ class DeliveryBatch(models.Model):
 
 class GradingLog(models.Model):
   MATURITY_CHOICES = [
+      ('Malauhog', 'Malauhog'),
+      ('Buko', 'Buko'),
+      ('Reject', 'Reject'),
       ('Premature', 'Premature'),
       ('Mature', 'Mature'),
       ('Overmature', 'Overmature'),
-      ('Buko', 'Buko'),
-      ('Malauhog', 'Malauhog'),
       ('Unrecognized', 'Unrecognized'),
   ]
 

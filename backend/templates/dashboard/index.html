@@ -79,7 +79,7 @@
             <div class="overflow-y-auto py-4 pr-1 space-y-3.5 text-xs text-slate-600 leading-relaxed">
                 <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5">
                     <h4 class="font-bold text-slate-800 mb-1">1. Purpose & Decision-Support Scope</h4>
-                    <p>NiyoSense is an AI-assisted coconut maturity profiling system developed as an academic capstone and agricultural decision-support tool for <em>Cocos nucifera</em> grading (<strong>Malauhog / Premature</strong>, <strong>Buko / Mature</strong>, and <strong>Overmature / Copra</strong>). It assists farmers, field managers, and plantation owners in harvest quality auditing and batch valuation.</p>
+                    <p>NiyoSense is an AI-assisted coconut maturity profiling system developed as an academic capstone and agricultural decision-support tool for <em>Cocos nucifera</em> grading (<strong>Malauhog</strong>, <strong>Buko</strong>, and <strong>Reject</strong>). It assists farmers, field managers, and plantation owners in harvest quality auditing and batch valuation.</p>
                 </div>
 
                 <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5">
@@ -119,9 +119,12 @@
         let userHasEditedIp = false;
 
         // Initialize Chart.js instances
-        let matureCount = Number('{{ mature_count }}') || 0;
-        let prematureCount = Number('{{ premature_count }}') || 0;
-        let overmatureCount = Number('{{ overmature_count }}') || 0;
+        let malauhogCount = Number('{{ malauhog_count }}') || Number('{{ mature_count }}') || 0;
+        let bukoCount = Number('{{ buko_count }}') || Number('{{ premature_count }}') || 0;
+        let rejectCount = Number('{{ reject_count }}') || Number('{{ overmature_count }}') || 0;
+        let matureCount = malauhogCount;
+        let prematureCount = bukoCount;
+        let overmatureCount = rejectCount;
 
         let dailyLabels = JSON.parse('{{ daily_labels_json|safe }}');
         let dailyCounts = JSON.parse('{{ daily_counts_json|safe }}');
@@ -131,9 +134,9 @@
         const maturityChart = new Chart(document.getElementById('maturityChart'), {
             type: 'doughnut',
             data: {
-                labels: ['Mature', 'Premature', 'Overmature'],
+                labels: ['Malauhog', 'Buko', 'Reject'],
                 datasets: [{
-                    data: [matureCount, prematureCount, overmatureCount],
+                    data: [malauhogCount, bukoCount, rejectCount],
                     backgroundColor: ['#10B981', '#F59E0B', '#EF4444'],
                     borderWidth: 0
                 }]
@@ -221,10 +224,10 @@
             monthlyRatioChart = new Chart(monthlyRatioEl, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Malauhog', 'Buko (Mature)'],
+                    labels: ['Malauhog', 'Buko'],
                     datasets: [{
-                        data: [prematureCount, matureCount],
-                        backgroundColor: ['#F59E0B', '#10B981'],
+                        data: [malauhogCount, bukoCount],
+                        backgroundColor: ['#10B981', '#F59E0B'],
                         borderWidth: 0
                     }]
                 },
@@ -243,8 +246,8 @@
             const bukoPrice = parseFloat(document.getElementById('valBukoPrice')?.value) || 0;
             const nutsPerBunch = parseFloat(document.getElementById('valNutsPerBunch')?.value) || 1;
 
-            const estMalauhogNuts = prematureCount * nutsPerBunch;
-            const estBukoNuts = matureCount * nutsPerBunch;
+            const estMalauhogNuts = malauhogCount * nutsPerBunch;
+            const estBukoNuts = bukoCount * nutsPerBunch;
             const grossValue = (estMalauhogNuts * malauhogPrice) + (estBukoNuts * bukoPrice);
 
             const displayEl = document.getElementById('estimatedGrossValueDisplay');
@@ -255,9 +258,9 @@
             const subtitleEl = document.getElementById('valuationFormulaSubtitle');
             if (subtitleEl) {
                 if (nutsPerBunch > 1) {
-                    subtitleEl.innerText = `${prematureCount} bunches (~${estMalauhogNuts.toLocaleString()} nuts) @ ₱${malauhogPrice.toFixed(2)} + ${matureCount} bunches (~${estBukoNuts.toLocaleString()} nuts) @ ₱${bukoPrice.toFixed(2)} (×${nutsPerBunch}/bungkos)`;
+                    subtitleEl.innerText = `${malauhogCount} bunches (~${estMalauhogNuts.toLocaleString()} nuts) @ ₱${malauhogPrice.toFixed(2)} + ${bukoCount} bunches (~${estBukoNuts.toLocaleString()} nuts) @ ₱${bukoPrice.toFixed(2)} (×${nutsPerBunch}/bungkos)`;
                 } else {
-                    subtitleEl.innerText = `Based on ${prematureCount} Malauhog @ ₱${malauhogPrice.toFixed(2)} + ${matureCount} Buko @ ₱${bukoPrice.toFixed(2)}`;
+                    subtitleEl.innerText = `Based on ${malauhogCount} Malauhog @ ₱${malauhogPrice.toFixed(2)} + ${bukoCount} Buko @ ₱${bukoPrice.toFixed(2)}`;
                 }
             }
 
@@ -269,12 +272,12 @@
             const actualReceived = parseFloat(document.getElementById('actualReceivedInput')?.value) || 0;
             const laborRate = parseFloat(document.getElementById('laborRateInput')?.value) || 0;
             const nutsPerBunch = parseFloat(document.getElementById('valNutsPerBunch')?.value) || 1;
-            const totalNuts = (prematureCount + matureCount) * nutsPerBunch;
+            const totalNuts = (malauhogCount + bukoCount) * nutsPerBunch;
 
             const malauhogPrice = parseFloat(document.getElementById('valMalauhogPrice')?.value) || 0;
             const bukoPrice = parseFloat(document.getElementById('valBukoPrice')?.value) || 0;
-            const estMalauhogNuts = prematureCount * nutsPerBunch;
-            const estBukoNuts = matureCount * nutsPerBunch;
+            const estMalauhogNuts = malauhogCount * nutsPerBunch;
+            const estBukoNuts = bukoCount * nutsPerBunch;
             const estimatedGross = (estMalauhogNuts * malauhogPrice) + (estBukoNuts * bukoPrice);
 
             const totalLabor = totalNuts * laborRate;
@@ -805,16 +808,23 @@
                             bunchesEl.innerText = `${data.total_bunches} Bunches Sampled`;
                         }
 
-                        if (data.mature_count !== undefined && maturityChart) {
-                            matureCount = data.mature_count;
-                            prematureCount = data.premature_count;
-                            overmatureCount = data.overmature_count;
+                        if ((data.malauhog_count !== undefined || data.mature_count !== undefined) && maturityChart) {
+                            malauhogCount = (data.malauhog_count !== undefined) ? data.malauhog_count : (data.mature_count || 0);
+                            bukoCount = (data.buko_count !== undefined) ? data.buko_count : (data.premature_count || 0);
+                            rejectCount = (data.reject_count !== undefined) ? data.reject_count : (data.overmature_count || 0);
+                            matureCount = malauhogCount;
+                            prematureCount = bukoCount;
+                            overmatureCount = rejectCount;
                             maturityChart.data.datasets[0].data = [
-                                data.mature_count,
-                                data.premature_count,
-                                data.overmature_count
+                                malauhogCount,
+                                bukoCount,
+                                rejectCount
                             ];
                             maturityChart.update('none');
+                            if (monthlyRatioChart) {
+                                monthlyRatioChart.data.datasets[0].data = [malauhogCount, bukoCount];
+                                monthlyRatioChart.update('none');
+                            }
                             recalculateValuation();
                         }
 
@@ -828,13 +838,13 @@
                             const logsBody = document.getElementById('logsTableBody');
                             if (logsBody && data.recent_logs.length > 0) {
                                 logsBody.innerHTML = data.recent_logs.map(log => {
-                                    let badgeHtml = `<span class="bg-red-50 text-red-700 font-bold px-2.5 py-1 rounded-full text-[11px]">${log.final_maturity_stage}</span>`;
-                                    if (log.final_maturity_stage === 'Mature') {
-                                        badgeHtml = `<span class="bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-full text-[11px]">Mature</span>`;
-                                    } else if (log.final_maturity_stage === 'Premature') {
-                                        badgeHtml = `<span class="bg-amber-50 text-amber-700 font-bold px-2.5 py-1 rounded-full text-[11px]">Premature</span>`;
-                                    } else if (log.final_maturity_stage === 'Unrecognized') {
-                                        badgeHtml = `<span class="bg-rose-50 text-rose-700 font-bold px-2.5 py-1 rounded-full text-[11px]">Unrecognized</span>`;
+                                    let badgeHtml = `<span class="bg-rose-50 text-rose-700 font-bold px-2.5 py-1 rounded-full text-[11px]">${log.final_maturity_stage}</span>`;
+                                    if (log.final_maturity_stage === 'Malauhog' || log.final_maturity_stage === 'Mature') {
+                                        badgeHtml = `<span class="bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-full text-[11px]">Malauhog</span>`;
+                                    } else if (log.final_maturity_stage === 'Buko' || log.final_maturity_stage === 'Premature') {
+                                        badgeHtml = `<span class="bg-amber-50 text-amber-700 font-bold px-2.5 py-1 rounded-full text-[11px]">Buko</span>`;
+                                    } else if (log.final_maturity_stage === 'Reject' || log.final_maturity_stage === 'Unrecognized') {
+                                        badgeHtml = `<span class="bg-rose-50 text-rose-700 font-bold px-2.5 py-1 rounded-full text-[11px]">Reject</span>`;
                                     }
                                     const devHtml = log.device_id
                                         ? `<span class="font-mono text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold">${log.device_id}</span>`
@@ -895,10 +905,10 @@
                 analytics_sub: "Real-time monthly performance metrics from PostgreSQL",
                 total_scanned_month: "Total Scanned This Month",
                 live_sync_logs: "Live synchronized logs",
-                mature_quality_rate: "Mature Quality Rate",
+                mature_quality_rate: "Malauhog Rate",
                 of_total: "of",
                 total_scans_lower: "total scans",
-                premature_rate: "Premature Rate",
+                premature_rate: "Buko Rate",
                 monthly_yield: "Monthly Yield",
                 monthly_yield_sub: "Total coconuts scanned per month (Historical)",
                 logs_sub: "Browse scan sessions synchronized from mobile SQLite",
@@ -909,9 +919,12 @@
                 table_final_grade: "Final Grade",
                 table_confidence: "Confidence",
                 table_media: "Media",
-                grade_mature: "Mature",
-                grade_premature: "Premature",
-                grade_overmature: "Overmature",
+                grade_mature: "Malauhog",
+                grade_premature: "Buko",
+                grade_overmature: "Reject",
+                rate_malauhog: "Malauhog (₱)",
+                rate_buko: "Buko (₱)",
+                rate_reject: "Reject / Bungi (₱)", 
                 media_image: "Image",
                 media_audio: "Audio",
                 no_logs_synced: "No scan logs synced yet. Perform a scan on the mobile app and tap Sync.",
@@ -1002,10 +1015,10 @@
                 analytics_sub: "Real-time na buwanang sukatan ng pagganap mula sa PostgreSQL",
                 total_scanned_month: "Kabuuan ng Na-scan Ngayong Buwan",
                 live_sync_logs: "Mga naka-sync na log nang live",
-                mature_quality_rate: "Marka ng Hustong Gulang",
+                mature_quality_rate: "Marka ng Malauhog",
                 of_total: "sa",
                 total_scans_lower: "kabuuang na-scan",
-                premature_rate: "Marka ng Hilaw pa",
+                premature_rate: "Marka ng Buko",
                 monthly_yield: "Buwanang Ani",
                 monthly_yield_sub: "Kabuuan ng niyog na na-scan bawat buwan (Kasaysayan)",
                 logs_sub: "Tingnan ang mga session ng pag-scan na naka-sync mula sa mobile SQLite",
@@ -1016,9 +1029,12 @@
                 table_final_grade: "Panghuling Marka",
                 table_confidence: "Kumpiyansa",
                 table_media: "Medya",
-                grade_mature: "Mature (Husto)",
-                grade_premature: "Premature (Hilaw)",
-                grade_overmature: "Overmature (Sobra)",
+                grade_mature: "Malauhog",
+                grade_premature: "Buko",
+                grade_overmature: "Reject",
+                rate_malauhog: "Malauhog (₱)",
+                rate_buko: "Buko (₱)",
+                rate_reject: "Reject / Bungi (₱)", 
                 media_image: "Larawan",
                 media_audio: "Tunog",
                 no_logs_synced: "Wala pang naka-sync na log. Mag-scan sa mobile app at i-tap ang Sync.",
