@@ -328,7 +328,7 @@ def web_dashboard(request):
         'batch_summaries': batch_summaries,
         'total_farm_payout': total_farm_payout,
         'farm_profile': farm_profile,
-        'app_version': '1.5.1',
+        'app_version': '1.5.2',
         'model_pipeline': 'Multimodal Audio-Visual v2.6.0 (Controlled Station Pre-Scan Guide & 70/30 Fusion)',
         'inference_engine': 'TFLite (Dual-Modality Late Fusion)',
     }
@@ -639,7 +639,7 @@ def download_apk_page(request):
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
 def app_version_check_api(request):
-    apk_release_url = "https://github.com/Cbolea23/niyosense-capstone/releases/download/v1.5.1/niyosense.apk"
+    apk_release_url = "https://github.com/Cbolea23/niyosense-capstone/releases/download/v1.5.2/niyosense.apk"
     apk_rel_path = 'media/downloads/niyosense.apk'
     apk_abs_path = os.path.join(settings.BASE_DIR, apk_rel_path)
     file_exists = os.path.exists(apk_abs_path)
@@ -654,10 +654,10 @@ def app_version_check_api(request):
 
     return Response({
         "success": True,
-        "latest_version": "1.5.1",
-        "latest_build_number": 22,
-        "release_title": "NiyoSense Field v1.5.1 (Discard & Rescan Option)",
-        "release_notes": "Added interactive 4-page Controlled Grading & Inspection Guide popup (Field Manager role, scan vs do-not-scan visuals, dos and donts, and animated 3-knock tapping guide with Dont Show Again option), plus ? Guide button on camera reticle.",
+        "latest_version": "1.5.2",
+        "latest_build_number": 25,
+        "release_title": "NiyoSense Field v1.5.2 (Visual Guardrail & Sensor Noise Calibration)",
+        "release_notes": "Resolved green wall false-positive (screen flood check totalGreenRatio > 82% & sensor noise calibration) and normal-distance false-negative (relaxed 3-quadrant check & 45% center fill).",
         "download_url": download_url,
         "install_page_url": install_page_url,
         "google_drive_url": google_drive_url,

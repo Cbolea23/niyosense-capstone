@@ -1,7 +1,7 @@
 # 🥥 NiyoSense: Coconut Maturity Profiling & Grading System
 
 [![Live Production](https://img.shields.io/badge/Production-Live-emerald?style=flat-square&logo=cloudflare)](https://niyosense.me)
-[![Release](https://img.shields.io/badge/Release-v1.5.1-blue?style=flat-square&logo=android)](https://github.com/Cbolea23/niyosense-capstone/releases/tag/v1.5.1)
+[![Release](https://img.shields.io/badge/Release-v1.5.2-blue?style=flat-square&logo=android)](https://github.com/Cbolea23/niyosense-capstone/releases/tag/v1.5.2)
 [![Framework](https://img.shields.io/badge/Mobile-Flutter%203.x-02569B?style=flat-square&logo=flutter)](https://flutter.dev)
 [![Backend](https://img.shields.io/badge/Backend-Django%206.1-092E20?style=flat-square&logo=django)](https://djangoproject.com)
 [![Database](https://img.shields.io/badge/Database-PostgreSQL-336791?style=flat-square&logo=postgresql)](https://render.com)
@@ -18,7 +18,7 @@
 ## 🌐 Live System Access
 
 * **Official Production Web Portal:** [https://niyosense.me](https://niyosense.me) *(Protected by Master Security Passkey — Default: `niyosense2026`)*
-* **Direct Mobile APK Download:** [Download NiyoSense v1.5.1 APK (~99 MB)](https://github.com/Cbolea23/niyosense-capstone/releases/download/v1.5.1/niyosense.apk)
+* **Direct Mobile APK Download:** [Download NiyoSense v1.5.2 APK (101.4 MB)](https://github.com/Cbolea23/niyosense-capstone/releases/download/v1.5.2/niyosense.apk)
 * **Mobile Onboarding & EULA Portal:** [https://niyosense.me/install/](https://niyosense.me/install/)
 * **System Status & Uptime Health Check:** [https://niyosense.me/healthz](https://niyosense.me/healthz)
 
@@ -55,7 +55,7 @@
                  │                                                             │ (Batch Sync)
                  ▼                                                             │
    [ GitHub Releases CDN ] ────── (One-Tap APK Install) ───────► [ NiyoSense Android App ]
-   • v1.5.1 Binary Storage                                       • Flutter 3.x / Dart SDK
+   • v1.5.2 Binary Storage                                       • Flutter 3.x / Dart SDK
    • Global Edge Distribution                                    • On-Device TFLite Edge AI
                                                                  • Pure-Dart Mel DSP Engine
                                                                  • Offline SQLite Local Cache
