@@ -38,6 +38,49 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
   final TextEditingController _bunchCountController = TextEditingController(text: '10');
 
   final TfliteService _tfliteService = TfliteService();
+  bool _isDiscarding = false;
+
+  Future<void> _discardAndRescan() async {
+    if (_isDiscarding) return;
+    setState(() => _isDiscarding = true);
+
+    try {
+      if (_currentUuid.isNotEmpty) {
+        await DatabaseHelper.instance.deleteScan(_currentUuid);
+        debugPrint("🗑️ Deleted scan $_currentUuid from local SQLite.");
+      }
+      if (widget.imagePath != null && widget.imagePath!.isNotEmpty) {
+        final img = File(widget.imagePath!);
+        if (img.existsSync()) img.deleteSync();
+      }
+      if (widget.audioPath != null && widget.audioPath!.isNotEmpty) {
+        final aud = File(widget.audioPath!);
+        if (aud.existsSync()) aud.deleteSync();
+        final specPath = widget.audioPath!.replaceAll(RegExp(r'\.wav$', caseSensitive: false), '_spectrogram.png');
+        final spec = File(specPath);
+        if (spec.existsSync()) spec.deleteSync();
+      }
+    } catch (e) {
+      debugPrint("⚠️ Discard cleanup error: $e");
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.delete_sweep_rounded, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Expanded(child: Text(AppTranslations.text('scan_discarded_toast'))),
+          ],
+        ),
+        backgroundColor: const Color(0xFFDC2626),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    Navigator.pop(context);
+  }
 
   @override
   void initState() {
@@ -557,18 +600,52 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
 
                         const SizedBox(height: 24),
 
-                        // Return Home Button
-                        ElevatedButton(
+                        // Primary Action: Accept & Return to Dashboard
+                        ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF10B981),
+                            backgroundColor: const Color(0xFF059669),
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            elevation: 2,
+                          ),
+                          icon: const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 20),
+                          label: Text(
+                            AppTranslations.text('accept_return_dashboard'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
                           ),
                           onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
-                          child: Text(
-                            AppTranslations.text('return_home'),
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Secondary Action: Discard & Rescan (Deletes from SQLite so not synced)
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFDC2626),
+                            side: const BorderSide(color: Color(0xFFFCA5A5), width: 1.5),
+                            backgroundColor: const Color(0xFFFEF2F2),
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
+                          icon: _isDiscarding
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFDC2626)),
+                                )
+                              : const Icon(Icons.delete_outline_rounded, size: 19),
+                          label: Text(
+                            AppTranslations.text('discard_rescan_btn'),
+                            style: const TextStyle(
+                              color: Color(0xFFB91C1C),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13.5,
+                            ),
+                          ),
+                          onPressed: _isDiscarding ? null : _discardAndRescan,
                         ),
                       ],
                     ),

@@ -88,6 +88,15 @@ class DatabaseHelper {
     }
   }
 
+  Future<int> deleteScan(String uuid) async {
+    final db = await instance.database;
+    return await db.delete(
+      'grading_logs',
+      where: 'uuid = ?',
+      whereArgs: [uuid],
+    );
+  }
+
   Future<int> insertScan(GradingLog log) async {
     final db = await instance.database;
     return await db.insert('grading_logs', log.toMap());

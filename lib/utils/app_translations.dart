@@ -151,6 +151,9 @@ class AppTranslations {
       'storage_status': 'Storage Status',
       'saved_sqlite_ready': 'Saved to SQLite (Ready)',
       'return_home': 'RETURN TO HOME',
+      'accept_return_dashboard': 'Accept & Return to Dashboard',
+      'discard_rescan_btn': 'Discard & Rescan',
+      'scan_discarded_toast': 'Scan discarded. Not saved to dashboard.',
       'unrecognized_object': 'UNRECOGNIZED OBJECT',
       'skipped_audio': 'N/A (Skipped)',
 
@@ -345,6 +348,9 @@ class AppTranslations {
       'storage_status': 'Katayuan ng Imbakan',
       'saved_sqlite_ready': 'Nai-save sa SQLite (Handa)',
       'return_home': 'BUMALIK SA TAHANAN',
+      'accept_return_dashboard': 'Tanggapin at Bumalik sa Dashboard',
+      'discard_rescan_btn': 'Burahin at Ulitin ang Scan',
+      'scan_discarded_toast': 'Nabura ang scan. Hindi maisasabay sa dashboard.',
       'unrecognized_object': 'HINDI KILALANG BAGAY',
       'skipped_audio': 'N/A (Nilaktawan)',
 
