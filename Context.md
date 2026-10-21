@@ -12,8 +12,8 @@
 ## 1. System Architecture & Tech Stack
 
 * **Target Beneficiaries & Roles**:
-  * **Plantation Owner / Farm Manager (Web Dashboard at `https://niyosense.me`)**: Oversees plantation-wide harvest volume by *bungkos* (clusters), configures market pricing in the Estimated Valuation Engine, audits buyer/sorter payouts via the Batch Settlement & Profit Reconciliation calculator, and manages Field Operator accounts & synchronized farm devices.
-  * **Field Operator / Sorter (Mobile App `v1.4.5+17`)**: Performs 100% offline visual + acoustic coconut scanning in the plantation field, inputs *bungkos* nut counts (`bunch_count`), records harvest delivery batches, and syncs data to the central dashboard.
+  * **Plantation Owner (Web Portal at `https://niyosense.me`)**: Oversees plantation-wide harvest volume by *bungkos* (clusters), tracks crop valuation, configures buying rates, audits commercial batch settlements to eliminate revenue leakage, and manages on-site manager accounts behind a secure Master Passkey gate.
+  * **On-Site Farm Manager (Mobile App `v1.5.1`)**: Operates the offline-first mobile app at the controlled grading station to perform dual-modality acoustic-visual scans, count cluster nuts (`bunch_count`), log harvest delivery batches, and sync field records.
 * **Mobile Frontend**: Flutter / Dart (`v1.4.5+17`, Dart SDK `^3.8.1`)
   * Operates **100% offline-first** in remote plantation environments.
   * Local database: SQLite (`sqflite`, schema with `grading_logs` and `batch_sessions`).

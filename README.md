@@ -24,7 +24,7 @@
 
 ## 📌 Project Overview
 
-**NiyoSense** is a dual-model audio-visual machine learning system designed to replace subjective manual tapping and visual inspection in post-harvest coconut sorting. Built for **Coconut Plantation Owners, Farm Managers, and Field Operators (*Mambubuko*)**, the system combines:
+**NiyoSense** is a dual-model audio-visual machine learning system designed to replace subjective manual tapping and visual inspection in post-harvest coconut sorting. Built for **Coconut Plantation Owners and On-Site Farm Managers**, the system combines:
 
 1. **An Offline-First Android Application:** Performs 100% on-device edge inference using TensorFlow Lite and client-side Fast Fourier Transform (FFT) signal processing without requiring cellular signal deep in coconut groves.
 2. **A Centralized Cloud Web Dashboard:** Hosted on Render with Cloudflare SSL edge routing, providing real-time harvest inventory analytics, *bungkos* (cluster) volume tracking, estimated valuation, and commercial settlement reconciliation.

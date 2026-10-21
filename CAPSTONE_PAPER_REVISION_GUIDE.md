@@ -14,7 +14,7 @@ Before editing the manuscript, note these **two major panel-mandated shifts** fr
 
 ### 1. Target Beneficiary Shift: From "Small-Scale Aggregators" $\rightarrow$ **"Coconut Plantation Owners and Farm Managers"**
 * **Old Paper:** Targeted *"Small-Scale Coconut Aggregators"* and labeled the mobile user as *"Aggregator"*.
-* **New Revised Paper (`v1.4.0`):** Targets **Coconut Plantation Owners and Farm Managers** (such as our primary stakeholder, Dr. Nona D. Nagares) and their **Field Operators / Sorters (*Mambubuko*)**.
+* **New Revised Paper (`v1.5.1`):** Targets **Coconut Plantation Owners and On-Site Farm Managers** (such as our primary stakeholder, Dr. Nona D. Nagares).
   * **Plantation Owner / Farm Manager (Web Dashboard):** Monitors total plantation harvest volume by *bungkos* (clusters), tracks **Estimated Harvest Valuation**, audits **Commercial Batch Settlement & Profit Reconciliation (Price Variance / Leakage)** when selling or paying out harvests, and manages **Field Operator accounts & synchronized farm devices**.
   * **Field Operator / Sorter (Mobile App):** Uses the offline-first mobile app in the plantation field to scan harvested *bungkos*, record delivery batches, and generate digital harvest receipts.
 
@@ -76,7 +76,7 @@ Before editing the manuscript, note these **two major panel-mandated shifts** fr
 #### C. Significance of the Research (Section 2.4 — Lines 180–184)
 Replace the old beneficiary list with:
 - **Coconut Plantation Owners and Farm Managers:** Provides a centralized Web Dashboard for real-time harvest inventory tracking by cluster (*bungkos*), automated market valuation, and commercial settlement reconciliation to prevent revenue leakage caused by subjective manual misgrading.
-- **Field Operators and Harvesters (*Mambubuko*):** Provides an objective, offline-capable mobile scanning tool that removes guesswork and fatigue during post-harvest sorting and produces transparent batch tally receipts.
+- **On-Site Farm Managers:** Provides an objective, offline-capable mobile scanning tool that removes guesswork and fatigue during post-harvest sorting and produces transparent batch tally receipts.
 - **Coconut Buyers and Supply Chain Stakeholders:** Establishes a consistent, verifiable grading standard between **Buko** and **Malauhog** deliveries.
 - **Future Researchers:** Serves as a technical reference for deploying lightweight, **dual-model on-device audio-visual deep learning (`YOLOv8-cls` + pure-Dart STFT Mel-spectrograms)** in rural agricultural environments.
 

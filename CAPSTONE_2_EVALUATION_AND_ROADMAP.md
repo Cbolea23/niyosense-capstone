@@ -6,7 +6,7 @@
 **Live Production URL:** [https://niyosense.me](https://niyosense.me) | **Release:** [v1.4.5](https://github.com/Cbolea23/niyosense-capstone/releases/tag/v1.4.5)  
 **Researchers:** Christian Louis Bolea, Wayne Yzon Nagares, Seann Yves Saracho  
 **Institution:** College of Computing and Multimedia Studies, Manuel S. Enverga University Foundation, Lucena City  
-**Target Beneficiaries:** Coconut Plantation Owners, Farm Managers, and Field Sorters (*Mambubuko*) in Quezon Province  
+**Target Beneficiaries:** Coconut Plantation Owners and On-Site Farm Managers in Quezon Province  
 
 > **Implementation Note:** All recommendations outlined below (Delivery Batch sessions, payout pricing calculators, shareable vouchers, cluster bungkos sampling, ambient noise calibration, and cloud hosting alignment) were systematically implemented and released in build `v1.4.5+17`.
 

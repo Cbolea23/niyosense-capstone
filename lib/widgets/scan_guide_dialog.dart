@@ -872,7 +872,7 @@ class _ScanGuideDialogState extends State<ScanGuideDialog> {
 }
 
 /// Native Flutter Looping Animated Knocker & Soundwave Illustration
-/// Accurately shows the Mambubuko-recommended knock spot (upper shoulder near stem cap),
+/// Accurately shows the standard acoustic knock spot (upper shoulder near stem cap),
 /// animated hand knuckle striking the target zone 3 times, and expanding soundwaves.
 class KnockAnimationWidget extends StatefulWidget {
   const KnockAnimationWidget({super.key});
@@ -1012,7 +1012,7 @@ class _KnockAnimationWidgetState extends State<KnockAnimationWidget>
                     ),
                   ),
 
-                  // Mambubuko Knock Target Zone (Glowing Red Curved Outline & Fill)
+                  // Standard Acoustic Knock Target Zone (Glowing Red Curved Outline & Fill)
                   Positioned(
                     left: coconutLeft + 42,
                     top: coconutTop + 14,
