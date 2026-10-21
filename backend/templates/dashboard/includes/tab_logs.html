@@ -335,9 +335,10 @@
             card.className = 'bg-white border border-slate-200/80 hover:border-emerald-400 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition cursor-pointer group';
             card.onclick = () => openCorrectGradeModal(scan.uuid);
 
+            const fallbackPlaceholder = `this.onerror=null; this.parentElement.innerHTML='<div class=\\'w-full h-36 bg-gradient-to-br from-emerald-50/70 to-slate-100 flex flex-col items-center justify-center text-slate-400\\'><span class=\\'text-3xl mb-1\\'>🥥</span><span class=\\'text-[10px] font-bold text-slate-500\\'>Coconut Husk</span><span class=\\'text-[9px] text-slate-400\\'>Photo archived / offline</span></div>';`;
             const imgHtml = scan.image_url 
-                ? `<img src="${scan.image_url}" alt="Coconut" class="w-full h-36 object-cover group-hover:scale-105 transition duration-300">`
-                : `<div class="w-full h-36 bg-slate-100 flex items-center justify-center text-slate-400 text-xs">No Photo</div>`;
+                ? `<img src="${scan.image_url}" alt="Coconut" onerror="${fallbackPlaceholder}" class="w-full h-36 object-cover group-hover:scale-105 transition duration-300">`
+                : `<div class="w-full h-36 bg-gradient-to-br from-emerald-50/70 to-slate-100 flex flex-col items-center justify-center text-slate-400"><span class="text-3xl mb-1">🥥</span><span class="text-[10px] font-bold text-slate-500">No Photo</span></div>`;
 
             card.innerHTML = `
                 <div class="relative w-full h-36 bg-slate-100 overflow-hidden">
@@ -388,8 +389,14 @@
         const fallbackEl = document.getElementById('modalNoImgFallback');
         if (targetScan.image_url) {
             imgEl.src = targetScan.image_url;
-            imgEl.classList.remove('hidden');
-            fallbackEl.classList.add('hidden');
+            imgEl.onerror = () => {
+                imgEl.classList.add('hidden');
+                fallbackEl.classList.remove('hidden');
+            };
+            imgEl.onload = () => {
+                imgEl.classList.remove('hidden');
+                fallbackEl.classList.add('hidden');
+            };
         } else {
             imgEl.classList.add('hidden');
             fallbackEl.classList.remove('hidden');

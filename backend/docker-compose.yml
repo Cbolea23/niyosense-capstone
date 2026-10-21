@@ -16,6 +16,8 @@ services:
       - DATABASE_URL=${DATABASE_URL:-}
       - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-https://niyosense.me,https://www.niyosense.me,https://*.niyosense.me,https://*.trycloudflare.com,https://*.ngrok-free.app,http://localhost:8000,http://127.0.0.1:8000}
     volumes:
+      # Persistent SQLite database so scans and logs are never wiped on restart
+      - ./db.sqlite3:/app/db.sqlite3
       # Persistent media storage: uploaded coconut husk images and 4s .wav audio files
       - ./media:/app/media
       # Persistent static files storage served via Whitenoise
