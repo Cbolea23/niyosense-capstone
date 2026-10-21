@@ -15,7 +15,7 @@ from apps.scans.views import (
 )
 
 def download_apk_redirect(request):
-    return redirect('https://github.com/Cbolea23/niyosense-capstone/releases/download/v1.4.5/niyosense.apk')
+    return redirect('https://github.com/Cbolea23/niyosense-capstone/releases/download/v1.5.1/niyosense.apk')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
