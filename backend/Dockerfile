@@ -26,8 +26,8 @@ COPY . /app/
 # Create persistent storage directories for static and media files
 RUN mkdir -p /app/media /app/static
 
-# Make entrypoint script executable
-RUN chmod +x /app/entrypoint.sh
+# Normalize line endings and make entrypoint script executable
+RUN sed -i -e 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 EXPOSE 8000
 
