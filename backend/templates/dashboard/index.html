@@ -134,10 +134,10 @@
         const maturityChart = new Chart(document.getElementById('maturityChart'), {
             type: 'doughnut',
             data: {
-                labels: ['Malauhog', 'Buko', 'Reject'],
+                labels: ['Malauhog', 'Buko'],
                 datasets: [{
-                    data: [malauhogCount, bukoCount, rejectCount],
-                    backgroundColor: ['#10B981', '#F59E0B', '#EF4444'],
+                    data: [malauhogCount, bukoCount],
+                    backgroundColor: ['#10B981', '#F59E0B'],
                     borderWidth: 0
                 }]
             },
