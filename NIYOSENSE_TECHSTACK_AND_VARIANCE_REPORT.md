@@ -37,7 +37,7 @@ While the core functional objective—**objective, multimodal (audio-visual) coc
    [ Central RESTful API & Auth ]                                  [ Web Analytics Dashboard ]
   • Django 6.1 + Django REST Framework                           • Responsive Tailwind CSS
   • SimpleJWT Bearer Authentication                               • Interactive Chart.js Metrics
-  • Concurrency-Resilient Sync Handlers                          • Dynamic Onboarding QR Engine
+  • Concurrency-Resilient Sync Handlers                          • Master Passkey Security Gate
   • Initial SQLite Fixture Seeding                               • Dedicated EULA Install Portal
                 ▲                                                                 │
                 │ (HTTP REST Batch Sync)                                          │

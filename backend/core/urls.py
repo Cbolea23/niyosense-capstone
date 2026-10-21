@@ -5,7 +5,14 @@ from django.conf.urls.static import static
 from django.views.static import serve
 
 from django.shortcuts import redirect
-from apps.scans.views import web_dashboard, get_server_ip, dashboard_stats_api, download_apk_page
+from apps.scans.views import (
+    web_dashboard,
+    owner_login,
+    owner_logout,
+    get_server_ip,
+    dashboard_stats_api,
+    download_apk_page,
+)
 
 def download_apk_redirect(request):
     return redirect('https://github.com/Cbolea23/niyosense-capstone/releases/download/v1.4.5/niyosense.apk')
@@ -13,6 +20,9 @@ def download_apk_redirect(request):
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', web_dashboard, name='dashboard'),
+    path('login/', owner_login, name='owner_login'),
+    path('logout/', owner_logout, name='owner_logout'),
+    path('lock/', owner_logout, name='owner_lock'),
     path('install/', download_apk_page, name='download_apk_page'),
     path('download-app/', download_apk_page, name='download_apk_page_alias'),
     path('media/downloads/niyosense.apk', download_apk_redirect, name='apk_download_direct'),

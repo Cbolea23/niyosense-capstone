@@ -23,7 +23,7 @@
 * **Backend Dashboard & Cloud API**: Django 6.1 + Django REST Framework + Gunicorn 23.0.0 + WhiteNoise 6.9.0
   * Database: **Render Managed PostgreSQL** (`DATABASE_URL` via `dj-database-url` and `psycopg2-binary`) providing permanent cloud persistence across container lifecycle events, with embedded SQLite fallback for local development.
   * Media Storage: **Cloudinary Object Storage CDN** (`django-cloudinary-storage`) for permanent storage and streaming of coconut husk photos and acoustic tap recordings.
-  * Authentication: 30-day multi-device JWT (`SIMPLE_JWT` with `BLACKLIST_AFTER_ROTATION = False`) for field operators, and session authentication for web managers.
+  * Authentication: 30-day multi-device JWT (`SIMPLE_JWT` with `BLACKLIST_AFTER_ROTATION = False`) for field operators, and minimalist Master Security Passkey Session Authentication (`django.contrib.sessions` with 30-day persistent cookie) for Plantation Owners.
   * Synchronization endpoint: Concurrent bulk log & media sync (`/api/v1/sync/bulk-logs/`) with 5-attempt atomic locking retry handlers.
 * **Production Deployment & Cloud Infrastructure**:
   * **Render Web Services**: Containerized Docker image (`niyosense-capstone.onrender.com`) running Python 3.12, dynamic `$PORT` binding, and `/healthz` uptime health check.

@@ -9,6 +9,7 @@ class FarmProfile(models.Model):
   farm_name = models.CharField(max_length=200, default='Plantation Owner Portal')
   location = models.CharField(max_length=200, default='Quezon Province')
   email = models.EmailField(blank=True, default='m.santos@niyosense.ph')
+  passkey = models.CharField(max_length=128, default='niyosense2026', help_text='Master passkey for web dashboard access')
   updated_at = models.DateTimeField(auto_now=True)
 
   class Meta:

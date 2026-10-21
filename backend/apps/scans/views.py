@@ -33,17 +33,73 @@ def _sum_bunch(queryset):
     return queryset.aggregate(total=Coalesce(Sum('bunch_count'), 0))['total'] or 0
 
 
+def owner_login(request):
+    """Minimalist master passkey authentication for Plantation Owner."""
+    if request.session.get('owner_authenticated'):
+        next_url = request.GET.get('next') or request.POST.get('next') or '/'
+        if not next_url.startswith('/') or next_url.startswith('//'):
+            next_url = '/'
+        return redirect(next_url)
+
+    error = None
+    if request.method == 'POST':
+        passkey_input = request.POST.get('passkey', '').strip()
+        remember_me = request.POST.get('remember_me') == 'on'
+        farm_profile = FarmProfile.get_profile()
+        master_passkey = os.environ.get('OWNER_PASSKEY') or farm_profile.passkey or 'niyosense2026'
+
+        if passkey_input and passkey_input == master_passkey:
+            request.session['owner_authenticated'] = True
+            if remember_me:
+                request.session.set_expiry(60 * 60 * 24 * 30)  # 30 days
+            else:
+                request.session.set_expiry(0)  # Browser session only
+
+            next_url = request.POST.get('next') or request.GET.get('next') or '/'
+            if not next_url.startswith('/') or next_url.startswith('//'):
+                next_url = '/'
+            return redirect(next_url)
+        else:
+            error = 'Incorrect passkey. Please check your master passkey and try again.'
+
+    return render(request, 'dashboard/login.html', {
+        'error': error,
+        'next': request.GET.get('next') or request.POST.get('next') or '/',
+        'farm_profile': FarmProfile.get_profile(),
+    })
+
+
+def owner_logout(request):
+    """Lock dashboard and invalidate owner session."""
+    request.session.flush()
+    return redirect('/login/')
+
+
 def web_dashboard(request):
+    if not request.session.get('owner_authenticated'):
+        next_url = request.get_full_path()
+        return redirect(f'/login/?next={next_url}')
+
     farm_profile = FarmProfile.get_profile()
     if farm_profile.farm_name in ('haha', 'Local Farm', ''):
         farm_profile.farm_name = 'Plantation Owner Portal'
         farm_profile.save(update_fields=['farm_name'])
+
+    if request.method == 'POST' and 'update_passkey' in request.POST:
+        new_passkey = request.POST.get('new_passkey', '').strip()
+        if new_passkey:
+            farm_profile.passkey = new_passkey
+            farm_profile.save(update_fields=['passkey'])
+        return redirect('/#tab-settings')
 
     if request.method == 'POST' and 'update_farm_profile' in request.POST:
         farm_profile.owner_name = request.POST.get('owner_name', farm_profile.owner_name).strip()
         farm_profile.farm_name = request.POST.get('farm_name', farm_profile.farm_name).strip()
         farm_profile.location = request.POST.get('location', farm_profile.location).strip()
         farm_profile.email = request.POST.get('email', farm_profile.email).strip()
+        new_passkey = request.POST.get('passkey', '').strip()
+        if new_passkey:
+            farm_profile.passkey = new_passkey
         farm_profile.save()
         return redirect('/#tab-settings')
 
