@@ -38,7 +38,7 @@
         {% endif %}
 
         <!-- Minimalist Passkey Form -->
-        <form method="POST" action="/login/" class="space-y-4 text-left">
+        <form method="POST" action="/login/" class="space-y-4 text-left" autocomplete="off">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ next|default:'/' }}" />
 
@@ -53,7 +53,7 @@
                         </svg>
                     </span>
                     <input type="password" id="passkeyInput" name="passkey" required autofocus
-                           autocomplete="current-password"
+                           autocomplete="new-password"
                            placeholder="••••••••••••"
                            class="w-full bg-slate-50 border border-slate-200/80 rounded-xl pl-9 pr-10 py-2.5 text-xs font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition" />
                     <button type="button" onclick="togglePasskeyVisibility()" tabindex="-1"
@@ -113,6 +113,16 @@
                 eyeOff.classList.add('hidden');
             }
         }
+
+        // Prevent browser credential managers from auto-populating passkey on logout
+        window.addEventListener('DOMContentLoaded', () => {
+            const input = document.getElementById('passkeyInput');
+            if (input) {
+                input.value = '';
+                setTimeout(() => { if (input.value) input.value = ''; }, 60);
+                setTimeout(() => { if (input.value) input.value = ''; }, 250);
+            }
+        });
     </script>
 </body>
 </html>

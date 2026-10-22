@@ -78,3 +78,11 @@ backend/.venv/
 backend/.cloudflared/
 new model/
 
+
+# Local build scripts & webhook tools
+assemble_manuscript.py
+build_manuscript_system.py
+generate_appendices.py
+generate_chapters_1_to_3.py
+generate_chapters_4_to_6.py
+send_discord_notification.py

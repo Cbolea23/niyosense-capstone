@@ -28,8 +28,8 @@
 
 **NiyoSense** is a dual-model audio-visual machine learning system designed to replace subjective manual tapping and visual inspection in post-harvest coconut sorting. Built for **Coconut Plantation Owners** and **On-Site Farm Managers**, the system combines:
 
-1. **An Offline-First Android Application (`NiyoSense Field` v1.5.1):** Operates 100% on-device at the plantation grading station using two independent TensorFlow Lite convolutional neural networks and an in-memory pure-Dart Mel-spectrogram signal processor, eliminating reliance on cellular reception in rural groves.
-2. **A Centralized Cloud Web Dashboard (`https://niyosense.me`):** Deployed on Render with Cloudflare SSL edge routing, persistent Render Managed PostgreSQL, and Cloudinary CDN storage. Protected by a **Master Security Passkey Gate**, providing plantation owners with real-time cluster (*bungkos*) volume analytics, estimated crop valuation, and a **Commercial Settlement & Revenue Leakage Calculator** ($\Delta V = V_{\text{est}} - V_{\text{actual}}$).
+1. **An Offline-First Android Application (`NiyoSense Field` v1.5.2):** Operates 100% on-device at the plantation grading station using two independent TensorFlow Lite convolutional neural networks and an in-memory pure-Dart Mel-spectrogram signal processor, eliminating reliance on cellular reception in rural groves.
+2. **A Centralized Cloud Web Dashboard (`https://niyosense.me`):** Deployed on Render with Cloudflare SSL edge routing, persistent Render Managed PostgreSQL, and Cloudinary CDN storage. Protected by a **Master Security Passkey Gate**, providing plantation owners with real-time cluster (*bungkos*) volume analytics, estimated crop valuation, and a **Commercial Settlement & Revenue Leakage Calculator** ($\Delta V = V_{\text{est}} - V_{\text{actual}}$, $V_{\text{net}} = V_{\text{actual}} - E_{\text{prod}}$).
 
 ---
 
@@ -78,8 +78,8 @@
 
 | Role | Interface | Access Control | Primary Responsibilities |
 | :--- | :--- | :--- | :--- |
-| **Plantation Owner** | Central Web Dashboard (`https://niyosense.me`) | Master Security Passkey (Configurable, default `niyosense2026`) | Oversees plantation-wide harvest volume by *bungkos* (clusters), tracks **Estimated Crop Valuation**, audits commercial buyer settlements using the **Revenue Leakage Calculator** ($\Delta V = V_{\text{est}} - V_{\text{actual}}$), manages field manager accounts, and configures buying rates (₱/nut). |
-| **On-Site Farm Manager** | Mobile App (`NiyoSense Field` v1.5.1 on Android) | On-site Operator Account (Offline-First + JWT Cloud Sync) | Conducts visual-acoustic grading at the **Controlled Grading Station**, inputs **Bungkos Coconut Counts (`bunch_count`)**, manages **Harvest Delivery Batches**, prints/shares digital harvest vouchers, and syncs field logs. |
+| **Plantation Owner** | Central Web Dashboard (`https://niyosense.me`) | Master Security Passkey (Configurable, default `niyosense2026`) | Oversees plantation-wide harvest volume by *bungkos* (clusters), tracks **Estimated Crop Valuation**, audits commercial buyer settlements and net profit using the **Revenue Leakage & Profit Reconciliation Calculator** ($\Delta V = V_{\text{est}} - V_{\text{actual}}$, $V_{\text{net}} = V_{\text{actual}} - E_{\text{prod}}$), manages field manager accounts, and configures buying rates (₱/nut). |
+| **On-Site Farm Manager** | Mobile App (`NiyoSense Field` v1.5.2 on Android) | On-site Operator Account (Offline-First + JWT Cloud Sync) | Conducts visual-acoustic grading at the **Controlled Grading Station**, inputs **Bungkos Coconut Counts (`bunch_count`)**, manages **Harvest Delivery Batches**, prints/shares digital harvest vouchers, and syncs field logs. |
 
 ---
 

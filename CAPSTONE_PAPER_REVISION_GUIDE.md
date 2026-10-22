@@ -14,7 +14,7 @@ Before editing the manuscript, note these **two major panel-mandated shifts** fr
 
 ### 1. Target Beneficiary Shift: From "Small-Scale Aggregators" $\rightarrow$ **"Coconut Plantation Owners and Farm Managers"**
 * **Old Paper:** Targeted *"Small-Scale Coconut Aggregators"* and labeled the mobile user as *"Aggregator"*.
-* **New Revised Paper (`v1.5.1`):** Targets **Coconut Plantation Owners and On-Site Farm Managers** (such as our primary stakeholder, Dr. Nona D. Nagares).
+* **New Revised Paper (`v1.5.2`):** Targets **Coconut Plantation Owners and On-Site Farm Managers** (such as our primary stakeholder, Dr. Nona D. Nagares).
   * **Plantation Owner / Farm Manager (Web Dashboard):** Monitors total plantation harvest volume by *bungkos* (clusters), tracks **Estimated Harvest Valuation**, audits **Commercial Batch Settlement & Profit Reconciliation (Price Variance / Leakage)** when selling or paying out harvests, and manages **Field Operator accounts & synchronized farm devices**.
   * **Field Operator / Sorter (Mobile App):** Uses the offline-first mobile app in the plantation field to scan harvested *bungkos*, record delivery batches, and generate digital harvest receipts.
 
@@ -180,15 +180,26 @@ where $\Omega_s$ is the set of scanned clusters classified under maturity stage 
 
 ---
 
-### 3.5 Plantation Harvest Valuation & Commercial Settlement Reconciliation Formulas
+### 3.5 Plantation Harvest Valuation, Production Overhead, and Settlement Reconciliation Formulas
 1. **Estimated Harvest Valuation ($V_{\text{est}}$):**
-   $$V_{\text{est}} = \left(N_{\text{Buko}} \times R_{\text{Buko}}\right) + \left(N_{\text{Malauhog}} \times R_{\text{Malauhog}}\right) + \left(N_{\text{Bungi}} \times R_{\text{Bungi}}\right)$$
+   $$V_{\text{est}} = \left(N_{\text{Buko}} \times R_{\text{Buko}}\right) + \left(N_{\text{Malauhog}} \times R_{\text{Malauhog}}\right)$$
    where $N_s$ is the coconut count for stage $s$ and $R_s$ is the configured unit market rate (PHP/nut).
-2. **Commercial Price Variance / Leakage ($\Delta V$):**
+
+2. **Commercial Price Variance / Revenue Leakage ($\Delta V$):**
    When a plantation owner or farm manager settles a harvest batch against an actual buyer payout $V_{\text{actual}}$, the Web Dashboard's **Batch Settlement & Profit Reconciliation Engine** computes the financial variance resulting from subjective manual misgrading:
    $$\Delta V = V_{\text{est}} - V_{\text{actual}}$$
    - If $\Delta V > 0$: **Revenue Leakage / Underpayment** (high-value *Buko* nuts were manually downgraded during buyer sorting).
-   - If $\Delta V < 0$: **Overpayment Variance** (premature *Malauhog* or *Bungi* rejects were priced at *Buko* rates).
+   - If $\Delta V < 0$: **Premium Pricing Variance** (buyer paid above baseline graded value).
+   - If $\Delta V = 0$: **Equitable Settlement** (buyer payout matched NiyoSense graded valuation).
+
+3. **Total Production and Operating Expense ($E_{\text{prod}}$):**
+   In rural Quezon plantations, harvest expenses are settled per harvest cycle covering on-site caretaker allowance (*nagbabantay*), climbing crew compensation, and hauling to the roadside:
+   $$E_{\text{prod}} = E_{\text{labor}} + E_{\text{caretaker}} + E_{\text{hauling}}$$
+   The dashboard features a flexible expenditure input ($E_{\text{prod}}$, defaulted to ₱2,500.00 based on primary stakeholder Dr. Nona D. Nagares' farm records).
+
+4. **Realized Take-Home Net Profit ($V_{\text{net}}$):**
+   $$V_{\text{net}} = V_{\text{actual}} - E_{\text{prod}}$$
+   Reconciles the owner's true net agricultural margin after subtracting consolidated operational overhead from cash received.
 
 ---
 

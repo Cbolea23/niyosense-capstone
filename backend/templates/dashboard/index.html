@@ -267,12 +267,11 @@
             recalculateReconciliation();
         }
 
-        // Wayne Proposal: Batch Settlement & Profit Reconciliation
+        // Stakeholder & Operational Alignment: Batch Settlement & Profit Reconciliation
         function recalculateReconciliation() {
             const actualReceived = parseFloat(document.getElementById('actualReceivedInput')?.value) || 0;
-            const laborRate = parseFloat(document.getElementById('laborRateInput')?.value) || 0;
+            const productionCost = parseFloat(document.getElementById('productionCostInput')?.value) || 0;
             const nutsPerBunch = parseFloat(document.getElementById('valNutsPerBunch')?.value) || 1;
-            const totalNuts = (malauhogCount + bukoCount) * nutsPerBunch;
 
             const malauhogPrice = parseFloat(document.getElementById('valMalauhogPrice')?.value) || 0;
             const bukoPrice = parseFloat(document.getElementById('valBukoPrice')?.value) || 0;
@@ -280,13 +279,12 @@
             const estBukoNuts = bukoCount * nutsPerBunch;
             const estimatedGross = (estMalauhogNuts * malauhogPrice) + (estBukoNuts * bukoPrice);
 
-            const totalLabor = totalNuts * laborRate;
-            const netProfit = actualReceived - totalLabor;
+            const netProfit = actualReceived - productionCost;
             const variance = actualReceived - estimatedGross;
 
-            const laborDisplay = document.getElementById('totalLaborDisplay');
-            if (laborDisplay) {
-                laborDisplay.innerText = '₱' + totalLabor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const batchDisplay = document.getElementById('batchGradedDisplay');
+            if (batchDisplay) {
+                batchDisplay.innerHTML = `<span>₱${estimatedGross.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span><span class="text-[10px] font-sans font-normal text-slate-400">Target Value</span>`;
             }
 
             const netProfitDisplay = document.getElementById('netProfitDisplay');

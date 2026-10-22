@@ -112,19 +112,23 @@
                 oninput="recalculateReconciliation()"
                 placeholder="Amount buyer paid you"
                 class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" />
+            <span class="text-[10px] text-slate-400 mt-1 block">Net cash received from trader/buyer</span>
         </div>
         <div>
-            <label class="text-[11px] font-semibold text-slate-500 mb-1 block">Climber/Harvester Labor Rate (₱/nut)</label>
-            <input type="number" id="laborRateInput" value="2.50" step="0.25"
+            <label class="text-[11px] font-semibold text-slate-500 mb-1 block">Production & Operating Expense (₱)</label>
+            <input type="number" id="productionCostInput" value="2500.00" step="50"
                 oninput="recalculateReconciliation()"
-                placeholder="Rate paid to climbing crew"
+                placeholder="Caretaker, climbing labor, hauling"
                 class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" />
+            <span class="text-[10px] text-slate-400 mt-1 block">Caretaker fee, climbing labor & hauling</span>
         </div>
         <div>
-            <label class="text-[11px] font-semibold text-slate-500 mb-1 block">Direct Labor Overhead</label>
-            <div class="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono font-bold text-rose-600" id="totalLaborDisplay">
-                ₱0.00
+            <label class="text-[11px] font-semibold text-slate-500 mb-1 block">NiyoSense Graded Target Value</label>
+            <div class="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono font-bold text-emerald-700 flex items-center justify-between" id="batchGradedDisplay">
+                <span>₱0.00</span>
+                <span class="text-[10px] font-sans font-normal text-slate-400">Target Value</span>
             </div>
+            <span class="text-[10px] text-slate-400 mt-1 block">Objective valuation based on AI grading</span>
         </div>
     </div>
 
@@ -149,7 +153,7 @@
             </div>
             <div class="text-2xl font-bold font-mono text-emerald-700" id="netProfitDisplay">₱0.00</div>
             <p class="text-[11px] mt-1 text-emerald-600">
-                Formula: Actual Cash Received - Direct Climbing Labor
+                Formula: Actual Buyer Payout − Production & Operating Expenses
             </p>
         </div>
     </div>
