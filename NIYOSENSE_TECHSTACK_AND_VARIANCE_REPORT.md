@@ -1,6 +1,6 @@
 # NiyoSense: System Architecture, Tech Stack & Capstone Proposal Variance Report
 
-**Research Title:** NiyoSense: Development of a Web and Mobile Coconut Maturity Profiling and Grading System using Multimodal Audio-Visual Machine Learning for Small-Scale Coconut Aggregators  
+**Research Title:** NiyoSense: Development of a Web and Mobile Coconut Maturity Profiling and Grading System using Dual-Model Audio-Visual Machine Learning for Coconut Plantation Management  
 **Institution:** College of Computing and Multimedia Studies (CCMS), Manuel S. Enverga University Foundation  
 **Degree Program:** Bachelor of Science in Information Technology — Web and Mobile Application Development  
 **Researchers:** Christian Louis Bolea, Wayne Yzon Nagares, Seann Yves Saracho  
@@ -96,7 +96,7 @@ While the core functional objective—**objective, multimodal (audio-visual) coc
 * **User Interface & Layout:** **Tailwind CSS (CDN)**
   * High-contrast dark-slate theme tailored for operational clarity in bright agricultural warehouse and office environments.
 * **Data Visualization & Analytics:** **Chart.js**
-  * Real-time charts rendering maturity grade distributions (Mature, Premature, Reject), monthly harvest yields, and aggregator pricing margins.
+  * Real-time charts rendering maturity grade distributions (Buko, Malauhog), monthly harvest yields, and commercial pricing margins.
 * **Onboarding & Deployment Portal:**
   * **`QRCode.js`:** Generates high-density QR codes displaying the pairing URL (`https://niyosense.me/install/`) for mobile camera scanning.
   * **`/install/` Landing Page:** Dedicated portal providing instant APK downloads, release documentation, and statutory compliance disclosures.
@@ -139,7 +139,7 @@ The table below provides a detailed item-by-item comparison between what was ori
 
 The resulting implemented architecture directly fulfills the evaluation standards defined in Chapter 5 of the capstone manuscript:
 
-1. **Functional Suitability:** Field aggregators can classify coconut maturity in three distinct grades (*Premature*, *Mature*, *Fully Matured*) with real-time financial payout calculations based on prevailing market rates per piece (PHP ₱).
+1. **Functional Suitability:** On-site farm managers can classify coconut maturity (*Malauhog*, *Buko*) with real-time financial settlement calculations based on prevailing market rates per piece (PHP ₱).
 2. **Performance Efficiency:** Edge inference achieves grading decisions in under **800 milliseconds** on-device, completely decoupled from internet bandwidth speeds.
 3. **Compatibility:** Operates across all modern Android versions (Android 8.0 through Android 15+) and any standard desktop/mobile web browser (Chrome, Safari, Edge, Firefox).
 4. **Reliability & Fault Tolerance:** Database synchronization incorporates an exponential backoff retry mechanism (up to 5 attempts) to prevent database lock contention during concurrent field uploads.

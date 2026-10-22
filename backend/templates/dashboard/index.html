@@ -79,14 +79,14 @@
             <div class="overflow-y-auto py-4 pr-1 space-y-3.5 text-xs text-slate-600 leading-relaxed">
                 <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5">
                     <h4 class="font-bold text-slate-800 mb-1">1. Purpose & Decision-Support Scope</h4>
-                    <p>NiyoSense is an AI-assisted coconut maturity profiling system developed as an academic capstone and agricultural decision-support tool for <em>Cocos nucifera</em> grading (<strong>Malauhog</strong>, <strong>Buko</strong>, and <strong>Reject</strong>). It assists farmers, field managers, and plantation owners in harvest quality auditing and batch valuation.</p>
+                    <p>NiyoSense is an AI-assisted coconut maturity profiling system developed as an academic capstone and agricultural decision-support tool for <em>Cocos nucifera</em> grading (<strong>Malauhog</strong> and <strong>Buko</strong>). It assists coconut plantation owners and on-site farm managers in harvest quality auditing, cluster (<em>bungkos</em>) representative sampling, and commercial settlement reconciliation.</p>
                 </div>
 
                 <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5">
                     <h4 class="font-bold text-slate-800 mb-1">2. Data Privacy Compliance (RA 10173)</h4>
                     <p>In compliance with the <strong>Philippine Data Privacy Act of 2012 (Republic Act No. 10173)</strong>, NiyoSense collects only the minimum operational telemetry required for farm grading audits:</p>
                     <ul class="list-disc list-inside mt-1.5 space-y-1 text-slate-600">
-                        <li>Coconut visual sample images and 5-second acoustic tap recordings</li>
+                        <li>Coconut visual sample images and 4.0-second acoustic tap recordings</li>
                         <li>Assigned field manager username, device identifier, and scan timestamps</li>
                         <li>Bunch counts (<em>bungkos</em>) and maturity classification probabilities</li>
                     </ul>
@@ -95,12 +95,12 @@
 
                 <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5">
                     <h4 class="font-bold text-slate-800 mb-1">3. Local Storage, Security & Retention</h4>
-                    <p>Field scans are stored locally on mobile SQLite and synchronized over encrypted HTTPS/JWT channels to the authorized farm server. Farm owners and field managers retain full ownership of their plantation records and may export or delete records at any time.</p>
+                    <p>Field scans are stored locally on mobile SQLite and synchronized over encrypted HTTPS/JWT channels to the authorized plantation server. Plantation owners and farm managers retain full ownership of their plantation records and may export or delete records at any time.</p>
                 </div>
 
                 <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5">
                     <h4 class="font-bold text-slate-800 mb-1">4. Limitation of Liability</h4>
-                    <p>AI predictions rely on lighting conditions, husk surface visibility, and acoustic tap clarity. NiyoSense provides automated grading estimates "AS IS" as a supplementary decision-support tool. Final commercial grading and settlement decisions remain the responsibility of the farm owner and field manager.</p>
+                    <p>AI predictions rely on controlled station lighting conditions, husk surface visibility, and acoustic tap cadence. NiyoSense provides automated grading estimates "AS IS" as a supplementary decision-support tool. Final commercial grading and settlement decisions remain the responsibility of the plantation owner and farm manager.</p>
                 </div>
             </div>
 
@@ -544,9 +544,6 @@
                                         <p class="text-[11px] text-slate-400">${firstName || lastName ? `${firstName} ${lastName}` : (email || 'On-Site Farm Manager')}</p>
                                     </div>
                                 </div>
-                            </td>
-                            <td class="p-4">
-                                <span class="bg-teal-50 text-teal-700 font-semibold px-2.5 py-0.5 rounded-full text-[10.5px]">FIELD MANAGER</span>
                             </td>
                             <td class="p-4 text-slate-500 text-[11px]">Just now</td>
                             <td class="p-4">

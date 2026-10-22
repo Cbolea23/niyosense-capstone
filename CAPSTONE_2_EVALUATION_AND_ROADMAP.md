@@ -2,7 +2,7 @@
 
 **Evaluation Status:** ✅ **100% OF ROADMAP MILESTONES IMPLEMENTED IN v1.4.5+17**  
 **Date:** October 2026  
-**Project:** NiyoSense: Web and Mobile Coconut Maturity Profiling and Grading System using Multimodal Audio-Visual Machine Learning for Small-Scale Coconut Aggregators  
+**Project:** NiyoSense: Web and Mobile Coconut Maturity Profiling and Grading System using Dual-Model Audio-Visual Machine Learning for Coconut Plantation Management  
 **Live Production URL:** [https://niyosense.me](https://niyosense.me) | **Release:** [v1.4.5](https://github.com/Cbolea23/niyosense-capstone/releases/tag/v1.4.5)  
 **Researchers:** Christian Louis Bolea, Wayne Yzon Nagares, Seann Yves Saracho  
 **Institution:** College of Computing and Multimedia Studies, Manuel S. Enverga University Foundation, Lucena City  
@@ -14,7 +14,7 @@
 
 ## 1. Executive Summary & Persona Perspective
 
-### The Persona: Small-Scale Coconut Aggregator & Farm Owner
+### The Persona: Coconut Plantation Owner & On-Site Farm Manager
 > *"I buy coconuts from local smallholders and farmers across Quezon Province. In every delivery or harvest pile (*salansan*), I handle between 300 to 2,000 coconuts a day. Time is money, trust with farmers is essential, and connectivity in the grove is near zero. If this app slows down my crew, we won't use it. If it gives me consistent, fast grading, protects me from paying top dollar for premature nuts, and gives me a clean receipt to show the farmer, it is an indispensable business tool."*
 
 ---
@@ -62,7 +62,7 @@ Based on an inspection of the active codebase (`Context.md`, Flutter client, and
 2. **One-Tap Shareable Summary (Voucher/Receipt)**
    * Generate an image or simple PDF receipt that can be shared via Bluetooth, Messenger, or printed via thermal printer for the farmer.
 3. **Sample Audit Mode**
-   * Give the aggregator two workflow options:
+   * Give the farm manager two workflow options:
      * **Audit Mode (Recommended for large piles):** Scan 10–20 random sample nuts from a truckload of 500 to estimate the batch grade percentage.
      * **Piece-by-Piece Mode:** For high-value seedling or retail coconut inspection.
 

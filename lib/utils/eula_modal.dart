@@ -121,7 +121,7 @@ class EulaModal {
     return [
       _section(
         "1. Scope & Purpose of NiyoSense",
-        "NiyoSense is an AI-assisted agricultural decision-support system designed for coconut plantation owners and on-site field managers to classify harvested coconuts into Premature (Buko / Malauhog) or Mature (Magulang) stages using dual-modality visual exocarp imaging and acoustic knock spectrograms.",
+        "NiyoSense is an AI-assisted agricultural decision-support system designed for coconut plantation owners and on-site farm managers to classify young green coconuts into Malauhog (premature, soft-meat) and Buko (optimal marketable young coconut) stages using dual-modality visual exocarp imaging and acoustic knock spectrograms.",
       ),
       _section(
         "2. Decision-Support Disclaimer",
@@ -146,7 +146,7 @@ class EulaModal {
     return [
       _section(
         "1. Layunin at Saklaw ng NiyoSense",
-        "Ang NiyoSense ay isang AI-assisted decision-support system para sa mga may-ari ng niyugan at mga on-site field manager upang uriin ang naaning niyog bilang Premature (Buko / Malauhog) o Mature (Magulang) gamit ang larawan ng balat (exocarp) at tunog ng pagkatok (acoustic spectrogram).",
+        "Ang NiyoSense ay isang AI-assisted decision-support system para sa mga may-ari ng niyugan at mga on-site farm manager upang uriin ang naaning batang niyog bilang Malauhog (mura) o Buko (katamtamang gulang) gamit ang larawan ng balat (exocarp) at tunog ng pagkatok (acoustic spectrogram).",
       ),
       _section(
         "2. Limitasyon sa Pananagutan (Disclaimer)",
