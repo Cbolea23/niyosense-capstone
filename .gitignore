@@ -86,3 +86,6 @@ generate_appendices.py
 generate_chapters_1_to_3.py
 generate_chapters_4_to_6.py
 send_discord_notification.py
+build_notebook_source_md.py
+create_fig3_conceptual_framework.py
+create_logo_conceptual_framework.py

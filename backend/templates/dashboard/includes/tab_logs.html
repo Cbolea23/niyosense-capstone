@@ -128,8 +128,8 @@
                 <span class="text-xs font-bold text-emerald-800 uppercase tracking-wider block mb-1">Malauhog</span>
                 <span id="dayMalauhogCount" class="text-2xl font-black text-emerald-900 font-mono">0</span>
             </div>
-            <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-base">
-                🟢
+            <div class="w-8 h-8 rounded-xl bg-emerald-100/80 flex items-center justify-center">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
             </div>
         </div>
 
@@ -139,8 +139,8 @@
                 <span class="text-xs font-bold text-amber-800 uppercase tracking-wider block mb-1">Buko</span>
                 <span id="dayBukoCount" class="text-2xl font-black text-amber-900 font-mono">0</span>
             </div>
-            <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-base">
-                🟡
+            <div class="w-8 h-8 rounded-xl bg-amber-100/80 flex items-center justify-center">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-600"></span>
             </div>
         </div>
     </div>
@@ -162,14 +162,9 @@
         
         <!-- Modal Header -->
         <div class="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/50">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-emerald-100/70 border border-emerald-200 flex items-center justify-center text-lg">
-                    🥥
-                </div>
-                <div>
-                    <h3 class="font-bold text-slate-800 text-base" data-i18n="inspection_details_title">Inspection Record Details</h3>
-                    <p id="modalScanSubtitle" class="text-xs text-slate-400 font-mono mt-0.5">Scan #-------- • --:-- --</p>
-                </div>
+            <div>
+                <h3 class="font-bold text-slate-800 text-base" data-i18n="inspection_details_title">Inspection Record Details</h3>
+                <p id="modalScanSubtitle" class="text-xs text-slate-400 font-mono mt-0.5">Scan #-------- • --:-- --</p>
             </div>
             <button type="button" onclick="closeInspectionDetailModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -181,28 +176,26 @@
         <!-- Modal Body -->
         <div class="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
             
-            <!-- Coconut Photo & Full-View Link -->
+            <!-- Coconut Photo & In-Page Enlarge -->
             <div class="w-full h-52 rounded-2xl bg-slate-100 overflow-hidden border border-slate-200/80 relative shadow-inner group">
-                <img id="modalPreviewImg" src="" alt="Coconut Preview" class="w-full h-full object-cover">
+                <img id="modalPreviewImg" src="" alt="Coconut Preview" onclick="toggleEnlargePhoto(true)" class="w-full h-full object-cover cursor-zoom-in hover:scale-105 transition duration-300">
                 <div id="modalNoImgFallback" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-50">
-                    <span class="text-4xl mb-1">🥥</span>
                     <span class="text-xs font-bold text-slate-600">No Photo Available</span>
                     <span class="text-[10px] text-slate-400">Offline scan or image archived</span>
                 </div>
-                <a id="modalFullImgLink" href="#" target="_blank" class="hidden absolute bottom-2.5 right-2.5 bg-black/75 hover:bg-black text-white text-[11px] font-semibold px-3 py-1.5 rounded-xl backdrop-blur-sm transition flex items-center gap-1.5 shadow">
+                <button type="button" id="modalEnlargeBtn" onclick="toggleEnlargePhoto(true)" class="hidden absolute bottom-2.5 right-2.5 bg-black/75 hover:bg-black text-white text-[11px] font-semibold px-3 py-1.5 rounded-xl backdrop-blur-sm transition flex items-center gap-1.5 shadow cursor-pointer">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"></path>
                     </svg>
-                    <span>View Full Photo</span>
-                </a>
+                    <span>Enlarge Photo</span>
+                </button>
             </div>
 
             <!-- Acoustic Audio Knock Recording -->
             <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-2.5">
                 <div class="flex items-center justify-between">
-                    <span class="text-xs font-bold text-slate-700 flex items-center gap-2">
-                        <span class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs">🎵</span>
-                        <span>Acoustic Tap Sound</span>
+                    <span class="text-xs font-bold text-slate-700">
+                        Acoustic Tap Sound
                     </span>
                     <span id="modalAudioBadge" class="text-[10.5px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
                         4.0s .WAV
@@ -259,25 +252,19 @@
                     <!-- Visual Prediction -->
                     <div class="bg-slate-50 border border-slate-200/70 rounded-xl p-3">
                         <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Visual Prediction</span>
-                        <span id="modalVisualText" class="text-xs font-bold text-slate-700 block truncate">📸 Malauhog</span>
+                        <span id="modalVisualText" class="text-xs font-bold text-slate-700 block truncate">Malauhog</span>
                     </div>
 
                     <!-- Acoustic Prediction -->
                     <div class="bg-slate-50 border border-slate-200/70 rounded-xl p-3">
                         <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Acoustic Prediction</span>
-                        <span id="modalAudioText" class="text-xs font-bold text-slate-700 block truncate">🎵 malauhog</span>
+                        <span id="modalAudioText" class="text-xs font-bold text-slate-700 block truncate">malauhog</span>
                     </div>
 
-                    <!-- Device Identifier -->
-                    <div class="bg-slate-50 border border-slate-200/70 rounded-xl p-3">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Device ID</span>
-                        <span id="modalDeviceIdText" class="text-xs font-mono font-bold text-slate-700 block truncate">NYS-DEV-MV8VU5GP</span>
-                    </div>
-
-                    <!-- Delivery Batch -->
-                    <div class="bg-slate-50 border border-slate-200/70 rounded-xl p-3">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Delivery Batch</span>
-                        <span id="modalBatchIdText" class="text-xs font-bold text-slate-700 block truncate">Standalone Harvest</span>
+                    <!-- Device Identifier (Full Width) -->
+                    <div class="col-span-2 bg-slate-50 border border-slate-200/70 rounded-xl p-3 flex items-center justify-between">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Device ID</span>
+                        <span id="modalDeviceIdText" class="text-xs font-mono font-bold text-slate-700">NYS-DEV-MV8VU5GP</span>
                     </div>
                 </div>
             </div>
@@ -307,6 +294,23 @@
         </div>
     </div>
 </div>
+
+<!-- In-Page Image Lightbox Modal (Enlarge without opening new tab) -->
+<div id="imageLightboxModal" class="hidden fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 cursor-zoom-out" onclick="toggleEnlargePhoto(false)">
+    <button type="button" onclick="toggleEnlargePhoto(false); event.stopPropagation();"
+        class="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white p-2.5 rounded-2xl backdrop-blur-sm transition z-10 cursor-pointer"
+        title="Close (Esc)">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+    </button>
+    <div class="relative max-w-4xl max-h-[88vh] flex items-center justify-center p-2" onclick="event.stopPropagation()">
+        <img id="lightboxImg" src="" alt="Enlarged Coconut Photo" 
+            class="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-2xl shadow-2xl border border-white/10 select-none">
+    </div>
+    <p class="text-xs text-white/60 mt-3 font-medium select-none">Click anywhere or press Esc to return</p>
+</div>
+
 
 <!-- Raw Session Data & Client-Side Scripts -->
 <script>
@@ -419,27 +423,26 @@
         const dateStr = targetScan.created_at_date || '';
         document.getElementById('modalScanSubtitle').textContent = `Scan #${targetScan.short_uuid} • ${dateStr ? dateStr + ' at ' : ''}${timeStr}`;
 
-        // Photo Setup
+        // Photo Setup (In-Page Zoom)
         const imgEl = document.getElementById('modalPreviewImg');
         const fallbackEl = document.getElementById('modalNoImgFallback');
-        const fullImgLink = document.getElementById('modalFullImgLink');
+        const enlargeBtn = document.getElementById('modalEnlargeBtn');
         if (targetScan.image_url) {
             imgEl.src = targetScan.image_url;
             imgEl.onerror = () => {
                 imgEl.classList.add('hidden');
                 fallbackEl.classList.remove('hidden');
-                fullImgLink.classList.add('hidden');
+                if (enlargeBtn) enlargeBtn.classList.add('hidden');
             };
             imgEl.onload = () => {
                 imgEl.classList.remove('hidden');
                 fallbackEl.classList.add('hidden');
-                fullImgLink.href = targetScan.image_url;
-                fullImgLink.classList.remove('hidden');
+                if (enlargeBtn) enlargeBtn.classList.remove('hidden');
             };
         } else {
             imgEl.classList.add('hidden');
             fallbackEl.classList.remove('hidden');
-            fullImgLink.classList.add('hidden');
+            if (enlargeBtn) enlargeBtn.classList.add('hidden');
         }
 
         // Acoustic Audio Setup
@@ -482,16 +485,46 @@
         document.getElementById('modalConfidenceText').textContent = `${targetScan.confidence}%`;
         document.getElementById('modalBunchCountText').textContent = `${targetScan.bunch_count} pcs in Bungkos`;
         document.getElementById('modalOperatorText').textContent = targetScan.operator || 'farm_worker';
-        document.getElementById('modalVisualText').textContent = `📸 ${targetScan.visual_prediction || 'Coconut'}`;
-        document.getElementById('modalAudioText').textContent = `🎵 ${targetScan.audio_prediction || 'Acoustic Tap'}`;
+        document.getElementById('modalVisualText').textContent = targetScan.visual_prediction || 'Coconut';
+        document.getElementById('modalAudioText').textContent = targetScan.audio_prediction || 'Acoustic Tap';
         document.getElementById('modalDeviceIdText').textContent = targetScan.device_id || '--';
-        document.getElementById('modalBatchIdText').textContent = targetScan.batch_id || 'Standalone Harvest';
         document.getElementById('modalFullUuidText').textContent = targetScan.uuid;
 
         document.getElementById('inspectionDetailModal').classList.remove('hidden');
     }
 
+    function toggleEnlargePhoto(show) {
+        const lightbox = document.getElementById('imageLightboxModal');
+        const lightboxImg = document.getElementById('lightboxImg');
+        const previewImg = document.getElementById('modalPreviewImg');
+        if (!lightbox) return;
+
+        if (show && previewImg && previewImg.src && !previewImg.classList.contains('hidden')) {
+            lightboxImg.src = previewImg.src;
+            lightbox.classList.remove('hidden');
+        } else {
+            lightbox.classList.add('hidden');
+            if (lightboxImg) lightboxImg.src = '';
+        }
+    }
+
+    // Keyboard support: Esc key closes enlarged photo or inspection modal
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const lightbox = document.getElementById('imageLightboxModal');
+            if (lightbox && !lightbox.classList.contains('hidden')) {
+                toggleEnlargePhoto(false);
+                return;
+            }
+            const modal = document.getElementById('inspectionDetailModal');
+            if (modal && !modal.classList.contains('hidden')) {
+                closeInspectionDetailModal();
+            }
+        }
+    });
+
     function closeInspectionDetailModal() {
+        toggleEnlargePhoto(false);
         const audioEl = document.getElementById('modalAudioPlayer');
         if (audioEl) audioEl.pause();
         const modal = document.getElementById('inspectionDetailModal');
