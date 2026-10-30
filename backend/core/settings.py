@@ -22,14 +22,13 @@ if _env_path.exists():
                 _k, _v = _line.split('=', 1)
                 os.environ.setdefault(_k.strip(), _v.strip())
 
-# Quick-start development settings - unsuitable for production
-SECRET_KEY = os.environ.get(
-    'SECRET_KEY',
-    'django-insecure-0i+q@+oh-!nwc4t_en8b1v-dsbzo4nd47_gwibs%unbhzce^e$'
-)
+import secrets as _secrets
+
+# Production-safe secret key (falls back to random per-process key if env var not set, preventing public key forgery)
+SECRET_KEY = os.environ.get('SECRET_KEY') or _secrets.token_urlsafe(50)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
+DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
 # Allows connections from local IPs, mobile devices, and tunnel/cloud hostnames
 raw_allowed_hosts = os.environ.get('ALLOWED_HOSTS', '*')

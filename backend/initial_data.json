@@ -1,103 +1,23 @@
 [
   {
-    "model": "users.user",
-    "pk": 1,
-    "fields": {
-      "password": "pbkdf2_sha256$1500000$NIC3HTDBdRoREG7erbc1Cs$P+vNGxoQOy61NPBqjX7hCxdkBMRYpTa2T+sGz8BlnSk=",
-      "last_login": null,
-      "is_superuser": false,
-      "username": "farm_worker",
-      "first_name": "Plantation",
-      "last_name": "Operator",
-      "email": "",
-      "is_staff": false,
-      "is_active": true,
-      "date_joined": "2026-10-13T07:28:44.914Z",
-      "role": "AGGREGATOR",
-      "plaintext_password": "12345678",
-      "groups": [],
-      "user_permissions": []
-    }
-  },
-  {
-    "model": "users.user",
-    "pk": 2,
-    "fields": {
-      "password": "pbkdf2_sha256$1500000$zKtWWXtTmFfBOy7JZFR2RZ$3kpfbDQEPeFuHXXq7jaAJEE5/E4iHV0xvBTlA99b92U=",
-      "last_login": null,
-      "is_superuser": false,
-      "username": "bolea23",
-      "first_name": "xcs",
-      "last_name": "asda",
-      "email": "",
-      "is_staff": false,
-      "is_active": true,
-      "date_joined": "2026-10-13T08:52:35.705Z",
-      "role": "AGGREGATOR",
-      "plaintext_password": "12345678",
-      "groups": [],
-      "user_permissions": []
-    }
-  },
-  {
-    "model": "users.user",
-    "pk": 3,
-    "fields": {
-      "password": "pbkdf2_sha256$1500000$2pcNsHy6SLvqq8BGIEIoI8$F7+f24o7EL23WUVOODSd8JG0YseUUTs1CEswp9/0q9E=",
-      "last_login": null,
-      "is_superuser": false,
-      "username": "zzz",
-      "first_name": "Wayne",
-      "last_name": "Nagares",
-      "email": "",
-      "is_staff": false,
-      "is_active": true,
-      "date_joined": "2026-10-15T10:54:08.147Z",
-      "role": "AGGREGATOR",
-      "plaintext_password": "123456",
-      "groups": [],
-      "user_permissions": []
-    }
-  },
-  {
-    "model": "users.user",
-    "pk": 4,
-    "fields": {
-      "password": "pbkdf2_sha256$1500000$qs2ZWoVH9EYqLLECmC5RPM$gKrlHsDsQgfmD4joyndp+c28ACWS2y6f4d+6KMx+ae0=",
-      "last_login": null,
-      "is_superuser": false,
-      "username": "bordzwansee",
-      "first_name": "bordz",
-      "last_name": "wansee",
-      "email": "",
-      "is_staff": false,
-      "is_active": true,
-      "date_joined": "2026-10-17T11:16:43.408Z",
-      "role": "AGGREGATOR",
-      "plaintext_password": "admin1234",
-      "groups": [],
-      "user_permissions": []
-    }
-  },
-  {
     "model": "scans.farmprofile",
     "pk": 1,
     "fields": {
-      "owner_name": "Testing lang po",
-      "farm_name": "haha",
+      "owner_name": "Plantation Administrator",
+      "farm_name": "Plantation Owner Portal",
       "location": "Quezon Province",
-      "email": "m.santos@niyosense.ph",
-      "updated_at": "2026-10-17T09:24:57.369Z"
+      "email": "admin@niyosense.me",
+      "updated_at": "2026-10-30T00:00:00.000Z"
     }
   },
   {
     "model": "scans.pricesetting",
     "pk": 1,
     "fields": {
-      "mature_price": "10.00",
+      "mature_price": "12.00",
       "premature_price": "7.00",
-      "reject_price": "31.00",
-      "updated_at": "2026-10-13T07:51:40.230Z"
+      "reject_price": "0.00",
+      "updated_at": "2026-10-30T00:00:00.000Z"
     }
   }
 ]

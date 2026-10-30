@@ -45,10 +45,17 @@ def owner_login(request):
     if request.method == 'POST':
         passkey_input = request.POST.get('passkey', '').strip()
         remember_me = request.POST.get('remember_me') == 'on'
+        import secrets
         farm_profile = FarmProfile.get_profile()
-        master_passkey = os.environ.get('OWNER_PASSKEY') or farm_profile.passkey or 'niyosense2026'
+        env_passkey = os.environ.get('OWNER_PASSKEY', '').strip()
+        db_passkey = (farm_profile.passkey or '').strip()
 
-        if passkey_input and passkey_input == master_passkey:
+        valid_keys = [k for k in (env_passkey, db_passkey) if k]
+        is_valid = bool(passkey_input) and any(
+            secrets.compare_digest(passkey_input, k) for k in valid_keys
+        )
+
+        if is_valid:
             request.session['owner_authenticated'] = True
             if remember_me:
                 request.session.set_expiry(60 * 60 * 24 * 30)  # 30 days
@@ -339,8 +346,12 @@ def web_dashboard(request):
 @permission_classes([permissions.AllowAny])
 def farm_profile_api(request):
     """API to fetch or update farm owner profile."""
+    if not (request.session and request.session.get('owner_authenticated') is True) and not (request.user and request.user.is_authenticated):
+        return Response({'success': False, 'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
     profile = FarmProfile.get_profile()
     if request.method == 'POST':
+        if not (request.session and request.session.get('owner_authenticated') is True):
+            return Response({'success': False, 'error': 'Owner session required.'}, status=status.HTTP_403_FORBIDDEN)
         profile.owner_name = request.data.get('owner_name', profile.owner_name).strip()
         profile.farm_name = request.data.get('farm_name', profile.farm_name).strip()
         profile.location = request.data.get('location', profile.location).strip()
@@ -574,6 +585,8 @@ def get_server_ip(request):
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
 def dashboard_stats_api(request):
+    if not (request.session and request.session.get('owner_authenticated') is True) and not (request.user and request.user.is_authenticated):
+        return Response({'success': False, 'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
     now = timezone.now()
     today = now.date()
     total_bunches = GradingLog.objects.count()
@@ -669,6 +682,8 @@ def app_version_check_api(request):
 @permission_classes([permissions.AllowAny])
 def override_grade_api(request, log_uuid):
     """Allows the farm manager to review and correct the AI grade on the web dashboard."""
+    if not (request.session and request.session.get('owner_authenticated') is True) and not (request.user and request.user.is_authenticated):
+        return Response({'success': False, 'error': 'Unauthorized. Owner session required.'}, status=status.HTTP_403_FORBIDDEN)
     try:
         log = GradingLog.objects.get(uuid=log_uuid)
     except (GradingLog.DoesNotExist, ValidationError, ValueError):

@@ -18,11 +18,6 @@ migrate_working_dir/
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
 # Flutter/Dart/Pub related
 **/doc/api/
 **/ios/Flutter/.last_build_id
@@ -33,13 +28,11 @@ migrate_working_dir/
 .pub/
 /build/
 
-# Symbolication related
+# Symbolication & Obfuscation
 app.*.symbols
-
-# Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
+# Android Studio build artifacts
 /android/app/debug
 /android/app/profile
 /android/app/release
@@ -63,7 +56,6 @@ env/
 .env
 .vscode/
 
-
 # --- Django Backend Ignores ---
 backend/__pycache__/
 backend/*.pyc
@@ -78,7 +70,6 @@ backend/.venv/
 backend/.cloudflared/
 new model/
 
-
 # Local build scripts & webhook tools
 assemble_manuscript.py
 build_manuscript_system.py
@@ -89,3 +80,16 @@ send_discord_notification.py
 build_notebook_source_md.py
 create_fig3_conceptual_framework.py
 create_logo_conceptual_framework.py
+
+# ==========================================
+# Internal Capstone Research & Defense Files
+# Kept strictly local — excluded from public git
+# ==========================================
+CAPSTONE_*.md
+CCMS_*.md
+Context.md
+HOW_TO_*.md
+NIYOSENSE_*.md
+NIYOSENSE_*.pdf
+*.pdf
+fig3_*.png

@@ -6,11 +6,27 @@ from .serializers import RegisterSerializer, UserSerializer
 
 User = get_user_model()
 
+
+def _is_owner_authorized(request):
+    """Verify request comes from an authenticated Plantation Owner session or Admin user."""
+    if request.session and request.session.get('owner_authenticated') is True:
+        return True
+    user = getattr(request, 'user', None)
+    if user and user.is_authenticated and (user.is_superuser or getattr(user, 'role', '') == User.Roles.ADMIN):
+        return True
+    return False
+
+
 class RegisterView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = RegisterSerializer
 
     def create(self, request, *args, **kwargs):
+        if not _is_owner_authorized(request):
+            return Response(
+                {"success": False, "error": "Unauthorized. Owner session required to register accounts."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
@@ -26,6 +42,12 @@ class RegisterView(generics.CreateAPIView):
 @api_view(['GET', 'POST'])
 @permission_classes([permissions.AllowAny])
 def manage_aggregators_api(request):
+    if not _is_owner_authorized(request):
+        return Response(
+            {"success": False, "error": "Unauthorized. Owner authentication required."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     if request.method == 'GET':
         aggregators = User.objects.filter(role=User.Roles.AGGREGATOR).order_by('-date_joined')
         data = UserSerializer(aggregators, many=True).data
@@ -57,7 +79,7 @@ def manage_aggregators_api(request):
             first_name=first_name,
             last_name=last_name,
             role=User.Roles.AGGREGATOR,
-            plaintext_password=password
+            plaintext_password=''
         )
         return Response(
             {"success": True, "message": f"Field manager account '{username}' created successfully.", "user": UserSerializer(user).data},
@@ -68,6 +90,12 @@ def manage_aggregators_api(request):
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([permissions.AllowAny])
 def aggregator_detail_api(request, user_id):
+    if not _is_owner_authorized(request):
+        return Response(
+            {"success": False, "error": "Unauthorized. Owner authentication required."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     try:
         user = User.objects.get(id=user_id, role=User.Roles.AGGREGATOR)
     except User.DoesNotExist:
@@ -104,7 +132,7 @@ def aggregator_detail_api(request, user_id):
         if password and str(password).strip():
             clean_pw = str(password).strip()
             user.set_password(clean_pw)
-            user.plaintext_password = clean_pw
+            user.plaintext_password = ''
 
         user.save()
         user_data = UserSerializer(user).data
@@ -126,4 +154,3 @@ def aggregator_detail_api(request, user_id):
             "success": True,
             "message": f"Account '{username}' deleted successfully."
         })
-
